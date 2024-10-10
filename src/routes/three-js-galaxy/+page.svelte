@@ -25,15 +25,15 @@
 		 * Test cube
 		 */
 		const parameters = {
-			count: 300000,
+			count: 200000,
 			size: 0.001,
 			radius: 5,
 			branches: 5,
 			spin: 1,
-			randomness: 0.8,
+			randomness: 0.65,
 			branchSaturation: 4.3,
 			centerSaturation: 4.5,
-			rotationSpeed: 0.0,
+			rotationSpeed: 0.05,
 			insideColor: '#318CE7',
 			outsideColor: '#E3963E',
 			centralStarCount: 15000 // New parameter for additional stars in the center
