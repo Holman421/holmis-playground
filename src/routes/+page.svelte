@@ -46,10 +46,56 @@
 			technologies: ['Three.js', 'Particles', 'GUI', 'Trigonometry']
 		}
 	];
+
+	const gooEffect = 3;
+
+	$effect(() => {});
 </script>
 
-<div class="text-black mx-auto flex gap-4 mt-10 flex-wrap">
+<div
+	class="text-black mx-auto flex gap-4 flex-wrap w-full justify-center p-4 bg-black/90 min-h-[calc(100vh-56px)]"
+>
 	{#each projects as { href, title, description, technologies }}
 		<ProjectCard {href} {title} {description} {technologies} />
 	{/each}
+
+	<svg
+		style="visibility: hidden; position: absolute;"
+		width="0"
+		height="0"
+		xmlns="http://www.w3.org/2000/svg"
+		version="1.1"
+	>
+		<defs>
+			<filter id="goo">
+				<feGaussianBlur in="SourceGraphic" stdDeviation={gooEffect.toString()} result="blur" />
+				<feColorMatrix
+					in="blur"
+					mode="matrix"
+					values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+					result="goo"
+				/>
+				<feComposite in="SourceGraphic" in2="goo" operator="atop" />
+			</filter>
+		</defs>
+	</svg>
+
+	<svg width="0" height="0">
+		<filter id="borderSVG" x="-50%" y="-50%" width="200%" height="200%">
+			<!-- Expand the border area -->
+			<feMorphology operator="dilate" radius="2" in="SourceAlpha" result="expanded" />
+
+			<!-- Fill the border area with solid red -->
+			<feFlood flood-color="white" result="color" />
+
+			<!-- Apply the red color to the expanded area -->
+			<feComposite in="color" in2="expanded" operator="in" result="border" />
+
+			<!-- Merge the red border with the original content -->
+			<feMerge>
+				<feMergeNode in="border" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</svg>
 </div>
