@@ -1,98 +1,133 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	let minValue = $state(16);
-	let maxValue = $state(24);
+	let minValue = $state(14);
+	let maxValue = $state(20);
+	let showCopied = $state(false);
 	let screenWidth = $state(0);
-	let divWidth = $state(0);
-	let divElement: HTMLDivElement;
+	let divWidth = $state('');
 
 	// Fixed screen sizes
 	const minWidth = 1280;
 	const maxWidth = 1920;
 
-	function getClampString() {
-		const pixelDiff = maxValue - minValue;
-		const widthDiff = maxWidth - minWidth;
-		const vw = (pixelDiff / widthDiff) * 100;
-		return `clamp(${minValue}px,${vw.toFixed(4)}vw,${maxValue}px)`;
+	// // Function to update the div width
+	// function updateDivWidth() {
+	// 	const divElement = document.getElementById('divElement');
+	// 	if (divElement) {
+	// 		divWidth = divElement.offsetWidth;
+	// 	}
+	// }
+
+	function pxToRem(px: number) {
+		return trimNumber(+(px / 16).toFixed(4));
 	}
 
-	// Update measurements when component mounts
-	onMount(() => {
-		// Initial values
-		screenWidth = window.innerWidth;
-		if (divElement) {
-			divWidth = divElement.clientWidth;
+	function trimNumber(num: number) {
+		return num.toFixed(4).replace(/\.?0+$/, '');
+	}
+
+	function getClampString(shouldRenderForTailwind = false) {
+		const pixelDiff = maxValue - minValue;
+		const widthDiff = maxWidth - minWidth;
+
+		// Calculate the slope (vw)
+		const slope = pixelDiff / widthDiff;
+		const vw = slope * 100;
+
+		// Calculate the y-intercept (px)
+		const intercept = minValue - slope * minWidth;
+
+		// Trim trailing zeros helper
+
+		if (shouldRenderForTailwind) {
+			return `clamp(${trimNumber(minValue)}px,${trimNumber(vw)}vw+${trimNumber(intercept)}px,${trimNumber(maxValue)}px)`;
 		}
 
-		// Setup resize observer for the div
-		const resizeObserver = new ResizeObserver((entries) => {
-			for (let entry of entries) {
-				divWidth = entry.contentRect.width;
+		return `clamp(${trimNumber(minValue / 16)}rem, ${trimNumber(vw)}vw + ${trimNumber(intercept / 16)}rem, ${trimNumber(maxValue / 16)}rem)`;
+	}
+
+	async function copyToClipboard() {
+		try {
+			await navigator.clipboard.writeText(getClampString());
+			showCopied = true;
+			setTimeout(() => (showCopied = false), 2000);
+		} catch (err) {
+			console.error('Failed to copy:', err);
+		}
+	}
+
+	onMount(() => {
+		screenWidth = window.innerWidth;
+		const divElement = document.getElementById('divElement');
+		if (divElement) {
+			divWidth = getComputedStyle(divElement).width;
+		}
+		window.addEventListener('resize', () => {
+			screenWidth = window.innerWidth;
+			const divElement = document.getElementById('divElement');
+			if (divElement) {
+				divWidth = getComputedStyle(divElement).width;
 			}
 		});
-
-		if (divElement) {
-			resizeObserver.observe(divElement);
-		}
-
-		// Handle window resize
-		const handleResize = () => {
-			screenWidth = window.innerWidth;
-		};
-		window.addEventListener('resize', handleResize);
-
-		// Cleanup
-		return () => {
-			window.removeEventListener('resize', handleResize);
-			if (divElement) {
-				resizeObserver.unobserve(divElement);
-			}
-		};
-	});
-
-	// Update div width when the element reference changes
-	$effect(() => {
-		if (divElement) {
-			divWidth = divElement.clientWidth;
-		}
 	});
 </script>
 
-<div class="bg-white p-6 rounded-lg shadow-lg max-w-xl mx-auto mt-10">
-	<div class="space-y-4">
-		<div class="grid grid-cols-2 gap-4">
-			<div>
-				<label class="block text-gray-700 mb-2">Min (px)</label>
-				<input
-					type="number"
-					bind:value={minValue}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-				/>
+<div class="px-5">
+	<div class="bg-white p-6 rounded-lg shadow-lg max-w-xl mx-auto mt-10">
+		<div class="space-y-4">
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label for="minValue" class="block text-gray-700 mb-2">Min (px)</label>
+					<input
+						id="minValue"
+						type="number"
+						bind:value={minValue}
+						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+					/>
+				</div>
+				<div>
+					<label for="maxValue" class="block text-gray-700 mb-2">Max (px)</label>
+					<input
+						id="maxValue"
+						type="number"
+						bind:value={maxValue}
+						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+					/>
+				</div>
 			</div>
-			<div>
-				<label class="block text-gray-700 mb-2">Max (px)</label>
-				<input
-					type="number"
-					bind:value={maxValue}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-				/>
-			</div>
-		</div>
 
-		<div class="mt-4">
-			<code class="block p-3 bg-gray-50 rounded border border-gray-200 text-sm font-mono">
-				{getClampString()}
-			</code>
+			<div class="mt-4 relative">
+				<div class="flex flex-col md:flex-row gap-4">
+					<code class="block flex-1 p-3 w-full rounded-l border border-gray-200 text-sm font-mono">
+						{getClampString(true)}
+					</code>
+					<button
+						onclick={copyToClipboard}
+						class="px-4 py-3 bg-blue-500 rounded-sm text-white rounded-r hover:bg-blue-600 transition-colors border border-blue-600 min-w-[80px]"
+					>
+						{showCopied ? 'Copied!' : 'Copy'}
+					</button>
+				</div>
+				<div class="mt-2 text-sm text-gray-500">
+					<span class="inline-block mr-4">Min: {pxToRem(minValue)}rem ({minValue}px)</span>
+					<span>Max: {pxToRem(maxValue)}rem ({maxValue}px)</span>
+				</div>
+			</div>
 		</div>
 	</div>
 </div>
 
-<div class="mt-10 mx-auto">
-	<div class="h-4 bg-red-500" bind:this={divElement} style:width={getClampString()}></div>
-	<div class="mt-4 text-gray-700 space-y-2">
-		<p class="text-white">Current screen width: {screenWidth}px</p>
-		<p class="text-white">Current div width: {divWidth.toFixed(3)}px</p>
+<div class="px-5 mx-auto mt-10">
+	<div id="divElement" class="h-4 bg-red-500" style="width: {getClampString(false)};"></div>
+
+	<div class="mt-4 text-white flex flex-col gap-2">
+		<p class="">Current screen width <b>{screenWidth}</b></p>
+		<p>Current div width <b>{divWidth}</b></p>
+		<p class="">
+			This div is properly scaling from {minValue}px({pxToRem(minValue)}rem) to {maxValue}px ({pxToRem(
+				maxValue
+			)}rem)
+		</p>
 	</div>
 </div>
