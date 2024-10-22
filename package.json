@@ -33,8 +33,10 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@types/cannon": "^0.1.13",
 		"@types/three": "^0.169.0",
 		"bits-ui": "^0.21.16",
+		"cannon": "^0.6.2",
 		"clsx": "^2.1.1",
 		"gsap": "^3.12.5",
 		"lil-gui": "^0.19.2",

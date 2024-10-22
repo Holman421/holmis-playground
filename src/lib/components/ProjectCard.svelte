@@ -12,29 +12,40 @@
 		technologies: string[];
 	}>();
 
-	// onMount(() => {
-	// 	const tl = gsap.timeline({ ease: 'power4.out', defaults: { duration: 1 } });
+	onMount(() => {
+		const tl = gsap.timeline({ ease: 'power4.out', defaults: { duration: 1 } });
 
-	// 	tl.to('#projectCard', {
-	// 		background: 'linear-gradient(135deg, rgba(0, 235, 39, 0) 0%, rgba(100, 100, 100, 1) 0%)'
-	// 	});
-	// });
+		tl.to('#projectCard', {
+			paused: true,
+			background: 'linear-gradient(135deg, rgba(0, 235, 39, 1) 100%, rgb(34, 88, 158) 100%)'
+		});
+
+		const card = document.getElementById('projectCard')!;
+		card.addEventListener('mouseenter', () => {
+			tl.play();
+		});
+		card.addEventListener('mouseleave', () => {
+			tl.reverse();
+		});
+	});
 </script>
 
-<a {href} class="h-full">
+<a {href}>
 	<div id="cardBorderEffect">
 		<div id="cardGooEffect">
-			<div id="projectCard" class="px-6 pt-5 pb-6 max-w-[400px] bg-white relative h-fit">
-				<div class="font-bold text-xl">{title}</div>
+			<div
+				id="projectCard"
+				class="px-5 pt-5 pb-6 w-[400px] min-h-[200px] flex flex-col justify-between bg-white relative"
+			>
 				<div>
-					<p class="text-gray-700 text-base mt-4">{description}</p>
+					<h3 class="font-bold text-xl">{title}</h3>
+					<p class="text-gray-900 text-base mt-4">{description}</p>
 				</div>
 				<div class="flex gap-2 mt-4 flex-wrap">
 					{#each technologies as technology}
 						<div class="border rounded-full px-3 border-black">{technology}</div>
 					{/each}
 				</div>
-				<div></div>
 			</div>
 		</div>
 	</div>
@@ -61,13 +72,11 @@
 			0.5rem 100%,
 			0 calc(100% - 0.5rem)
 		);
-		/* background: linear-gradient(135deg, rgba(0, 235, 39, 0) 0%, rgba(100, 100, 100, 0) 100%); */
 		background: linear-gradient(135deg, rgba(0, 235, 39, 1) 0%, rgb(34, 88, 158) 100%);
 	}
 
 	#cardBorderEffect {
 		filter: url('#borderSVG');
-		overflow: hidden;
 	}
 
 	#cardGooEffect {
