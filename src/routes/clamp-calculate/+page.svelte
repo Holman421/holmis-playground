@@ -46,7 +46,7 @@
 
 	async function copyToClipboard() {
 		try {
-			await navigator.clipboard.writeText(getClampString());
+			await navigator.clipboard.writeText(getClampString(true));
 			showCopied = true;
 			setTimeout(() => (showCopied = false), 2000);
 		} catch (err) {
