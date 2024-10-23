@@ -7,17 +7,8 @@
 	let screenWidth = $state(0);
 	let divWidth = $state('');
 
-	// Fixed screen sizes
 	const minWidth = 1280;
 	const maxWidth = 1920;
-
-	// // Function to update the div width
-	// function updateDivWidth() {
-	// 	const divElement = document.getElementById('divElement');
-	// 	if (divElement) {
-	// 		divWidth = divElement.offsetWidth;
-	// 	}
-	// }
 
 	function pxToRem(px: number) {
 		return trimNumber(+(px / 16).toFixed(4));
@@ -31,20 +22,26 @@
 		const pixelDiff = maxValue - minValue;
 		const widthDiff = maxWidth - minWidth;
 
-		// Calculate the slope (vw)
 		const slope = pixelDiff / widthDiff;
 		const vw = slope * 100;
 
-		// Calculate the y-intercept (px)
 		const intercept = minValue - slope * minWidth;
 
-		// Trim trailing zeros helper
+		const minValueRem = pxToRem(minValue);
+		const maxValueRem = pxToRem(maxValue);
+		const interceptRem = pxToRem(intercept);
 
-		if (shouldRenderForTailwind) {
-			return `clamp(${trimNumber(minValue)}px,${trimNumber(vw)}vw+${trimNumber(intercept)}px,${trimNumber(maxValue)}px)`;
+		if (!shouldRenderForTailwind) {
+			return `clamp(${trimNumber(minValue / 16)}rem, ${trimNumber(vw)}vw + ${trimNumber(intercept / 16)}rem, ${trimNumber(maxValue / 16)}rem)`;
 		}
 
-		return `clamp(${trimNumber(minValue / 16)}rem, ${trimNumber(vw)}vw + ${trimNumber(intercept / 16)}rem, ${trimNumber(maxValue / 16)}rem)`;
+		if (intercept < 0) {
+			return `clamp(${trimNumber(+minValueRem)}rem,${trimNumber(vw)}vw${trimNumber(+interceptRem)}rem,${trimNumber(+maxValueRem)}rem)`;
+		} else if (intercept === 0) {
+			return `clamp(${trimNumber(+minValueRem)}rem,${trimNumber(vw)}vw,${trimNumber(+maxValueRem)}rem)`;
+		} else {
+			return `clamp(${trimNumber(+minValueRem)}rem,${trimNumber(vw)}vw+${trimNumber(+interceptRem)}rem,${trimNumber(+maxValueRem)}rem)`;
+		}
 	}
 
 	async function copyToClipboard() {
