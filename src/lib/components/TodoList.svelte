@@ -47,7 +47,7 @@
 					data-id={todo.id}
 					value={todo.text}
 					type="text"
-					class="pr-10 py-2 pl-3 rounded-lg border-gray-400 border"
+					class="pr-10 py-2 pl-3 rounded-lg border-gray-400 border bg-transparent"
 					class:line-through={todo.done}
 				/>
 				<input
@@ -55,7 +55,7 @@
 					data-id={todo.id}
 					checked={todo.done}
 					type="checkbox"
-					class="cursor-pointer"
+					class="cursor-pointer bg-transparent"
 				/>
 			</div>
 			<input
@@ -63,7 +63,7 @@
 				value="X"
 				data-id={todo.id}
 				onclick={removeTodo}
-				class="hover:text-red-500 cursor-pointer"
+				class="hover:text-red-500 cursor-pointer bg-transparent"
 			/>
 		</div>
 	{/each}

@@ -10,9 +10,9 @@
 </script>
 
 <div class="w-full min-h-screen flex flex-col">
-	<nav class="bg-neutral-600 h-[56px] flex justify-center items-center">
+	<nav class="h-[56px] flex justify-center items-center border-[#a6a8b1] border-b">
 		<a href="/">
-			<h1 class="font-bold text-2xl text-white">Holmis Playground</h1>
+			<h1 class="font-bold text-2xl font-audiowide">Holmis Playground</h1>
 		</a>
 	</nav>
 

@@ -71,32 +71,34 @@
 </script>
 
 <div class="px-5">
-	<div class="bg-white p-6 rounded-lg shadow-lg max-w-xl mx-auto mt-10">
+	<div class=" p-6 rounded-lg shadow-lg max-w-xl mx-auto mt-10">
 		<div class="space-y-4">
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label for="minValue" class="block text-gray-700 mb-2">Min (px)</label>
+					<label for="minValue" class="block main-text mb-2">Min (px)</label>
 					<input
 						id="minValue"
 						type="number"
 						bind:value={minValue}
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 bg-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-black"
 					/>
 				</div>
 				<div>
-					<label for="maxValue" class="block text-gray-700 mb-2">Max (px)</label>
+					<label for="maxValue" class="block main-text mb-2">Max (px)</label>
 					<input
 						id="maxValue"
 						type="number"
 						bind:value={maxValue}
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="w-full px-3 py-2 border border-gray-300 bg-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-black"
 					/>
 				</div>
 			</div>
 
 			<div class="mt-4 relative">
 				<div class="flex flex-col md:flex-row gap-4">
-					<code class="block flex-1 p-3 w-full rounded-l border border-gray-200 text-sm font-mono">
+					<code
+						class="block flex-1 p-3 w-full rounded-l border border-gray-200 text-sm main-textmono"
+					>
 						{getClampString(true)}
 					</code>
 					<button
@@ -119,9 +121,9 @@
 	<div id="divElement" class="h-4 bg-red-500" style="width: {getClampString(false)};"></div>
 
 	<div class="mt-4 text-white flex flex-col gap-2">
-		<p class="">Current screen width <b>{screenWidth}</b></p>
-		<p>Current div width <b>{divWidth}</b></p>
-		<p class="">
+		<p class="main-text">Current screen width <b>{screenWidth}</b></p>
+		<p class="main-text">Current div width <b>{divWidth}</b></p>
+		<p class="secondary-text">
 			This div is properly scaling from {minValue}px({pxToRem(minValue)}rem) to {maxValue}px ({pxToRem(
 				maxValue
 			)}rem)

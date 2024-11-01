@@ -32,7 +32,6 @@
 			targets: '#todo-item',
 			absoluteOnLeave: true,
 			onEnter: (elements) => {
-				console.log('Enter ran');
 				gsap.fromTo(
 					elements,
 					{
@@ -47,7 +46,6 @@
 				);
 			},
 			onLeave: (elements) => {
-				console.log('Leave ran');
 				gsap.fromTo(
 					elements,
 					{
@@ -132,10 +130,10 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4 mt-20 mx-auto w-fit">
+<div class="flex flex-col gap-4 mt-20 mx-auto w-fit p-5 rounded-md">
 	<h1 class="h1 text-3xl font-medium">Svelte Todo App</h1>
 	<input
-		class="py-2 border px-4 border-slate-400 rounded-lg"
+		class="py-2 border px-4 border-slate-400 rounded-lg bg-transparent"
 		onkeydown={addTodo}
 		placeholder="Add todo"
 		type="text"
