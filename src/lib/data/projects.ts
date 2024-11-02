@@ -82,5 +82,13 @@ export const projects = [
 		description: 'Handy tool for calculating optimal clamp',
 		technologies: ['JS'],
 		shared: true
+	},
+	{
+		href: '/three-js-environment-map',
+		title: 'Three.js environment map & RayCasting',
+		description:
+			'Learning about interacting with three.js with mouse events and setting up environment maps',
+		technologies: ['THREE.js', 'Mouse events'],
+		shared: true
 	}
 ];

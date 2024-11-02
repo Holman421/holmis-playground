@@ -4,6 +4,8 @@
 	import GUI from 'lil-gui';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 	import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+	import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+	import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 
 	$effect(() => {
 		/**
@@ -24,23 +26,69 @@
 		let flightHelmetModel: any = null;
 		gltfLoader.load('/FlightHelmet/glTF/FlightHelmet.gltf', (gltf) => {
 			gltf.scene.scale.set(10, 10, 10);
+			gltf.scene.position.set(4, 0, 0);
 			scene.add(gltf.scene);
 			flightHelmetModel = gltf.scene;
 		});
+		const rgbeLoader = new RGBELoader();
+		const textureLoader = new THREE.TextureLoader();
 
-		const enviromentMap = cubeTextureLoader.load([
-			'/environmentMaps/0/px.png',
-			'/environmentMaps/0/nx.png',
-			'/environmentMaps/0/py.png',
-			'/environmentMaps/0/ny.png',
-			'/environmentMaps/0/pz.png',
-			'/environmentMaps/0/nz.png'
-		]);
+		// const enviromentMap = cubeTextureLoader.load([
+		// 	'/environmentMaps/0/px.png',
+		// 	'/environmentMaps/0/nx.png',
+		// 	'/environmentMaps/0/py.png',
+		// 	'/environmentMaps/0/ny.png',
+		// 	'/environmentMaps/0/pz.png',
+		// 	'/environmentMaps/0/nz.png'
+		// ]);
 
-		scene.environment = enviromentMap;
+		// scene.environment = enviromentMap;
+		// scene.background = enviromentMap;
+
+		//HDR (RGBE) equirectangular
+		// rgbeLoader.load('/environmentMaps/2/2k.hdr', (environmentMap) => {
+		// 	environmentMap.mapping = THREE.EquirectangularReflectionMapping;
+		// 	scene.background = environmentMap;
+		// 	scene.environment = environmentMap;
+		// });
+
+		const enviromentMap = textureLoader.load(
+			'/environmentMaps/blockadesLabsSkybox/interior_views_cozy_wood_cabin_with_cauldron_and_p.jpg'
+		);
+		enviromentMap.mapping = THREE.EquirectangularReflectionMapping;
+		enviromentMap.colorSpace = THREE.SRGBColorSpace;
 		scene.background = enviromentMap;
+		// scene.environment = enviromentMap;
+
+		//Ground Projected skybox
+		// rgbeLoader.load('/environmentMaps/2/2k.hdr', (environmentMap) => {
+		// 	environmentMap.mapping = THREE.EquirectangularReflectionMapping;
+		// 	scene.environment = environmentMap;
+
+		// 	const skybox = new GroundedSkybox(environmentMap, 15, 70);
+		// 	scene.add(skybox);
+		// 	skybox.position.y = 15;
+		// });
 
 		scene.environmentIntensity = 4;
+
+		// Real time environment map
+
+		const holyDonut = new THREE.Mesh(
+			new THREE.TorusGeometry(9, 0.5, 32, 100),
+			new THREE.MeshBasicMaterial({ color: new THREE.Color(10, 4, 2) })
+		);
+		holyDonut.position.y = 4;
+		holyDonut.layers.enable(1);
+		scene.add(holyDonut);
+
+		const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
+
+		scene.environment = cubeRenderTarget.texture;
+
+		//Cube camera
+		const cubeCamera = new THREE.CubeCamera(0.1, 100, cubeRenderTarget);
+		cubeCamera.layers.set(1);
 
 		gui.add(scene, 'environmentIntensity').min(0).max(10).step(0.001);
 
@@ -49,7 +97,7 @@
 		 */
 		const torusKnot = new THREE.Mesh(
 			new THREE.TorusKnotGeometry(1, 0.4, 100, 16),
-			new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 1, color: 0xaaaaaa })
+			new THREE.MeshStandardMaterial({ roughness: 0.0, metalness: 1, color: 0xaaaaaa })
 		);
 		torusKnot.position.y = 4;
 		torusKnot.position.x = -4;
@@ -124,15 +172,40 @@
 		let targetBackgroundBlurriness = 0;
 		const blurTransitionSpeed = 0.2; // Adjust this value to control transition speed
 
+		let targetTorusScale = 1; // Initial scale
+		const scaleTransitionSpeed = 0.2; // Adjust this value to control transition speed
+
+		let targetModelScale = 10;
+		const modelScaleTransitionSpeed = 0.2;
+
 		const tick = () => {
 			// Time
 			const elapsedTime = clock.getElapsedTime();
+
+			if (holyDonut) {
+				holyDonut.rotation.x = Math.sin(elapsedTime) * 2;
+
+				cubeCamera.update(renderer, scene);
+			}
 
 			// Smoothly interpolate background blurriness
 			scene.backgroundBlurriness =
 				scene.backgroundBlurriness +
 				(targetBackgroundBlurriness - scene.backgroundBlurriness) * blurTransitionSpeed;
 
+			// Smoothly interpolate torus scale
+			torusKnot.scale.x += (targetTorusScale - torusKnot.scale.x) * scaleTransitionSpeed;
+			torusKnot.scale.y += (targetTorusScale - torusKnot.scale.y) * scaleTransitionSpeed;
+			torusKnot.scale.z += (targetTorusScale - torusKnot.scale.z) * scaleTransitionSpeed;
+
+			if (flightHelmetModel) {
+				flightHelmetModel.scale.x +=
+					(targetModelScale - flightHelmetModel.scale.x) * modelScaleTransitionSpeed;
+				flightHelmetModel.scale.y +=
+					(targetModelScale - flightHelmetModel.scale.y) * modelScaleTransitionSpeed;
+				flightHelmetModel.scale.z +=
+					(targetModelScale - flightHelmetModel.scale.z) * modelScaleTransitionSpeed;
+			}
 			// Raycasting
 			raycaster.setFromCamera(mouse, camera);
 			if (flightHelmetModel) {
@@ -145,6 +218,11 @@
 						objectName = intersects[0]?.object?.name;
 						console.log('Mouse enter to ' + objectName);
 						targetBackgroundBlurriness = 0.2;
+						if (objectName === 'Torus object') {
+							targetTorusScale = 1.5; // Set target scale instead of direct scaling
+						} else {
+							targetModelScale = 13;
+						}
 					}
 					currentIntersect = intersects[0];
 				} else {
@@ -152,6 +230,11 @@
 						objectName = currentIntersect?.object?.name;
 						console.log('Mouse leave from ' + objectName);
 						targetBackgroundBlurriness = 0;
+						if (objectName === 'Torus object') {
+							targetTorusScale = 1; // Reset target scale
+						} else {
+							targetModelScale = 10;
+						}
 					}
 					currentIntersect = null;
 				}
