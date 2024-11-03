@@ -89,6 +89,13 @@ export const projects = [
 		description:
 			'Learning about interacting with three.js with mouse events and setting up environment maps',
 		technologies: ['THREE.js', 'Mouse events'],
+		shared: false
+	},
+	{
+		href: '/three-js-shaders-tutorial',
+		title: 'Three.js Shaders',
+		description: 'First experimentation with GLSL shaders',
+		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	}
 ];
