@@ -137,9 +137,8 @@
 			<p class="main-text">Current screen width <b>{screenWidth}px</b></p>
 			<p class="main-text">Current text size and div width <b>{divWidth}</b></p>
 			<p class="secondary-text">
-				This div is properly scaling from {minValue}px({pxToRem(minValue)}rem) to {maxValue}px ({pxToRem(
-					maxValue
-				)}rem)
+				This div and text are properly scaling from {minValue}px({pxToRem(minValue)}rem) to {maxValue}px
+				({pxToRem(maxValue)}rem)
 			</p>
 		</div>
 	</div>
