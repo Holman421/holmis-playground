@@ -81,9 +81,17 @@
 		/**
 		 * Animate
 		 */
+		const clock = new THREE.Clock();
 		const tick = () => {
+			const elapsedTime = clock.getElapsedTime();
+
 			// Update controls
 			controls.update();
+
+			// mesh.scale.x = Math.sin(elapsedTime * 4) * 0.5 + 2;
+			// mesh.scale.y = Math.sin(elapsedTime * 4) * 0.5 + 2;
+
+			// mesh.rotation.z = elapsedTime * 0.25;
 
 			// Render
 			renderer.render(scene, camera);
@@ -96,6 +104,7 @@
 	});
 </script>
 
-<div>
+<div class="relative">
 	<canvas class="webgl"></canvas>
+	<!-- <h1 class="z-10 absolute bottom-[2rem] left-[50%] translate-x-[-50%] text-5xl">Buy me a beer</h1> -->
 </div>

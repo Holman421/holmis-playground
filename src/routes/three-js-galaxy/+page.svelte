@@ -64,11 +64,9 @@
 			const colorInside = new THREE.Color(parameters.insideColor);
 			const colorOutside = new THREE.Color(parameters.outsideColor);
 
-			// Generate spiral galaxy stars
 			for (let i = 0; i < parameters.count; i++) {
 				const i3 = i * 3;
 
-				// Generate a radius with center saturation applied
 				const radiusRandom = Math.random();
 				const radius = Math.pow(radiusRandom, parameters.centerSaturation) * parameters.radius;
 
@@ -95,7 +93,6 @@
 				positions[i3 + 1] = randomY / 2;
 				positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
 
-				// Color
 				const mixedColor = colorInside.clone();
 				mixedColor.lerp(colorOutside, radius / parameters.radius);
 				colors[i3] = mixedColor.r;
@@ -103,20 +100,17 @@
 				colors[i3 + 2] = mixedColor.b;
 			}
 
-			// Generate additional central stars
 			for (let i = parameters.count; i < parameters.count + parameters.centralStarCount; i++) {
 				const i3 = i * 3;
 
-				// Generate random positions within a smaller radius
 				const theta = Math.random() * Math.PI * 2;
 				const phi = Math.acos(2 * Math.random() - 1);
-				const radius = Math.random() * parameters.radius * 0.075; // Adjust this factor to control the spread
+				const radius = Math.random() * parameters.radius * 0.075;
 
 				positions[i3 + 0] = radius * Math.sin(phi) * Math.cos(theta);
 				positions[i3 + 1] = (radius * Math.sin(phi) * Math.cos(theta)) / 10;
 				positions[i3 + 2] = radius * Math.cos(phi);
 
-				// Color (use inside color for central stars)
 				colors[i3] = colorInside.r;
 				colors[i3 + 1] = colorInside.g;
 				colors[i3 + 2] = colorInside.b;
