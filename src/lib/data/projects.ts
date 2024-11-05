@@ -104,5 +104,12 @@ export const projects = [
 		description: 'Sea with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-galaxy',
+		title: 'Three.js Shaders Galaxy',
+		description: 'Galaxy animated with shaders',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: false
 	}
 ];

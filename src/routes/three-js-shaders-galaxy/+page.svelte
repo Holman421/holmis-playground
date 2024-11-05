@@ -2,6 +2,8 @@
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
+	import testVertexShader from './shaders/vertex.glsl';
+	import testFragmentShader from './shaders/fragment.glsl';
 
 	$effect(() => {
 		/**
@@ -59,6 +61,7 @@
 			scene.add(blackHole);
 
 			const positions = new Float32Array((parameters.count + parameters.centralStarCount) * 3);
+			const scales = new Float32Array(parameters.count * 1);
 			const colors = new Float32Array((parameters.count + parameters.centralStarCount) * 3);
 
 			const colorInside = new THREE.Color(parameters.insideColor);
@@ -93,6 +96,8 @@
 				positions[i3 + 1] = randomY / 2;
 				positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
 
+				scales[i] = Math.random();
+
 				const mixedColor = colorInside.clone();
 				mixedColor.lerp(colorOutside, radius / parameters.radius);
 				colors[i3] = mixedColor.r;
@@ -100,38 +105,40 @@
 				colors[i3 + 2] = mixedColor.b;
 			}
 
-			for (let i = parameters.count; i < parameters.count + parameters.centralStarCount; i++) {
-				const i3 = i * 3;
+			console.log(scales);
 
-				const theta = Math.random() * Math.PI * 2;
-				const phi = Math.acos(2 * Math.random() - 1);
-				const radius = Math.random() * parameters.radius * 0.075;
+			// for (let i = parameters.count; i < parameters.count + parameters.centralStarCount; i++) {
+			// 	const i3 = i * 3;
 
-				positions[i3 + 0] = radius * Math.sin(phi) * Math.cos(theta);
-				positions[i3 + 1] = (radius * Math.sin(phi) * Math.cos(theta)) / 10;
-				positions[i3 + 2] = radius * Math.cos(phi);
+			// 	const theta = Math.random() * Math.PI * 2;
+			// 	const phi = Math.acos(2 * Math.random() - 1);
+			// 	const radius = Math.random() * parameters.radius * 0.075;
 
-				colors[i3] = colorInside.r;
-				colors[i3 + 1] = colorInside.g;
-				colors[i3 + 2] = colorInside.b;
-			}
+			// 	positions[i3 + 0] = radius * Math.sin(phi) * Math.cos(theta);
+			// 	positions[i3 + 1] = (radius * Math.sin(phi) * Math.cos(theta)) / 10;
+			// 	positions[i3 + 2] = radius * Math.cos(phi);
+			// }
 
 			geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+			geometry.setAttribute('aScale', new THREE.BufferAttribute(positions, 1));
 			geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
 			material = new THREE.ShaderMaterial({
-				size: parameters.size,
-				sizeAttenuation: true,
 				depthWrite: false,
 				blending: THREE.AdditiveBlending,
-				vertexColors: true
+				vertexColors: true,
+				vertexShader: testVertexShader,
+				fragmentShader: testFragmentShader,
+				uniforms: {
+					uSize: { value: 10 * renderer.getPixelRatio() },
+					uTime: { value: 0 }
+				}
 			});
 
 			points = new THREE.Points(geometry, material);
 			scene.add(points);
 		};
 
-		generateGalaxy();
 		gui.add(parameters, 'count').min(100).max(500000).step(100).onFinishChange(generateGalaxy);
 		gui.add(parameters, 'size').min(0.001).max(0.1).step(0.001).onFinishChange(generateGalaxy);
 		gui.add(parameters, 'radius').min(1).max(20).step(1).onFinishChange(generateGalaxy);
@@ -198,11 +205,16 @@
 		 */
 		const clock = new THREE.Clock();
 
+		generateGalaxy();
+
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
 			points.rotation.y = elapsedTime * parameters.rotationSpeed;
 			points.rotation.x = elapsedTime * parameters.rotationSpeed;
+
+			// Update uniform time
+			material.uniforms.uTime.value = elapsedTime;
 
 			// Update controls
 			controls.update();
