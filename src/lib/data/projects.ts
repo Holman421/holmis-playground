@@ -93,8 +93,15 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-tutorial',
-		title: 'Three.js Shaders',
+		title: 'Three.js Shaders Basic',
 		description: 'First experimentation with GLSL shaders',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: true
+	},
+	{
+		href: '/three-js-shaders-sea',
+		title: 'Three.js Shaders Sea',
+		description: 'Sea with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	}
