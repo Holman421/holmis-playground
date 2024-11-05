@@ -110,6 +110,6 @@ export const projects = [
 		title: 'Three.js Shaders Galaxy',
 		description: 'Galaxy animated with shaders',
 		technologies: ['THREE.js', 'Shaders'],
-		shared: false
+		shared: true
 	}
 ];
