@@ -1,4 +1,5 @@
 attribute float aScale;
+attribute vec3 aRandomness;
 
 uniform float uSize;
 uniform float uTime;
@@ -11,13 +12,17 @@ float random(vec2 st) {
 
 void main() {
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+
+    // Spin
     float angle = atan(modelPosition.x, modelPosition.y);
     float distanceToCenter = length(modelPosition.xy);
     float angleOffset = (1.0 / distanceToCenter) * uTime * 0.2;
     angle += angleOffset;
-    modelPosition.x = cos(angle) * distanceToCenter;
-    modelPosition.z = sin(angle) * distanceToCenter;
+    modelPosition.x = cos(angle);
+    modelPosition.z = sin(angle);
 
+    // Randomness 
+    modelPosition.xyz += aRandomness;
     vec4 viewPosition = viewMatrix * modelPosition;
     vec4 projectedPosition = projectionMatrix * viewPosition;
     gl_Position = projectedPosition;
