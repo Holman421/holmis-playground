@@ -21,7 +21,7 @@ export default class Time extends EventEmitter {
 
 		this.trigger('tick');
 
-		window.reguestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			this.tick();
 		});
 	}
