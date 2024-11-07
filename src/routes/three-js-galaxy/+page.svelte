@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import Experience from '../../utils/Experince/Experience';
+	import Experience from './Experince/Experience';
 
 	$effect(() => {
 		const canvas = document.querySelector('canvas.webgl')! as HTMLCanvasElement;

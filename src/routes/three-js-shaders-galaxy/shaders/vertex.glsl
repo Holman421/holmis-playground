@@ -21,6 +21,8 @@ void main() {
     modelPosition.x = cos(angle);
     modelPosition.z = sin(angle);
 
+    modelPosition.y = 1.0 - abs(modelPosition.y);
+
     // Randomness 
     modelPosition.xyz += aRandomness;
     vec4 viewPosition = viewMatrix * modelPosition;

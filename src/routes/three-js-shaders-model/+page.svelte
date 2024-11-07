@@ -5,7 +5,6 @@
 	import testVertexShader from './shaders/vertex.glsl';
 	import testFragmentShader from './shaders/fragment.glsl';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-	import Experience from '../../utils/Experience';
 
 	$effect(() => {
 		/**
@@ -13,8 +12,6 @@
 		 */
 		// Debug
 		const gui = new GUI();
-
-		const experience = new Experience(document.querySelector('canvas.webgl'));
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;

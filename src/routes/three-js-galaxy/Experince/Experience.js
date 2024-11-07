@@ -3,7 +3,6 @@ import Sizes from '../Sizes';
 import Time from '../Time';
 import Camera from './Camera';
 import Renderer from '../Renderer';
-import World from '../World';
 import Galaxy from '../Galaxy';
 import Gui from '../GUI';
 
