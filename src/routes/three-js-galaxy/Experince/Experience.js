@@ -4,7 +4,7 @@ import Time from '../Time';
 import Camera from './Camera';
 import Renderer from '../Renderer';
 import Galaxy from '../Galaxy';
-import Gui from '../GUI';
+import Gui from '../Gui';
 
 let instance = null;
 
