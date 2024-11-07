@@ -1,4 +1,4 @@
-varying vec2 vUv;
+varying vec3 vPosition;
 
 float PI = 3.14159265359;
 
@@ -10,4 +10,6 @@ void main() {
     vec4 projectionPosition = projectionMatrix * viewMatrix * modelPosition;
 
     gl_Position = projectionPosition;
+
+    vPosition = modelPosition.xyz;
 }

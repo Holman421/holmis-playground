@@ -2,8 +2,8 @@
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
-	import VertexShader from './shaders/vertex.glsl?raw';
-	import FragmentShader from './shaders/fragment.glsl?raw';
+	import VertexShader from './shaders/vertex.glsl';
+	import FragmentShader from './shaders/fragment.glsl';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 	$effect(() => {
