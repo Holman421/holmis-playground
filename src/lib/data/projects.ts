@@ -111,5 +111,19 @@ export const projects = [
 		description: 'Galaxy animated with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
+	},
+	{
+		href: '/three-js-coffe-smoke',
+		title: 'Three.js Shaders coffe smoke',
+		description: 'Static model with animated smoke effect',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: true
+	},
+	{
+		href: '/three-js-shaders-hologram',
+		title: 'Three.js Shaders Hologram effect',
+		description: 'Hologram like effect with occasional glitch',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: true
 	}
 ];

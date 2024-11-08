@@ -60,7 +60,7 @@
 		 * Renderer
 		 */
 		const rendererParameters = {
-			clearColor: '#1d1f2a'
+			clearColor: 'black'
 		};
 
 		const renderer = new THREE.WebGLRenderer({
@@ -75,12 +75,28 @@
 			renderer.setClearColor(rendererParameters.clearColor);
 		});
 
+		const debugObject = {
+			color: '#339ef0'
+		};
+
 		/**
 		 * Material
 		 */
 		const material = new THREE.ShaderMaterial({
 			vertexShader: VertexShader,
-			fragmentShader: FragmentShader
+			fragmentShader: FragmentShader,
+			transparent: true,
+			side: THREE.DoubleSide,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
+			uniforms: {
+				uTime: { value: 0 },
+				uColor: { value: new THREE.Color(debugObject.color) }
+			}
+		});
+
+		gui.addColor(debugObject, 'color').onChange(() => {
+			material.uniforms.uColor.value.set(debugObject.color);
 		});
 
 		/**
@@ -113,6 +129,9 @@
 
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
+
+			// Update uniform time
+			material.uniforms.uTime.value = elapsedTime;
 
 			// Rotate objects
 			if (suzanne) {
