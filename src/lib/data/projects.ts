@@ -125,5 +125,12 @@ export const projects = [
 		description: 'Hologram like effect with occasional glitch',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-fireworks',
+		title: 'Three.js Shaders firework',
+		description: 'Scene with fireworks like effect on each click',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: true
 	}
 ];
