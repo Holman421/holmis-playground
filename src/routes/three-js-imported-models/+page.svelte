@@ -47,13 +47,13 @@
 
 		let mixer: any = null;
 
-		gltfLoader.load('/models/Fox/glTF/Fox.gltf', (gltf) => {
-			mixer = new THREE.AnimationMixer(gltf.scene);
-			const action = mixer.clipAction(gltf.animations[2]);
+		gltfLoader.load('/models/Person/avatar.gltf', (gltf) => {
+			// mixer = new THREE.AnimationMixer(gltf.scene);
+			// const action = mixer.clipAction(gltf.animations[2]);
 
-			action.play();
+			// action.play();
 
-			gltf.scene.scale.set(0.025, 0.025, 0.025);
+			gltf.scene.scale.set(1, 1, 1);
 			scene.add(gltf.scene);
 		});
 

@@ -114,11 +114,12 @@
 
 		// Suzanne
 		let suzanne: any = null;
-		gltfLoader.load('./models/Suzanne/suzanne.glb', (gltf) => {
+		gltfLoader.load('./models/Person/avatar.gltf', (gltf) => {
 			suzanne = gltf.scene;
 			suzanne.traverse((child: any) => {
 				if (child.isMesh) child.material = material;
 			});
+			suzanne.position.set(0, -1, 0);
 			scene.add(suzanne);
 		});
 
@@ -135,7 +136,7 @@
 
 			// Rotate objects
 			if (suzanne) {
-				suzanne.rotation.x = -elapsedTime * 0.1;
+				// suzanne.rotation.x = -elapsedTime * 0.1;
 				suzanne.rotation.y = elapsedTime * 0.2;
 			}
 

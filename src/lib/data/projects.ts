@@ -132,5 +132,19 @@ export const projects = [
 		description: 'Scene with fireworks like effect on each click',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-lights',
+		title: 'Three.js Shaders Lights',
+		description: 'Scene with custom lights made in shaders',
+		technologies: ['THREE.js', 'Shaders', 'Lights'],
+		shared: true
+	},
+	{
+		href: '/three-js-shaders-sea-lights',
+		title: 'Three.js Shaders Sea with Lights',
+		description: 'Original scene with sea recreated with lights and different colors',
+		technologies: ['THREE.js', 'Shaders', 'Lights'],
+		shared: true
 	}
 ];
