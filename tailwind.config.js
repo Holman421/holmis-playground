@@ -21,7 +21,8 @@ const config = {
 				audiowide: ['Audiowide', 'sans-serif']
 			}
 		}
-	}
+	},
+	plugins: [require('tailwindcss-motion')]
 };
 
 export default config;

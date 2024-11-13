@@ -14,14 +14,28 @@
 		// Scene
 		const scene = new THREE.Scene();
 
-		/**
-		 * Textures
-		 */
-		const textureLoader = new THREE.TextureLoader();
+		// Target and current mouse positions for smooth interpolation
+		let targetMousePosition = new THREE.Vector2(0, 0);
+		let currentMousePosition = new THREE.Vector2(0, 0);
+		let lerpFactor = 0.1; // Adjust this value to change smoothing (0-1)
 
-		/**
-		 * Test mesh
-		 */
+		// Add to GUI for easy adjustment
+		gui.add({ lerpSpeed: lerpFactor }, 'lerpSpeed', 0.01, 1, 0.01).onChange((value: number) => {
+			lerpFactor = value;
+		});
+
+		// Helper function for linear interpolation
+		function lerp(start: number, end: number, t: number): number {
+			return start + (end - start) * t;
+		}
+
+		// Add mouse event listener
+		window.addEventListener('mousemove', (event) => {
+			// Calculate mouse position from 0 to 1 across entire screen
+			targetMousePosition.x = event.clientX / window.innerWidth;
+			targetMousePosition.y = 1 - event.clientY / window.innerHeight; // Invert Y so 0 is bottom, 1 is top
+		});
+
 		// Geometry
 		const geometry = new THREE.PlaneGeometry(4, 4, 128, 128);
 
@@ -39,9 +53,10 @@
 			vertexShader: testVertexShader,
 			fragmentShader: testFragmentShader,
 			uniforms: {
-				uFrequency: { value: new THREE.Vector2(1, 1) },
+				uFrequency: { value: new THREE.Vector2(2, 2) },
 				uTime: { value: 0 },
-				uColor: { value: new THREE.Color('orange') }
+				uColor: { value: new THREE.Color('orange') },
+				uMousePosition: { value: new THREE.Vector2(0, 0) }
 			}
 		});
 
@@ -53,9 +68,7 @@
 		mesh.material.side = THREE.DoubleSide;
 		scene.add(mesh);
 
-		/**
-		 * Sizes
-		 */
+		//Sizes
 		const sizes = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56
@@ -103,6 +116,13 @@
 
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
+
+			// Smooth mouse position interpolation
+			currentMousePosition.x = lerp(currentMousePosition.x, targetMousePosition.x, lerpFactor);
+			currentMousePosition.y = lerp(currentMousePosition.y, targetMousePosition.y, lerpFactor);
+
+			// Update the shader uniforms with the interpolated position
+			material.uniforms.uMousePosition.value.copy(currentMousePosition);
 
 			// Update material
 			material.uniforms.uTime.value = elapsedTime;

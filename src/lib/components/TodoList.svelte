@@ -38,7 +38,7 @@
 		<div
 			id={`todo-item`}
 			data-flip-id={todo.id}
-			class={`todo-item-${heading} flex gap-2`}
+			class={`todo-item-${heading} flex gap-2 hover:motion-scale-out-[110%]`}
 			role="listitem"
 		>
 			<div class="relative">
