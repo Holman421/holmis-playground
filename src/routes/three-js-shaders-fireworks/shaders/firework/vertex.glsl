@@ -31,12 +31,6 @@ void main() {
     float sizeProgress = min(sizeOpeningProgress, sizeClosingProgress);
     sizeProgress = clamp(sizeProgress, 0.0, 1.0);
 
-    // Twinkling
-    float twinklingProgress = remap(progress, 0.2, 0.8, 0.0, 1.0);
-    twinklingProgress = clamp(twinklingProgress, 0.0, 1.0);
-    float sizeTwinkling = sin(progress * 30.0) * 0.5 + 0.5;
-    sizeTwinkling = 1.0 - sizeTwinkling * twinklingProgress;
-
     vec4 modelPosition = modelMatrix * vec4(newPosition, 1.0);
     vec4 viewPosition = viewMatrix * modelPosition;
     gl_Position = projectionMatrix * viewPosition;

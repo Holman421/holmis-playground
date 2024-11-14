@@ -1,9 +1,9 @@
-#define PI 3.1415926535897932384626433832795
+attribute vec2 aTrailPosition;
 
 uniform vec2 uMousePosition;
 
 varying vec2 vUv;
-varying float vElevation;
+varying vec2 vTrailPosition;
 
 void main() {
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
@@ -14,5 +14,5 @@ void main() {
     gl_Position = projectionPosition;
 
     vUv = uv;
-    vElevation = modelPosition.y;
+    vTrailPosition = aTrailPosition;
 }

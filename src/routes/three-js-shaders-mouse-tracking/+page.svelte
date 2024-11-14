@@ -80,20 +80,13 @@
 
 		function handleMouseExit() {
 			isMouseOnPlane = false;
-			mousePosition.set(0, 0);
-
-			// Reset the shader uniforms
-			material.uniforms.uMousePosition.value.set(0, 0);
 		}
 
 		// Camera
 		const camera = new THREE.PerspectiveCamera(25, sizes.width / sizes.height, 0.1, 100);
 		camera.position.set(0, 10, 0);
+		camera.lookAt(0, 0, 0);
 		scene.add(camera);
-
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
 
 		// Renderer
 		const rendererParameters = {
@@ -116,18 +109,34 @@
 			color: '#ff794d'
 		};
 
+		const trailPositions = Array(20).fill([0, 0]);
+		let index = 0;
+
+		let lastTime = 0;
+		const updateInterval = 64; // Update every 16ms
+
+		document.addEventListener('mousemove', (event) => {
+			const now = Date.now();
+			if (now - lastTime >= updateInterval) {
+				trailPositions[index] = [event.clientX, event.clientY];
+				index = (index + 1) % trailPositions.length;
+				lastTime = now;
+			}
+		});
+
 		// Material
 		const material = new THREE.ShaderMaterial({
 			vertexShader: VertexShader,
 			fragmentShader: FragmentShader,
-			side: THREE.DoubleSide,
+			transparent: true,
 			uniforms: {
 				uTime: { value: 0 },
 				uColor: { value: new THREE.Color(debugObject.color) },
 				uResolution: {
 					value: new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
 				},
-				uMousePosition: { value: new THREE.Vector2(0, 0) }
+				uMousePosition: { value: new THREE.Vector2(0, 0) },
+				uTrailPositions: new THREE.Uniform(trailPositions)
 			}
 		});
 

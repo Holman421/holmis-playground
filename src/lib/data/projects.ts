@@ -146,5 +146,13 @@ export const projects = [
 		description: 'Original scene with sea recreated with lights and different colors',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-moving-particles',
+		title: 'Three.js Shaders Displacement particles',
+		description:
+			'Scene with picture divided into particles that gets displacement with mouse movement',
+		technologies: ['THREE.js', 'Shaders', 'Points', 'Canvas', 'Raycaster'],
+		shared: true
 	}
 ];
