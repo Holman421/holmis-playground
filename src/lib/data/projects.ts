@@ -93,66 +93,74 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-tutorial',
-		title: 'Three.js Shaders Basic',
+		title: 'Shaders Basic',
 		description: 'First experimentation with GLSL shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-sea',
-		title: 'Three.js Shaders Sea',
+		title: 'Sea simulation',
 		description: 'Sea with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-galaxy',
-		title: 'Three.js Shaders Galaxy',
+		title: 'Animated Galaxy',
 		description: 'Galaxy animated with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	},
 	{
 		href: '/three-js-coffe-smoke',
-		title: 'Three.js Shaders coffe smoke',
+		title: 'Animated coffe smoke',
 		description: 'Static model with animated smoke effect',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-hologram',
-		title: 'Three.js Shaders Hologram effect',
+		title: 'Glitching hologram effect',
 		description: 'Hologram like effect with occasional glitch',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-fireworks',
-		title: 'Three.js Shaders firework',
+		title: 'Fireworks',
 		description: 'Scene with fireworks like effect on each click',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-lights',
-		title: 'Three.js Shaders Lights',
+		title: 'Shaders Lights',
 		description: 'Scene with custom lights made in shaders',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-sea-lights',
-		title: 'Three.js Shaders Sea with Lights',
+		title: 'Sea with Lights',
 		description: 'Original scene with sea recreated with lights and different colors',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
 		shared: true
 	},
 	{
 		href: '/three-js-shaders-moving-particles',
-		title: 'Three.js Shaders Displacement particles',
+		title: '2D Displacement particles',
 		description:
 			'Scene with picture divided into particles that gets displacement with mouse movement',
 		technologies: ['THREE.js', 'Shaders', 'Points', 'Canvas', 'Raycaster'],
+		shared: true
+	},
+	{
+		href: '/three-js-shaders-morphing-shapes',
+		title: '3D Morhing shapes',
+		description:
+			'Scene with 3D models represented with a lot of points morphing to each other shapes',
+		technologies: ['THREE.js', 'Shaders', 'Points'],
 		shared: true
 	}
 ];
