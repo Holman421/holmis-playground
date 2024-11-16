@@ -103,7 +103,7 @@ export const projects = [
 		title: 'Sea simulation',
 		description: 'Sea with shaders',
 		technologies: ['THREE.js', 'Shaders'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-shaders-galaxy',
@@ -131,14 +131,14 @@ export const projects = [
 		title: 'Fireworks',
 		description: 'Scene with fireworks like effect on each click',
 		technologies: ['THREE.js', 'Shaders'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-shaders-lights',
 		title: 'Shaders Lights',
 		description: 'Scene with custom lights made in shaders',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-shaders-sea-lights',

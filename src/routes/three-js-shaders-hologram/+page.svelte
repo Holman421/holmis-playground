@@ -116,6 +116,8 @@
 		let suzanne: any = null;
 		gltfLoader.load('./models/WMStar/star.glb', (gltf) => {
 			suzanne = gltf.scene;
+			gltf.scene.scale.set(0.75, 0.75, 0.75);
+			gltf.scene.position.y = -10.5;
 			console.log(gltf);
 			suzanne.traverse((child: any) => {
 				if (child.isMesh) child.material = material;
