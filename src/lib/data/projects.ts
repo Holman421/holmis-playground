@@ -162,5 +162,12 @@ export const projects = [
 			'Scene with 3D models represented with a lot of points morphing to each other shapes',
 		technologies: ['THREE.js', 'Shaders', 'Points'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-earth',
+		title: 'Earth with atmosphere effect',
+		description: 'Scene with 3D earth model',
+		technologies: ['THREE.js', 'Shaders', 'Texture'],
+		shared: true
 	}
 ];

@@ -114,8 +114,9 @@
 
 		// Suzanne
 		let suzanne: any = null;
-		gltfLoader.load('./models/Person/avatar.gltf', (gltf) => {
+		gltfLoader.load('./models/WMStar/star.glb', (gltf) => {
 			suzanne = gltf.scene;
+			console.log(gltf);
 			suzanne.traverse((child: any) => {
 				if (child.isMesh) child.material = material;
 			});
