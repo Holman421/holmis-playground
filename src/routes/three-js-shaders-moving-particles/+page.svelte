@@ -143,8 +143,9 @@
 
 		particles.uColor = new THREE.Color('#ff0000');
 
-		particles.index = 0;
+		particles.index = 3;
 		particles.transitionSpeed = 1.5;
+		particles.cursorSize = 0.25;
 
 		particles.material = new THREE.ShaderMaterial({
 			vertexShader: particlesVertexShader,
@@ -154,7 +155,7 @@
 					new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
 				),
 				uPictureTexture: new THREE.Uniform(particles.pictures[particles.index]),
-				uPictureTextureNext: new THREE.Uniform(particles.pictures[0]),
+				uPictureTextureNext: new THREE.Uniform(particles.pictures[3]),
 				uDisplacementTexture: new THREE.Uniform(displacement.texture),
 				uProgress: new THREE.Uniform(particles.transitionSpeed),
 				uColor: new THREE.Uniform(particles.uColor)
@@ -203,6 +204,8 @@
 		gui.add(particles, 'changePicture3').name('Picture 3');
 		gui.add(particles, 'changePicture4').name('Picture 4');
 
+		gui.add(particles, 'cursorSize', 0.1, 1, 0.01).name('Cursor size');
+
 		/**
 		 * Animate
 		 */
@@ -241,7 +244,7 @@
 			// Texture
 			displacement.texture.needsUpdate = true;
 
-			const glowSize = displacement.canvas.width * 0.25;
+			const glowSize = displacement.canvas.width * particles.cursorSize;
 			displacement.context.globalCompositeOperation = 'lighten';
 			displacement.context.drawImage(
 				displacement.glowImage,

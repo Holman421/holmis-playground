@@ -46,7 +46,7 @@ void main() {
     float displacementIntensity = texture(uDisplacementTexture, uv).r;
     displacementIntensity = smoothstep(0.2, 0.3, displacementIntensity);
 
-    vec3 displacement = vec3(cos(aAngle) * 0.2, sin(aAngle) * 0.2, 1.0);
+    vec3 displacement = vec3(cos(aAngle) * 5.0, sin(aAngle) * 5.0, 2.0);
     displacement = normalize(displacement);
     displacement *= displacementIntensity;
     displacement *= 1.0;
@@ -68,7 +68,7 @@ void main() {
     float mixedPictureIntensity = mix(startPictureIntensity, endPictureIntensity, progress);
 
     // Point size
-    gl_PointSize = 0.125 * mixedPictureIntensity * uResolution.y - (displacementIntensity * 75.0);
+    gl_PointSize = 0.1 * mixedPictureIntensity * uResolution.y - (displacementIntensity * 75.0);
     gl_PointSize *= (1.0 / -viewPosition.z);
 
     // Varyings
