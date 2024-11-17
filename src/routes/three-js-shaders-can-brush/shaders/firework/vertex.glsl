@@ -17,8 +17,8 @@ void main() {
 
     vec4 modelPosition = modelMatrix * vec4(newPosition, 1.0);
 
-    modelPosition.x += uMousePosition.x * 1450.0;
-    modelPosition.y -= uMousePosition.y * 850.0;
+    modelPosition.x *= uMousePosition.x * 10.0;
+    modelPosition.y *= uMousePosition.y * 0.0;
 
     vec4 viewPosition = viewMatrix * modelPosition;
     gl_Position = projectionMatrix * viewPosition;

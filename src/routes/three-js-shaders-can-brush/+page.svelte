@@ -45,19 +45,21 @@
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 			sizes.resolution.set(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio);
 
-			// Update camera
+			//			Update camera
 			camera.left = -sizes.width / 2;
 			camera.right = sizes.width / 2;
 			camera.top = sizes.height / 2;
 			camera.bottom = -sizes.height / 2;
 			camera.updateProjectionMatrix();
+			// camera.aspect = sizes.width / sizes.height;
+			// camera.updateProjectionMatrix();
 
 			// Update renderer
 			renderer.setSize(sizes.width, sizes.height);
 			renderer.setPixelRatio(sizes.pixelRatio);
 		});
 
-		// Camera
+		//Camera;
 		const camera = new THREE.OrthographicCamera(
 			-sizes.width / 2,
 			sizes.width / 2,
@@ -68,6 +70,14 @@
 		);
 		camera.position.set(1.5, 0, 2);
 		scene.add(camera);
+
+		// const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
+		// camera.position.set(0, 0, 18);
+		// scene.add(camera);
+
+		// // Controls
+		// const controls = new OrbitControls(camera, canvas);
+		// controls.enableDamping = true;
 
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
@@ -81,10 +91,6 @@
 
 		// Mouse tracking
 		const targetMouse = {
-			x: 0,
-			y: 0
-		};
-		const currentMouse = {
 			x: 0,
 			y: 0
 		};
@@ -180,8 +186,10 @@
 		});
 
 		window.addEventListener('mousemove', (event) => {
-			targetMouse.x = event.clientX / sizes.width - 0.5;
-			targetMouse.y = (event.clientY - 56) / sizes.height - 0.5;
+			targetMouse.x = event.clientX / sizes.width;
+			targetMouse.y = (event.clientY - 56) / sizes.height;
+
+			console.log(targetMouse);
 
 			createRandomFirework();
 		});
@@ -193,8 +201,8 @@
 			// Render
 			renderer.render(scene, camera);
 
-			currentMouse.x = lerp(currentMouse.x, targetMouse.x, lerpFactor);
-			currentMouse.y = lerp(currentMouse.y, targetMouse.y, lerpFactor);
+			// currentMouse.x = lerp(currentMouse.x, targetMouse.x, lerpFactor);
+			// currentMouse.y = lerp(currentMouse.y, targetMouse.y, lerpFactor);
 
 			// Call tick again on the next frame
 			window.requestAnimationFrame(tick);

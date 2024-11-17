@@ -4,11 +4,9 @@
 	import GUI from 'lil-gui';
 	import particlesVertexShader from './shaders/vertex.glsl';
 	import particlesFragmentShader from './shaders/fragment.glsl';
-	import gsap from 'gsap';
 
 	$effect(() => {
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-		const gui = new GUI({ width: 340 });
 
 		// Scene
 		const scene = new THREE.Scene();
@@ -32,7 +30,7 @@
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
 			// Materials
-			particles.material.uniforms.uResolution.value.set(
+			particlesMaterial.uniforms.uResolution.value.set(
 				sizes.width * sizes.pixelRatio,
 				sizes.height * sizes.pixelRatio
 			);
@@ -96,7 +94,7 @@
 		// Interactive plane
 		displacement.interactivePlane = new THREE.Mesh(
 			new THREE.PlaneGeometry(10, 10),
-			new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+			new THREE.MeshBasicMaterial()
 		);
 		displacement.interactivePlane.visible = false;
 		scene.add(displacement.interactivePlane);
@@ -117,91 +115,38 @@
 		displacement.texture = new THREE.CanvasTexture(displacement.canvas);
 
 		// Particles
-		const particles: any = {};
+		const particlesGeometry = new THREE.PlaneGeometry(10, 10, 128, 128);
+		particlesGeometry.setIndex(null);
+		particlesGeometry.deleteAttribute('normal');
 
-		particles.geometry = new THREE.PlaneGeometry(10, 10, 256, 256);
-		// particles.geometry.setIndex(null);
-		// particles.geometry.deleteAttribute('normal');
+		const intensitiesArray = new Float32Array(particlesGeometry.attributes.position.count);
+		const anglesArray = new Float32Array(particlesGeometry.attributes.position.count);
 
-		const intensitiesArray = new Float32Array(particles.geometry.attributes.position.count);
-		const anglesArray = new Float32Array(particles.geometry.attributes.position.count);
-
-		for (let i = 0; i < particles.geometry.attributes.position.count; i++) {
+		for (let i = 0; i < particlesGeometry.attributes.position.count; i++) {
 			intensitiesArray[i] = Math.random();
 			anglesArray[i] = Math.random() * Math.PI * 2;
 		}
 
-		particles.geometry.setAttribute('aIntensity', new THREE.BufferAttribute(intensitiesArray, 1));
-		particles.geometry.setAttribute('aAngle', new THREE.BufferAttribute(anglesArray, 1));
+		particlesGeometry.setAttribute('aIntensity', new THREE.BufferAttribute(intensitiesArray, 1));
+		particlesGeometry.setAttribute('aAngle', new THREE.BufferAttribute(anglesArray, 1));
 
-		particles.pictures = [
-			textureLoader.load('/pictures/picture-1.jpg'),
-			textureLoader.load('/pictures/picture-2.png'),
-			textureLoader.load('/pictures/picture-3.png'),
-			textureLoader.load('/pictures/picture-4.png')
-		];
-
-		particles.uColor = new THREE.Color('#ff0000');
-
-		particles.index = 0;
-		particles.transitionSpeed = 1.5;
-
-		particles.material = new THREE.ShaderMaterial({
+		const particlesMaterial = new THREE.ShaderMaterial({
 			vertexShader: particlesVertexShader,
 			fragmentShader: particlesFragmentShader,
+			transparent: true,
 			uniforms: {
 				uResolution: new THREE.Uniform(
 					new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
 				),
-				uPictureTexture: new THREE.Uniform(particles.pictures[particles.index]),
-				uPictureTextureNext: new THREE.Uniform(particles.pictures[0]),
-				uDisplacementTexture: new THREE.Uniform(displacement.texture),
-				uProgress: new THREE.Uniform(particles.transitionSpeed),
-				uColor: new THREE.Uniform(particles.uColor)
+				uPictureTexture: new THREE.Uniform(textureLoader.load('/pictures/picture-4.png')),
+				uDisplacementTexture: new THREE.Uniform(displacement.texture)
 			}
 		});
-		particles.points = new THREE.Points(particles.geometry, particles.material);
-		scene.add(particles.points);
 
-		particles.changeImage = (index: number) => {
-			// Update uniforms
-			particles.material.uniforms.uPictureTexture.value = particles.pictures[particles.index];
-			particles.material.uniforms.uPictureTextureNext.value = particles.pictures[index];
+		const planeGeometry = new THREE.PlaneGeometry(10, 10, 128, 128);
 
-			gsap.fromTo(
-				particles.material.uniforms.uProgress,
-				{ value: 0 },
-				{ value: 1, duration: particles.transitionSpeed, ease: 'linear' }
-			);
-
-			particles.index = index;
-		};
-
-		particles.changePicture1 = () => {
-			particles.changeImage(0);
-		};
-		particles.changePicture2 = () => {
-			particles.changeImage(1);
-		};
-		particles.changePicture3 = () => {
-			particles.changeImage(2);
-		};
-		particles.changePicture4 = () => {
-			particles.changeImage(3);
-		};
-
-		gui.add(particles, 'transitionSpeed', 0.25, 4, 0.01).name('Transition Speed');
-
-		gui.add(particles.material.uniforms.uProgress, 'value', 0, 1, 0.001).name('Progress').listen();
-
-		gui.addColor(particles, 'uColor').onChange(() => {
-			particles.material.uniforms.uColor.value.set(particles.uColor);
-		});
-
-		gui.add(particles, 'changePicture1').name('Picture 1');
-		gui.add(particles, 'changePicture2').name('Picture 2');
-		gui.add(particles, 'changePicture3').name('Picture 3');
-		gui.add(particles, 'changePicture4').name('Picture 4');
+		const particles = new THREE.Mesh(planeGeometry, particlesMaterial);
+		scene.add(particles);
 
 		/**
 		 * Animate
@@ -220,7 +165,7 @@
 				displacement.canvasCursor.x = uv.x * displacement.canvas.width;
 				displacement.canvasCursor.y = (1 - uv.y) * displacement.canvas.height;
 
-				// console.log(displacement.canvasCursor);
+				console.log(displacement.canvasCursor);
 			}
 
 			// Displacement
@@ -241,7 +186,7 @@
 			// Texture
 			displacement.texture.needsUpdate = true;
 
-			const glowSize = displacement.canvas.width * 0.25;
+			const glowSize = displacement.canvas.width * 0.15;
 			displacement.context.globalCompositeOperation = 'lighten';
 			displacement.context.drawImage(
 				displacement.glowImage,

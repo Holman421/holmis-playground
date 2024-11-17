@@ -98,6 +98,7 @@
 				const positions = [...gltf.scene.children, star.scene.children[0]].map(
 					(child: any) => child.geometry.attributes.position
 				);
+
 				for (const position of positions) {
 					if (position.count > particles.maxCount) {
 						particles.maxCount = position.count;
