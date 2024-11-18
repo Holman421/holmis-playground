@@ -8,6 +8,7 @@
 
 	$effect(() => {
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+		const canvasContainer = document.querySelector('.canvas-container') as HTMLDivElement;
 		const gui = new GUI({ width: 340 });
 
 		// Scene
@@ -20,22 +21,26 @@
 		 * Sizes
 		 */
 		const sizes = {
-			width: window.innerWidth,
-			height: window.innerHeight - 56,
+			// width: window.innerWidth,
+			// height: window.innerHeight - 56,
+			width: window.innerHeight / 1.25,
+			height: window.innerHeight / 1.25,
 			pixelRatio: Math.min(window.devicePixelRatio, 2)
 		};
 
 		window.addEventListener('resize', () => {
 			// Update sizes
-			sizes.width = window.innerWidth;
-			sizes.height = window.innerHeight - 56;
+			// sizes.width = window.innerWidth;
+			// sizes.height = window.innerHeight - 56;
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
 			// Materials
-			particles.material.uniforms.uResolution.value.set(
-				sizes.width * sizes.pixelRatio,
-				sizes.height * sizes.pixelRatio
-			);
+			if (particles.material) {
+				particles.material.uniforms.uResolution.value.set(
+					sizes.width * sizes.pixelRatio,
+					sizes.height * sizes.pixelRatio
+				);
+			}
 
 			// Update camera
 			camera.aspect = sizes.width / sizes.height;
@@ -55,17 +60,18 @@
 		scene.add(camera);
 
 		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
+		// const controls = new OrbitControls(camera, canvas);
+		// controls.enableDamping = true;
 
 		/**
 		 * Renderer
 		 */
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
-			antialias: true
+			antialias: true,
+			alpha: true
 		});
-		renderer.setClearColor('#181818');
+		// renderer.setClearColor('red');
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
@@ -80,6 +86,7 @@
 		displacement.canvas.style.top = '56px';
 		displacement.canvas.style.left = 0;
 		displacement.canvas.style.zIndex = 10;
+		displacement.canvas.style.visibility = 'hidden';
 		document.body.append(displacement.canvas);
 
 		// Context
@@ -96,32 +103,71 @@
 		// Interactive plane
 		displacement.interactivePlane = new THREE.Mesh(
 			new THREE.PlaneGeometry(10, 10),
-			new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+			new THREE.MeshBasicMaterial()
 		);
 		displacement.interactivePlane.visible = false;
+		// displacement.interactivePlane.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI * -0.1);
 		scene.add(displacement.interactivePlane);
 
 		// Raycaster
 		displacement.raycaster = new THREE.Raycaster();
-
 		displacement.screenCursor = new THREE.Vector2(9999, 9999);
 		displacement.canvasCursor = new THREE.Vector2(9999, 9999);
 		displacement.canvasCursorPrevious = new THREE.Vector2(9999, 9999);
 
-		window.addEventListener('pointermove', (event) => {
-			displacement.screenCursor.x = (event.clientX / sizes.width) * 2 - 1;
-			displacement.screenCursor.y = -((event.clientY - 56) / sizes.height) * 2 + 1;
+		canvasContainer.addEventListener('pointermove', (event) => {
+			const rect = canvas.getBoundingClientRect(); // Get canvas position
+			displacement.screenCursor.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+			displacement.screenCursor.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+			console.log(displacement.screenCursor.x, displacement.screenCursor.y);
 		});
 
 		// Texture
 		displacement.texture = new THREE.CanvasTexture(displacement.canvas);
 
-		// Particles
-		const particles: any = {};
+		interface Particles {
+			geometry: THREE.PlaneGeometry;
+			uColor: THREE.Color;
+			index: number;
+			transitionSpeed: number;
+			cursorSize: number;
+			totalDisplacement: number;
+			applyDisplacementTransition: boolean;
+			pictures: THREE.Texture[];
+			material: THREE.ShaderMaterial | null;
+			points?: THREE.Points;
+			changeImage: (index: number) => void;
+			changePicture1: () => void;
+			changePicture2: () => void;
+			changePicture3: () => void;
+			changePicture4: () => void;
+		}
 
-		particles.geometry = new THREE.PlaneGeometry(10, 10, 256, 256);
-		// particles.geometry.setIndex(null);
-		// particles.geometry.deleteAttribute('normal');
+		const particles: Particles = {
+			geometry: new THREE.PlaneGeometry(10, 10, 256, 256),
+			uColor: new THREE.Color('#ff0000'),
+			index: 3,
+			transitionSpeed: 1.5,
+			cursorSize: 0.25,
+			totalDisplacement: 0,
+			applyDisplacementTransition: false,
+			pictures: [
+				textureLoader.load('/pictures/picture-1.jpg'),
+				textureLoader.load('/pictures/picture-2.png'),
+				textureLoader.load('/pictures/picture-3.png'),
+				textureLoader.load('/pictures/picture-4.png')
+			],
+			material: null,
+			changeImage: () => {},
+			changePicture1: () => {},
+			changePicture2: () => {},
+			changePicture3: () => {},
+			changePicture4: () => {}
+		};
+
+		particles.geometry.setIndex(null);
+		particles.geometry.deleteAttribute('normal');
 
 		const intensitiesArray = new Float32Array(particles.geometry.attributes.position.count);
 		const anglesArray = new Float32Array(particles.geometry.attributes.position.count);
@@ -134,19 +180,6 @@
 		particles.geometry.setAttribute('aIntensity', new THREE.BufferAttribute(intensitiesArray, 1));
 		particles.geometry.setAttribute('aAngle', new THREE.BufferAttribute(anglesArray, 1));
 
-		particles.pictures = [
-			textureLoader.load('/pictures/picture-1.jpg'),
-			textureLoader.load('/pictures/picture-2.png'),
-			textureLoader.load('/pictures/picture-3.png'),
-			textureLoader.load('/pictures/picture-4.png')
-		];
-
-		particles.uColor = new THREE.Color('#ff0000');
-
-		particles.index = 3;
-		particles.transitionSpeed = 1.5;
-		particles.cursorSize = 0.25;
-
 		particles.material = new THREE.ShaderMaterial({
 			vertexShader: particlesVertexShader,
 			fragmentShader: particlesFragmentShader,
@@ -158,13 +191,18 @@
 				uPictureTextureNext: new THREE.Uniform(particles.pictures[3]),
 				uDisplacementTexture: new THREE.Uniform(displacement.texture),
 				uProgress: new THREE.Uniform(particles.transitionSpeed),
-				uColor: new THREE.Uniform(particles.uColor)
+				uColor: new THREE.Uniform(particles.uColor),
+				uTotalDisplacement: new THREE.Uniform(particles.totalDisplacement)
 			}
 		});
+
 		particles.points = new THREE.Points(particles.geometry, particles.material);
+		// particles.points.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI * -0.1);
 		scene.add(particles.points);
 
 		particles.changeImage = (index: number) => {
+			if (!particles.material) return;
+
 			// Update uniforms
 			particles.material.uniforms.uPictureTexture.value = particles.pictures[particles.index];
 			particles.material.uniforms.uPictureTextureNext.value = particles.pictures[index];
@@ -175,43 +213,69 @@
 				{ value: 1, duration: particles.transitionSpeed, ease: 'linear' }
 			);
 
+			if (particles.applyDisplacementTransition) {
+				gsap.fromTo(
+					particles.material.uniforms.uTotalDisplacement,
+					{ value: 0 },
+					{
+						value: 0.25,
+						duration: particles.transitionSpeed / 2,
+						ease: 'linear',
+						repeat: 1,
+						yoyo: true
+					}
+				);
+			}
+
 			particles.index = index;
 		};
 
-		particles.changePicture1 = () => {
-			particles.changeImage(0);
-		};
-		particles.changePicture2 = () => {
-			particles.changeImage(1);
-		};
-		particles.changePicture3 = () => {
-			particles.changeImage(2);
-		};
-		particles.changePicture4 = () => {
-			particles.changeImage(3);
-		};
+		particles.changePicture1 = () => particles.changeImage(0);
+		particles.changePicture2 = () => particles.changeImage(1);
+		particles.changePicture3 = () => particles.changeImage(2);
+		particles.changePicture4 = () => particles.changeImage(3);
 
+		// Add GUI controls
 		gui.add(particles, 'transitionSpeed', 0.25, 4, 0.01).name('Transition Speed');
-
 		gui.add(particles.material.uniforms.uProgress, 'value', 0, 1, 0.001).name('Progress').listen();
-
 		gui.addColor(particles, 'uColor').onChange(() => {
-			particles.material.uniforms.uColor.value.set(particles.uColor);
+			if (particles.material) {
+				particles.material.uniforms.uColor.value.set(particles.uColor);
+			}
 		});
-
 		gui.add(particles, 'changePicture1').name('Picture 1');
 		gui.add(particles, 'changePicture2').name('Picture 2');
 		gui.add(particles, 'changePicture3').name('Picture 3');
 		gui.add(particles, 'changePicture4').name('Picture 4');
+		gui.add(particles, 'cursorSize', 0.1, 1, 0.01).name('Cursor Size');
+		gui
+			.add(particles, 'totalDisplacement', 0, 2, 0.001)
+			.name('Total Displacement')
+			.onChange(() => {
+				if (particles.material) {
+					particles.material.uniforms.uTotalDisplacement.value = particles.totalDisplacement;
+				}
+			});
+		gui.add(particles, 'applyDisplacementTransition').name('Apply Displacement Transition');
 
-		gui.add(particles, 'cursorSize', 0.1, 1, 0.01).name('Cursor size');
+		if (particles.material) {
+			gsap.fromTo(
+				particles.material.uniforms.uTotalDisplacement,
+				{ value: 1 },
+				{
+					value: 0,
+					duration: particles.transitionSpeed,
+					ease: 'linear',
+					onUpdate: () => {
+						particles.totalDisplacement = particles.material!.uniforms.uTotalDisplacement.value;
+					}
+				}
+			);
+		}
 
-		/**
-		 * Animate
-		 */
+		//Animate
 		const tick = () => {
-			// Update controls
-			controls.update();
+			// controls.update();
 
 			// Raycaster
 			displacement.raycaster.setFromCamera(displacement.screenCursor, camera);
@@ -222,8 +286,6 @@
 
 				displacement.canvasCursor.x = uv.x * displacement.canvas.width;
 				displacement.canvasCursor.y = (1 - uv.y) * displacement.canvas.height;
-
-				// console.log(displacement.canvasCursor);
 			}
 
 			// Displacement
@@ -254,10 +316,8 @@
 				glowSize
 			);
 
-			// Render
 			renderer.render(scene, camera);
 
-			// Call tick again on the next frame
 			window.requestAnimationFrame(tick);
 		};
 
@@ -265,12 +325,9 @@
 	});
 </script>
 
-<div>
-	<!-- <div
-		id="container"
-		class="absolute left-[56px] top-[56px] z-10 w-[512px] h-[512px] bg-red text-red-500"
-	>
-		Bro wtf
-	</div> -->
-	<canvas class="webgl"></canvas>
+<div class="canvas-container h-[200vh] relative">
+	<div class="fixed w-screen h-[calc(100vh-56px)]">
+		<canvas class="webgl left-40 top-[50%] absolute -translate-y-1/2"></canvas>
+	</div>
 </div>
+<div class=" mb-20"></div>

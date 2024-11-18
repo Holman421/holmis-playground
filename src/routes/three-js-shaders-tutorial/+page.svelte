@@ -34,6 +34,7 @@
 			// Calculate mouse position from 0 to 1 across entire screen
 			targetMousePosition.x = event.clientX / window.innerWidth;
 			targetMousePosition.y = 1 - event.clientY / window.innerHeight; // Invert Y so 0 is bottom, 1 is top
+			console.log(targetMousePosition);
 		});
 
 		// Geometry

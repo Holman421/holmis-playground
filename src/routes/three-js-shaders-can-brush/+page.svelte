@@ -9,95 +9,70 @@
 	import type { ThemeConfig } from 'tailwindcss/types/config';
 
 	$effect(() => {
-		// Debug
+		// Setup
 		const gui = new GUI({ width: 340 });
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-
-		// Scene
 		const scene = new THREE.Scene();
-
-		// Loaders
 		const textureLoader = new THREE.TextureLoader();
-
-		let lerpFactor = 0.1; // Adjust this value to change smoothing (0-1)
-		function lerp(start: number, end: number, t: number): number {
-			return start + (end - start) * t;
-		}
-
-		// Sizes
 		const sizes: any = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56,
 			pixelRatio: Math.min(window.devicePixelRatio, 2)
 		};
-
 		sizes.resolution = new THREE.Vector2(
 			sizes.width * sizes.pixelRatio,
 			sizes.height * sizes.pixelRatio
 		);
-
 		window.addEventListener('resize', () => {
 			// Update sizes
 			sizes.width = window.innerWidth;
 			sizes.height = window.innerHeight - 56;
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 			sizes.resolution.set(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio);
-
-			//			Update camera
-			camera.left = -sizes.width / 2;
-			camera.right = sizes.width / 2;
-			camera.top = sizes.height / 2;
-			camera.bottom = -sizes.height / 2;
+			// Update camera
+			camera.aspect = sizes.width / sizes.height;
 			camera.updateProjectionMatrix();
-			// camera.aspect = sizes.width / sizes.height;
-			// camera.updateProjectionMatrix();
-
 			// Update renderer
 			renderer.setSize(sizes.width, sizes.height);
 			renderer.setPixelRatio(sizes.pixelRatio);
 		});
-
-		//Camera;
-		const camera = new THREE.OrthographicCamera(
-			-sizes.width / 2,
-			sizes.width / 2,
-			sizes.height / 2,
-			-sizes.height / 2,
-			0.1,
-			100
-		);
-		camera.position.set(1.5, 0, 2);
+		// Camera
+		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
+		camera.position.set(0, 0, 7);
 		scene.add(camera);
-
-		// const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		// camera.position.set(0, 0, 18);
-		// scene.add(camera);
-
-		// // Controls
+		// Controls
 		// const controls = new OrbitControls(camera, canvas);
 		// controls.enableDamping = true;
-
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
-			antialias: true
+			antialias: true,
+			alpha: true
 		});
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
 		const canBrushTexture = textureLoader.load('/particles/3.png');
 
-		// Mouse tracking
-		const targetMouse = {
-			x: 0,
-			y: 0
+		const cursor = {
+			interactivePlane: new THREE.Mesh(
+				new THREE.PlaneGeometry(10, 10),
+				new THREE.MeshBasicMaterial({ color: 'red', opacity: 0.2, transparent: true })
+			),
+			raycaster: new THREE.Raycaster(),
+			screenCursor: new THREE.Vector2(9999, 9999),
+			planeCursor: new THREE.Vector2(9999, 9999)
 		};
+		cursor.interactivePlane.visible = false;
+		scene.add(cursor.interactivePlane);
+
+		document.addEventListener('pointermove', (event) => {
+			cursor.screenCursor.x = (event.clientX / sizes.width) * 2 - 1;
+			cursor.screenCursor.y = -((event.clientY - 56) / sizes.height) * 2 + 1;
+		});
 
 		// Fireworks
 		const createFirework = (
-			count: number,
 			position: any,
 			size: number,
 			texture: any,
@@ -105,33 +80,19 @@
 			color: THREE.Color,
 			mousPosition: THREE.Vector2
 		) => {
-			const positionsArray = new Float32Array(count * 2);
-			const sizesArray = new Float32Array(count);
-			const timeMultiplierArray = new Float32Array(count);
+			const positionsArray = new Float32Array(3);
+			positionsArray[0] = 0.0;
+			positionsArray[1] = 0.0;
+			positionsArray[2] = 0.0;
 
-			for (let i = 0; i < count; i++) {
-				const i2 = i * 2;
+			const timeMultiplierArray = new Float32Array(1);
 
-				const spherical = new THREE.Spherical(
-					radius * Math.pow(Math.random(), 3),
-					Math.random() * Math.PI,
-					Math.random() * Math.PI * 2
-				);
-
-				const position = new THREE.Vector3();
-				position.setFromSpherical(spherical);
-
-				positionsArray[i2 + 0] = position.x;
-				positionsArray[i2 + 1] = position.y;
-				// positionsArray[i3 + 2] = position.z;
-
-				sizesArray[i] = 1;
+			for (let i = 0; i < 1; i++) {
 				timeMultiplierArray[i] = 1 + Math.random();
 			}
 
 			const geometry = new THREE.BufferGeometry();
-			geometry.setAttribute('position', new THREE.BufferAttribute(positionsArray, 2));
-			geometry.setAttribute('aSize', new THREE.BufferAttribute(sizesArray, 1));
+			geometry.setAttribute('position', new THREE.BufferAttribute(positionsArray, 3));
 			geometry.setAttribute('aTimeMultiplier', new THREE.BufferAttribute(timeMultiplierArray, 1));
 
 			texture.flipY = false;
@@ -139,7 +100,7 @@
 				vertexShader: VertexShader,
 				fragmentShader: FragmentShader,
 				transparent: true,
-				// depthWrite: false,
+				depthWrite: false,
 				// blending: THREE.AdditiveBlending,
 				uniforms: {
 					uSize: new THREE.Uniform(size),
@@ -170,15 +131,14 @@
 		};
 
 		const createRandomFirework = () => {
-			const count = 1;
 			const position = new THREE.Vector3(-2, 0, 1);
 			const size = 0.1 + Math.random() * 0.1;
 			const texture = canBrushTexture;
 			const radius = 0.5 + Math.random();
 			const color = new THREE.Color();
 			color.setRGB(0.5, 0.0, 0.6);
-			const mousePosition = new THREE.Vector2(targetMouse.x, targetMouse.y);
-			createFirework(count, position, size, texture, radius, color, mousePosition);
+			const mousePosition = new THREE.Vector2(cursor.planeCursor.x, cursor.planeCursor.y);
+			createFirework(position, size, texture, radius, color, mousePosition);
 		};
 
 		window.addEventListener('click', (event) => {
@@ -186,11 +146,6 @@
 		});
 
 		window.addEventListener('mousemove', (event) => {
-			targetMouse.x = event.clientX / sizes.width;
-			targetMouse.y = (event.clientY - 56) / sizes.height;
-
-			console.log(targetMouse);
-
 			createRandomFirework();
 		});
 
@@ -198,13 +153,21 @@
 		 * Animate
 		 */
 		const tick = () => {
-			// Render
 			renderer.render(scene, camera);
+			// controls.update();
 
-			// currentMouse.x = lerp(currentMouse.x, targetMouse.x, lerpFactor);
-			// currentMouse.y = lerp(currentMouse.y, targetMouse.y, lerpFactor);
+			cursor.raycaster.setFromCamera(cursor.screenCursor, camera);
+			const intersections = cursor.raycaster.intersectObject(cursor.interactivePlane);
 
-			// Call tick again on the next frame
+			// console.log(intersections);
+
+			if (intersections.length) {
+				const uv = intersections[0].uv!;
+
+				cursor.planeCursor.x = uv.x - 0.5;
+				cursor.planeCursor.y = 0.5 - uv.y;
+			}
+
 			window.requestAnimationFrame(tick);
 		};
 
