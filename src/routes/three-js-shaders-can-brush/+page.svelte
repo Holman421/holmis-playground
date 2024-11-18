@@ -4,9 +4,7 @@
 	import GUI from 'lil-gui';
 	import VertexShader from './shaders/firework/vertex.glsl';
 	import FragmentShader from './shaders/firework/fragment.glsl';
-	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 	import { gsap } from 'gsap';
-	import type { ThemeConfig } from 'tailwindcss/types/config';
 
 	$effect(() => {
 		// Setup
@@ -27,7 +25,7 @@
 			// Update sizes
 			sizes.width = window.innerWidth;
 			sizes.height = window.innerHeight - 56;
-			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
+			sizes.pixelRatio = Math.min(window.devicePixelRatio, 1);
 			sizes.resolution.set(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio);
 			// Update camera
 			camera.aspect = sizes.width / sizes.height;
