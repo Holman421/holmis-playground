@@ -53,7 +53,7 @@
 		let lastMousePosition = new THREE.Vector2(9999, 9999);
 		let isFirstMove = true;
 
-		const canBrushTexture = textureLoader.load('/particles/3.png');
+		const canBrushTexture = textureLoader.load('/particles/3.jpg');
 
 		const cursor = {
 			interactivePlane: new THREE.Mesh(
@@ -124,7 +124,7 @@
 			};
 
 			gsap.to(material.uniforms.uProgress, {
-				duration: 2,
+				duration: 3,
 				value: 1,
 				ease: 'linear',
 				onComplete: destroy

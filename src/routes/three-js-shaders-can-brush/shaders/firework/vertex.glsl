@@ -4,16 +4,13 @@ uniform float uProgress;
 uniform vec2 uMousePosition;
 
 attribute float aTimeMultiplier;
-attribute float aRotation; // New attribute for random rotation
 
 varying float vProgress;
-varying vec2 vUv; // New varying for rotated UVs
+varying float vRotation;  // Add this to pass rotation to fragment shader
 
-// Rotation matrix helper function
-mat2 rotate2d(float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    return mat2(c, -s, s, c);
+// Hash function to generate pseudo-random values
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
 void main() {
@@ -29,17 +26,14 @@ void main() {
     vec4 viewPosition = viewMatrix * modelPosition;
     gl_Position = projectionMatrix * viewPosition;
 
+    // Generate rotation based on position and progress
+    vRotation = random(modelPosition.xy) * 3.14159 * 2.0;
+
     gl_PointSize = uSize * uResolution.y * 0.5;
 
     if(gl_PointSize < 1.0) {
         gl_Position = vec4(9999.0);
     }
-
-    // Calculate rotated UV coordinates
-    vec2 uv = position.xy; // Original position as UV
-    // Rotate UVs around center point (0.5, 0.5)
-    vec2 rotatedUv = rotate2d(aRotation) * (uv - 0.5) + 0.5;
-    vUv = rotatedUv;
 
     vProgress = progress;
 }
