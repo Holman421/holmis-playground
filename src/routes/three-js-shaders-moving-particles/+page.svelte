@@ -30,8 +30,8 @@
 
 		window.addEventListener('resize', () => {
 			// Update sizes
-			// sizes.width = window.innerWidth;
-			// sizes.height = window.innerHeight - 56;
+			sizes.width = window.innerHeight / 1.25;
+			sizes.height = window.innerHeight / 1.25;
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
 			// Materials
@@ -119,8 +119,6 @@
 			const rect = canvas.getBoundingClientRect(); // Get canvas position
 			displacement.screenCursor.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
 			displacement.screenCursor.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-			console.log(displacement.screenCursor.x, displacement.screenCursor.y);
 		});
 
 		// Texture

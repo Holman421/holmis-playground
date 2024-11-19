@@ -50,6 +50,9 @@
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
+		let lastMousePosition = new THREE.Vector2(9999, 9999);
+		let isFirstMove = true;
+
 		const canBrushTexture = textureLoader.load('/particles/3.png');
 
 		const cursor = {
@@ -71,12 +74,11 @@
 
 		// Fireworks
 		const createFirework = (
-			position: any,
+			position: THREE.Vector3,
 			size: number,
-			texture: any,
-			radius: number,
+			texture: THREE.Texture,
 			color: THREE.Color,
-			mousPosition: THREE.Vector2
+			mousePosition: THREE.Vector2
 		) => {
 			const positionsArray = new Float32Array(3);
 			positionsArray[0] = 0.0;
@@ -84,14 +86,16 @@
 			positionsArray[2] = 0.0;
 
 			const timeMultiplierArray = new Float32Array(1);
+			timeMultiplierArray[0] = 1 + Math.random();
 
-			for (let i = 0; i < 1; i++) {
-				timeMultiplierArray[i] = 1 + Math.random();
-			}
+			// Create random rotation array
+			const rotationArray = new Float32Array(1);
+			rotationArray[0] = Math.random() * Math.PI * 2; // Random rotation between 0 and 2π
 
 			const geometry = new THREE.BufferGeometry();
 			geometry.setAttribute('position', new THREE.BufferAttribute(positionsArray, 3));
 			geometry.setAttribute('aTimeMultiplier', new THREE.BufferAttribute(timeMultiplierArray, 1));
+			geometry.setAttribute('aRotation', new THREE.BufferAttribute(rotationArray, 1));
 
 			texture.flipY = false;
 			const material = new THREE.ShaderMaterial({
@@ -99,14 +103,13 @@
 				fragmentShader: FragmentShader,
 				transparent: true,
 				depthWrite: false,
-				// blending: THREE.AdditiveBlending,
 				uniforms: {
 					uSize: new THREE.Uniform(size),
 					uResolution: new THREE.Uniform(sizes.resolution),
 					uTexture: new THREE.Uniform(texture),
 					uColor: new THREE.Uniform(color),
 					uProgress: new THREE.Uniform(0),
-					uMousePosition: new THREE.Uniform(mousPosition)
+					uMousePosition: new THREE.Uniform(mousePosition)
 				}
 			});
 
@@ -128,23 +131,61 @@
 			});
 		};
 
-		const createRandomFirework = () => {
-			const position = new THREE.Vector3(-2, 0, 1);
-			const size = 0.1 + Math.random() * 0.1;
-			const texture = canBrushTexture;
-			const radius = 0.5 + Math.random();
-			const color = new THREE.Color();
-			color.setRGB(0.5, 0.0, 0.6);
-			const mousePosition = new THREE.Vector2(cursor.planeCursor.x, cursor.planeCursor.y);
-			createFirework(position, size, texture, radius, color, mousePosition);
+		const interpolatePoints = (
+			start: THREE.Vector2,
+			end: THREE.Vector2,
+			steps: number
+		): THREE.Vector2[] => {
+			const points: THREE.Vector2[] = [];
+			for (let i = 0; i <= steps; i++) {
+				const t = i / steps;
+				points.push(
+					new THREE.Vector2(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t)
+				);
+			}
+			return points;
 		};
 
-		window.addEventListener('click', (event) => {
-			createRandomFirework();
+		window.addEventListener('mousemove', (event) => {
+			cursor.screenCursor.x = (event.clientX / sizes.width) * 2 - 1;
+			cursor.screenCursor.y = -((event.clientY - 56) / sizes.height) * 2 + 1;
+
+			// Update raycaster and get new cursor position
+			cursor.raycaster.setFromCamera(cursor.screenCursor, camera);
+			const intersections = cursor.raycaster.intersectObject(cursor.interactivePlane);
+
+			if (intersections.length) {
+				const uv = intersections[0].uv!;
+				const currentPosition = new THREE.Vector2(uv.x - 0.5, 0.5 - uv.y);
+
+				if (!isFirstMove) {
+					// Calculate distance between last and current position
+					const distance = currentPosition.distanceTo(lastMousePosition);
+
+					// Determine number of steps based on distance
+					const minDistance = 0.01; // Minimum distance between points
+					const steps = Math.max(1, Math.ceil(distance / minDistance));
+
+					// Generate interpolated points
+					const points = interpolatePoints(lastMousePosition, currentPosition, steps);
+
+					// Create fireworks for each interpolated point
+					points.forEach((point) => {
+						const position = new THREE.Vector3(-2, 0, 1);
+						const size = 0.125 + Math.random() * 0.05;
+						const color = new THREE.Color(0.5, 0.0, 0.6);
+						createFirework(position, size, canBrushTexture, color, point);
+					});
+				}
+
+				lastMousePosition.copy(currentPosition);
+				isFirstMove = false;
+			}
 		});
 
-		window.addEventListener('mousemove', (event) => {
-			createRandomFirework();
+		// Reset first move flag when mouse leaves window
+		window.addEventListener('mouseout', () => {
+			isFirstMove = true;
 		});
 
 		/**
