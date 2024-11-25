@@ -38,9 +38,6 @@
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
 		camera.position.set(0, 0, 7);
 		scene.add(camera);
-		// Controls
-		// const controls = new OrbitControls(camera, canvas);
-		// controls.enableDamping = true;
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
@@ -49,9 +46,6 @@
 		});
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
-
-		let lastMousePosition = new THREE.Vector2(9999, 9999);
-		let isFirstMove = true;
 
 		const canBrushTexture = textureLoader.load('/particles/3.jpg');
 
@@ -62,7 +56,9 @@
 			),
 			raycaster: new THREE.Raycaster(),
 			screenCursor: new THREE.Vector2(9999, 9999),
-			planeCursor: new THREE.Vector2(9999, 9999)
+			planeCursor: new THREE.Vector2(9999, 9999),
+			isFirstMove: true,
+			lastMousePosition: new THREE.Vector2(9999, 9999)
 		};
 		cursor.interactivePlane.visible = false;
 		scene.add(cursor.interactivePlane);
@@ -72,8 +68,8 @@
 			cursor.screenCursor.y = -((event.clientY - 56) / sizes.height) * 2 + 1;
 		});
 
-		// Fireworks
-		const createFirework = (
+		// Create one individual can spray texture
+		const createCanSpray = (
 			position: THREE.Vector3,
 			size: number,
 			texture: THREE.Texture,
@@ -88,9 +84,8 @@
 			const timeMultiplierArray = new Float32Array(1);
 			timeMultiplierArray[0] = 1 + Math.random();
 
-			// Create random rotation array
 			const rotationArray = new Float32Array(1);
-			rotationArray[0] = Math.random() * Math.PI * 2; // Random rotation between 0 and 2π
+			rotationArray[0] = Math.random() * Math.PI * 2;
 
 			const geometry = new THREE.BufferGeometry();
 			geometry.setAttribute('position', new THREE.BufferAttribute(positionsArray, 3));
@@ -131,6 +126,7 @@
 			});
 		};
 
+		// Get array of vec2 coordinates to later render canSprays inbetween coordinations from mousemove event
 		const interpolatePoints = (
 			start: THREE.Vector2,
 			end: THREE.Vector2,
@@ -158,47 +154,42 @@
 				const uv = intersections[0].uv!;
 				const currentPosition = new THREE.Vector2(uv.x - 0.5, 0.5 - uv.y);
 
-				if (!isFirstMove) {
+				if (!cursor.isFirstMove) {
 					// Calculate distance between last and current position
-					const distance = currentPosition.distanceTo(lastMousePosition);
+					const distance = currentPosition.distanceTo(cursor.lastMousePosition);
 
 					// Determine number of steps based on distance
 					const minDistance = 0.01; // Minimum distance between points
 					const steps = Math.max(1, Math.ceil(distance / minDistance));
 
 					// Generate interpolated points
-					const points = interpolatePoints(lastMousePosition, currentPosition, steps);
+					const points = interpolatePoints(cursor.lastMousePosition, currentPosition, steps);
 
 					// Create fireworks for each interpolated point
 					points.forEach((point) => {
 						const position = new THREE.Vector3(-2, 0, 1);
 						const size = 0.125 + Math.random() * 0.05;
 						const color = new THREE.Color(0.5, 0.0, 0.6);
-						createFirework(position, size, canBrushTexture, color, point);
+						createCanSpray(position, size, canBrushTexture, color, point);
 					});
 				}
 
-				lastMousePosition.copy(currentPosition);
-				isFirstMove = false;
+				cursor.lastMousePosition.copy(currentPosition);
+				cursor.isFirstMove = false;
 			}
 		});
 
 		// Reset first move flag when mouse leaves window
 		window.addEventListener('mouseout', () => {
-			isFirstMove = true;
+			cursor.isFirstMove = true;
 		});
 
-		/**
-		 * Animate
-		 */
+		//Animate
 		const tick = () => {
 			renderer.render(scene, camera);
-			// controls.update();
 
 			cursor.raycaster.setFromCamera(cursor.screenCursor, camera);
 			const intersections = cursor.raycaster.intersectObject(cursor.interactivePlane);
-
-			// console.log(intersections);
 
 			if (intersections.length) {
 				const uv = intersections[0].uv!;
