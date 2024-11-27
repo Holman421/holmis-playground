@@ -14,7 +14,7 @@ void main() {
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
 
     // Spin
-    float angle = atan(modelPosition.x, modelPosition.y);
+    float angle = atan(modelPosition.x, modelPosition.z);
     float distanceToCenter = length(modelPosition.xy);
     float angleOffset = (1.0 / distanceToCenter) * uTime * 0.2;
     angle += angleOffset;

@@ -95,7 +95,7 @@
 
 		// Glow image
 		displacement.glowImage = new Image();
-		displacement.glowImage.src = '/particles/3.jpg';
+		displacement.glowImage.src = '/particles/3-old.png';
 		displacement.glowImage.onload = () => {
 			// displacement.context.drawImage(displacement.glowImage, 20, 20, 32, 32);
 		};

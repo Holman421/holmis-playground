@@ -30,12 +30,12 @@
 			count: 200000,
 			size: 0.001,
 			radius: 5,
-			branches: 6,
-			spin: 0.0,
+			branches: 5,
+			spin: 0,
 			randomness: 0.65,
-			branchSaturation: 5.3,
+			branchSaturation: 4.3,
 			centerSaturation: 4.5,
-			rotationSpeed: 0.5,
+			rotationSpeed: 0.05,
 			insideColor: '#318CE7',
 			outsideColor: '#E3963E',
 			centralStarCount: 15000 // New parameter for additional stars in the center
@@ -63,7 +63,6 @@
 			const positions = new Float32Array((parameters.count + parameters.centralStarCount) * 3);
 			const scales = new Float32Array(parameters.count * 1);
 			const colors = new Float32Array((parameters.count + parameters.centralStarCount) * 3);
-			const randomness = new Float32Array(parameters.count * 3);
 
 			const colorInside = new THREE.Color(parameters.insideColor);
 			const colorOutside = new THREE.Color(parameters.outsideColor);
@@ -93,13 +92,9 @@
 					parameters.randomness *
 					radius;
 
-				randomness[i3 + 0] = randomX;
-				randomness[i3 + 1] = randomY;
-				randomness[i3 + 2] = randomZ;
-
-				positions[i3 + 0] = Math.cos(branchAngle + spinAngle) * radius;
-				positions[i3 + 1] = 0;
-				positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius;
+				positions[i3 + 0] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+				positions[i3 + 1] = randomY / 2;
+				positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
 
 				scales[i] = Math.random();
 
@@ -127,7 +122,6 @@
 			geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 			geometry.setAttribute('aScale', new THREE.BufferAttribute(positions, 1));
 			geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-			geometry.setAttribute('aRandomness', new THREE.BufferAttribute(randomness, 3));
 
 			material = new THREE.ShaderMaterial({
 				depthWrite: false,
