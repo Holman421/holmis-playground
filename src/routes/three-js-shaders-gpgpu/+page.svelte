@@ -6,7 +6,6 @@
 	import particlesFragmentShader from './shaders/fragment.glsl';
 	import gpgpuParticlesShader from './shaders/gpgpu/particles.glsl';
 	import { DRACOLoader, GLTFLoader, GPUComputationRenderer } from 'three/examples/jsm/Addons.js';
-	import gsap from 'gsap';
 
 	$effect(() => {
 		const gui = new GUI({ width: 340 });

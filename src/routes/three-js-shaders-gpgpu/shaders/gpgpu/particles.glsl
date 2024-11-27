@@ -5,7 +5,7 @@ uniform float uFlowFieldInfluence;
 uniform float uFlowFieldStrength;
 uniform float uFlowFieldFrequency;
 
-#include ./simplexNoise4D.glsl
+#include ./simplexNoise4d.glsl
 
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution.xy;
