@@ -169,5 +169,12 @@ export const projects = [
 		description: 'Scene with 3D earth model',
 		technologies: ['THREE.js', 'Shaders', 'Texture'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-gpgpu',
+		title: 'GPGPU Technique',
+		description: 'Scene with particle model elevated with GPGPU technique',
+		technologies: ['THREE.js', 'Shaders', 'GPGPU'],
+		shared: true
 	}
 ];
