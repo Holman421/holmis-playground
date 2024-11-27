@@ -1,11 +1,11 @@
-#include ./simplexNoise4D.glsl
-
 uniform float uTime;
 uniform float uDeltaTime;
 uniform sampler2D uBase;
 uniform float uFlowFieldInfluence;
 uniform float uFlowFieldStrength;
 uniform float uFlowFieldFrequency;
+
+#include ./simplexNoise4D.glsl
 
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution.xy;
