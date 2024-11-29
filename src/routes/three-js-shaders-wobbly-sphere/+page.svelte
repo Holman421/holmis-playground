@@ -8,11 +8,14 @@
 		GPUComputationRenderer,
 		RGBELoader
 	} from 'three/examples/jsm/Addons.js';
-	import gsap from 'gsap';
+	import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
+	import wobbleVertexShader from './shaders/wobble/vertex.glsl';
+	import wobbleFragmentShader from './shaders/wobble/fragment.glsl';
+	import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
-		const debugObject = {};
+		const debugObject: any = {};
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -30,7 +33,7 @@
 		/**
 		 * Environment map
 		 */
-		rgbeLoader.load('./urban_alley_01_1k.hdr', (environmentMap) => {
+		rgbeLoader.load('/textures/environmentMaps/urban_alley_01_1k.hdr', (environmentMap) => {
 			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
 
 			scene.background = environmentMap;
@@ -40,8 +43,32 @@
 		/**
 		 * Wobble
 		 */
+
+		debugObject.colorA = '#0000ff';
+		debugObject.colorB = '#ff0000';
+
+		// Uniforms
+		const uniforms = {
+			uTime: new THREE.Uniform(0),
+			uPositionFrequency: new THREE.Uniform(0.5),
+			uTimeFrequency: new THREE.Uniform(0.4),
+			uStrength: new THREE.Uniform(0.3),
+			uWarpPositionFrequency: new THREE.Uniform(0.38),
+			uWarpTimeFrequency: new THREE.Uniform(0.12),
+			uWarpStrength: new THREE.Uniform(1.7),
+			uColorA: { value: new THREE.Color(debugObject.colorA) },
+			uColorB: { value: new THREE.Color(debugObject.colorB) }
+		};
+
 		// Material
-		const material = new THREE.MeshPhysicalMaterial({
+		const material = new CustomShaderMaterial({
+			// CMS
+			baseMaterial: THREE.MeshPhysicalMaterial,
+			vertexShader: wobbleVertexShader,
+			fragmentShader: wobbleFragmentShader,
+			uniforms: uniforms,
+			silent: true,
+			// MeshPhysicalMaterial
 			metalness: 0,
 			roughness: 0.5,
 			color: '#ffffff',
@@ -52,19 +79,64 @@
 			wireframe: false
 		});
 
+		const depthMaterial = new CustomShaderMaterial({
+			// CMS
+			baseMaterial: THREE.MeshDepthMaterial,
+			vertexShader: wobbleVertexShader,
+			uniforms: uniforms,
+			silent: true,
+			depthPacking: THREE.RGBADepthPacking
+		});
+
 		// Tweaks
+		gui
+			.add(uniforms.uPositionFrequency, 'value')
+			.min(0)
+			.max(3)
+			.step(0.001)
+			.name('uPositionFrequency');
+		gui.add(uniforms.uTimeFrequency, 'value').min(0).max(3).step(0.001).name('uTimeFrequency');
+		gui.add(uniforms.uStrength, 'value').min(0).max(3).step(0.001).name('uStrength');
+		gui
+			.add(uniforms.uWarpPositionFrequency, 'value')
+			.min(0)
+			.max(3)
+			.step(0.001)
+			.name('uWarpPositionFrequency');
+		gui
+			.add(uniforms.uWarpTimeFrequency, 'value')
+			.min(0)
+			.max(3)
+			.step(0.001)
+			.name('uWarpTimeFrequency');
+		gui.add(uniforms.uWarpStrength, 'value').min(0).max(3).step(0.001).name('uWarpStrength');
 		gui.add(material, 'metalness', 0, 1, 0.001);
 		gui.add(material, 'roughness', 0, 1, 0.001);
 		gui.add(material, 'transmission', 0, 1, 0.001);
 		gui.add(material, 'ior', 0, 10, 0.001);
 		gui.add(material, 'thickness', 0, 10, 0.001);
-		gui.addColor(material, 'color');
+		// gui.addColor(material, 'color');
+		gui
+			.addColor(debugObject, 'colorA')
+			.name('First color')
+			.onChange(() => {
+				uniforms.uColorA.value.set(debugObject.colorA);
+			});
+		gui
+			.addColor(debugObject, 'colorB')
+			.name('Second color')
+			.onChange(() => {
+				uniforms.uColorB.value.set(debugObject.colorB);
+			});
 
 		// Geometry
-		const geometry = new THREE.IcosahedronGeometry(2.5, 50);
+		let geometry = new THREE.IcosahedronGeometry(2.5, 75);
+		geometry = mergeVertices(geometry) as THREE.IcosahedronGeometry;
+		geometry.computeTangents();
 
 		// Mesh
 		const wobble = new THREE.Mesh(geometry, material);
+		wobble.customDepthMaterial = depthMaterial;
 		wobble.receiveShadow = true;
 		wobble.castShadow = true;
 		scene.add(wobble);
@@ -153,6 +225,9 @@
 
 			// Update controls
 			controls.update();
+
+			// Update material
+			material.uniforms.uTime.value = elapsedTime;
 
 			// Render
 			renderer.render(scene, camera);

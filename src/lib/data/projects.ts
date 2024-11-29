@@ -176,5 +176,12 @@ export const projects = [
 		description: 'Scene with particle model elevated with GPGPU technique',
 		technologies: ['THREE.js', 'Shaders', 'GPGPU'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-wobble-sphere',
+		title: 'Wobbly Sphere',
+		description: 'Experimentation with Custom Shader Material',
+		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
+		shared: true
 	}
 ];
