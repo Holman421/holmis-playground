@@ -2,7 +2,7 @@
 	"name": "todo-app",
 	"version": "0.0.1",
 	"engines": {
-		"node": "22.x"
+		"node": "18.x"
 	},
 	"private": true,
 	"scripts": {
