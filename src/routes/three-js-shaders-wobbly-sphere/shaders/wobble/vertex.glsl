@@ -11,13 +11,26 @@ uniform float uWarpPositionFrequency;
 uniform float uWarpTimeFrequency;
 uniform float uWarpStrength;
 
+uniform vec2 uMousePosition;
+
 varying float vWobble;
 
 float getWobble(vec3 position) {
+    // Calculate view-space position
+    vec3 viewPosition = normalize(position);
+
+    // Calculate distance from mouse position to current point
+    vec2 spherePos = vec2(viewPosition.x, viewPosition.y);
+    float distanceToMouse = length(spherePos - uMousePosition);
+
+    // Create a falloff effect
+    float mouseFalloff = 1.2 - smoothstep(0.0, 0.75, distanceToMouse);
+
     vec3 warpedPosition = position;
     warpedPosition += simplexNoise4d(vec4(warpedPosition * uWarpPositionFrequency, uTime * uWarpTimeFrequency)) * uWarpStrength;
 
-    return simplexNoise4d(vec4(warpedPosition * uPositionFrequency, uTime * uTimeFrequency)) * uStrength;
+    float noise = simplexNoise4d(vec4(warpedPosition * uPositionFrequency, uTime * uTimeFrequency));
+    return noise * uStrength * mouseFalloff;
 }
 
 void main() {

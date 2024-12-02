@@ -8,6 +8,7 @@ uniform vec3 uColorA;
 uniform vec3 uColorB;
 
 varying vec3 vColor;
+varying vec3 vPosition;
 
 #include ./simplexNoise3D.glsl
 
@@ -32,10 +33,13 @@ void main() {
     gl_Position = projectedPosition;
 
     // Point size
-    float finalRandomSize = smoothstep(0.0, 1.0, aRandomSize);
-    gl_PointSize = uSize * uResolution.y * finalRandomSize;
+    float finalRandomSize = smoothstep(0.2, 1.0, aRandomSize);
+    float distanceToCenter = length(mixedPosition);
+    // float distanceScale = 1.1 - smoothstep(0.5, 3.0, distanceToCenter);
+    gl_PointSize = uSize * uResolution.y * finalRandomSize * 1.0;
     gl_PointSize *= (1.0 / -viewPosition.z);
 
     // Varyings
     vColor = mix(uColorA, uColorB, noise);
+    vPosition = mixedPosition;
 }

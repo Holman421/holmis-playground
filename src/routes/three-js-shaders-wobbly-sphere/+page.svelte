@@ -1,245 +1,96 @@
 <script lang="ts">
-	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
-	import {
-		DRACOLoader,
-		GLTFLoader,
-		GPUComputationRenderer,
-		RGBELoader
-	} from 'three/examples/jsm/Addons.js';
-	import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
-	import wobbleVertexShader from './shaders/wobble/vertex.glsl';
-	import wobbleFragmentShader from './shaders/wobble/fragment.glsl';
-	import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+	import VirusCard from '$lib/components/VirusCard.svelte';
 
-	$effect(() => {
-		const gui = new GUI({ width: 325 });
-		const debugObject: any = {};
+	const futuristicVirusCards = [
+		{
+			name: 'NecroX-22',
+			description:
+				'A bioengineered virus designed as a weapon, NecroX-22 disrupts cellular regeneration, causing rapid tissue necrosis. It spreads through airborne particles and contaminated water sources.',
+			symptoms: [
+				'Skin discoloration',
+				'Extreme fatigue',
+				'Internal hemorrhaging',
+				'Loss of consciousness'
+			],
+			mortalityRate: '98%',
+			regionsAffected: ['Global urban centers', 'High-density populations'],
+			transmissionMode: 'Airborne and waterborne',
+			uniforms: {
+				uPositionFrequency: 0.83,
+				uTimeFrequency: 0.27,
+				uStrength: 0.57,
+				uWarpPositionFrequency: 3.2,
+				uWarpTimeFrequency: 0.35,
+				uWarpStrength: 0.61,
+				uColorA: '#cc0000',
+				uColorB: '#4876fe'
+			}
+		},
+		{
+			name: 'CryoPathogen Zeta',
+			description:
+				'CryoPathogen Zeta thrives in extreme cold and attacks the nervous system, leading to paralysis and eventual brain shutdown. It emerged in Arctic biolabs and spread during polar cargo operations.',
+			symptoms: [
+				'Severe migraines',
+				'Blurred vision',
+				'Progressive paralysis',
+				'Mental disorientation'
+			],
+			mortalityRate: '85%',
+			regionsAffected: ['Polar regions', 'Temperate zones during winter'],
+			transmissionMode: 'Contact with contaminated surfaces and frozen aerosols',
+			uniforms: {
+				uPositionFrequency: 0.1,
+				uTimeFrequency: 0.9,
+				uStrength: 1.64,
+				uWarpPositionFrequency: 1.8,
+				uWarpTimeFrequency: 2.4,
+				uWarpStrength: 0.64,
+				uColorA: '#e1ff00',
+				uColorB: '#1100ff'
+			}
+		},
+		{
+			name: 'NecroForge Pathogen',
+			description:
+				"Engineered as a failed immortality experiment, the NecroForge Pathogen overrides the host's nervous system, transforming them into relentless, reanimated predators. The pathogen spreads uncontrollably, leaving a trail of destruction and horror in its wake.",
+			symptoms: [
+				'Loss of cognitive function',
+				'Hyper-aggression',
+				'Tissue necrosis',
+				'Insatiable hunger for living tissue'
+			],
+			mortalityRate: '100%',
+			regionsAffected: ['Densely populated urban areas', 'Bioengineering labs', 'Quarantine zones'],
+			transmissionMode: 'Bites, scratches, airborne nanospore exposure',
+			uniforms: {
+				uPositionFrequency: 0.57,
+				uTimeFrequency: 1.37,
+				uStrength: 1.37,
+				uWarpPositionFrequency: 1.25,
+				uWarpTimeFrequency: 1.37,
+				uWarpStrength: 1.05,
+				uColorA: '#158000',
+				uColorB: '#5c0000'
+			}
+		}
+	];
 
-		// Canvas
-		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-
-		// Scene
-		const scene = new THREE.Scene();
-
-		// Loaders
-		const rgbeLoader = new RGBELoader();
-		const dracoLoader = new DRACOLoader();
-		dracoLoader.setDecoderPath('./draco/');
-		const gltfLoader = new GLTFLoader();
-		gltfLoader.setDRACOLoader(dracoLoader);
-
-		/**
-		 * Environment map
-		 */
-		rgbeLoader.load('/textures/environmentMaps/urban_alley_01_1k.hdr', (environmentMap) => {
-			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
-
-			scene.background = environmentMap;
-			scene.environment = environmentMap;
-		});
-
-		/**
-		 * Wobble
-		 */
-
-		debugObject.colorA = '#0000ff';
-		debugObject.colorB = '#ff0000';
-
-		// Uniforms
-		const uniforms = {
-			uTime: new THREE.Uniform(0),
-			uPositionFrequency: new THREE.Uniform(0.5),
-			uTimeFrequency: new THREE.Uniform(0.4),
-			uStrength: new THREE.Uniform(0.3),
-			uWarpPositionFrequency: new THREE.Uniform(0.38),
-			uWarpTimeFrequency: new THREE.Uniform(0.12),
-			uWarpStrength: new THREE.Uniform(1.7),
-			uColorA: { value: new THREE.Color(debugObject.colorA) },
-			uColorB: { value: new THREE.Color(debugObject.colorB) }
-		};
-
-		// Material
-		const material = new CustomShaderMaterial({
-			// CMS
-			baseMaterial: THREE.MeshPhysicalMaterial,
-			vertexShader: wobbleVertexShader,
-			fragmentShader: wobbleFragmentShader,
-			uniforms: uniforms,
-			silent: true,
-			// MeshPhysicalMaterial
-			metalness: 0,
-			roughness: 0.5,
-			color: '#ffffff',
-			transmission: 0,
-			ior: 1.5,
-			thickness: 1.5,
-			transparent: true,
-			wireframe: false
-		});
-
-		const depthMaterial = new CustomShaderMaterial({
-			// CMS
-			baseMaterial: THREE.MeshDepthMaterial,
-			vertexShader: wobbleVertexShader,
-			uniforms: uniforms,
-			silent: true,
-			depthPacking: THREE.RGBADepthPacking
-		});
-
-		// Tweaks
-		gui
-			.add(uniforms.uPositionFrequency, 'value')
-			.min(0)
-			.max(3)
-			.step(0.001)
-			.name('uPositionFrequency');
-		gui.add(uniforms.uTimeFrequency, 'value').min(0).max(3).step(0.001).name('uTimeFrequency');
-		gui.add(uniforms.uStrength, 'value').min(0).max(3).step(0.001).name('uStrength');
-		gui
-			.add(uniforms.uWarpPositionFrequency, 'value')
-			.min(0)
-			.max(3)
-			.step(0.001)
-			.name('uWarpPositionFrequency');
-		gui
-			.add(uniforms.uWarpTimeFrequency, 'value')
-			.min(0)
-			.max(3)
-			.step(0.001)
-			.name('uWarpTimeFrequency');
-		gui.add(uniforms.uWarpStrength, 'value').min(0).max(3).step(0.001).name('uWarpStrength');
-		gui.add(material, 'metalness', 0, 1, 0.001);
-		gui.add(material, 'roughness', 0, 1, 0.001);
-		gui.add(material, 'transmission', 0, 1, 0.001);
-		gui.add(material, 'ior', 0, 10, 0.001);
-		gui.add(material, 'thickness', 0, 10, 0.001);
-		// gui.addColor(material, 'color');
-		gui
-			.addColor(debugObject, 'colorA')
-			.name('First color')
-			.onChange(() => {
-				uniforms.uColorA.value.set(debugObject.colorA);
-			});
-		gui
-			.addColor(debugObject, 'colorB')
-			.name('Second color')
-			.onChange(() => {
-				uniforms.uColorB.value.set(debugObject.colorB);
-			});
-
-		// Geometry
-		let geometry = new THREE.IcosahedronGeometry(2.5, 75);
-		geometry = mergeVertices(geometry) as THREE.IcosahedronGeometry;
-		geometry.computeTangents();
-
-		// Mesh
-		const wobble = new THREE.Mesh(geometry, material);
-		wobble.customDepthMaterial = depthMaterial;
-		wobble.receiveShadow = true;
-		wobble.castShadow = true;
-		scene.add(wobble);
-
-		/**
-		 * Plane
-		 */
-		const plane = new THREE.Mesh(
-			new THREE.PlaneGeometry(15, 15, 15),
-			new THREE.MeshStandardMaterial()
-		);
-		plane.receiveShadow = true;
-		plane.rotation.y = Math.PI;
-		plane.position.y = -5;
-		plane.position.z = 5;
-		scene.add(plane);
-
-		/**
-		 * Lights
-		 */
-		const directionalLight = new THREE.DirectionalLight('#ffffff', 3);
-		directionalLight.castShadow = true;
-		directionalLight.shadow.mapSize.set(1024, 1024);
-		directionalLight.shadow.camera.far = 15;
-		directionalLight.shadow.normalBias = 0.05;
-		directionalLight.position.set(0.25, 2, -2.25);
-		scene.add(directionalLight);
-
-		/**
-		 * Sizes
-		 */
-		const sizes = {
-			width: window.innerWidth,
-			height: window.innerHeight - 56,
-			pixelRatio: Math.min(window.devicePixelRatio, 2)
-		};
-
-		window.addEventListener('resize', () => {
-			// Update sizes
-			sizes.width = window.innerWidth;
-			sizes.height = window.innerHeight - 56;
-			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
-
-			// Update camera
-			camera.aspect = sizes.width / sizes.height;
-			camera.updateProjectionMatrix();
-
-			// Update renderer
-			renderer.setSize(sizes.width, sizes.height);
-			renderer.setPixelRatio(sizes.pixelRatio);
-		});
-
-		/**
-		 * Camera
-		 */
-		// Base camera
-		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(13, -3, -5);
-		scene.add(camera);
-
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
-
-		/**
-		 * Renderer
-		 */
-		const renderer = new THREE.WebGLRenderer({
-			canvas: canvas,
-			antialias: true
-		});
-		renderer.shadowMap.enabled = true;
-		renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-		renderer.toneMapping = THREE.ACESFilmicToneMapping;
-		renderer.toneMappingExposure = 1;
-		renderer.setSize(sizes.width, sizes.height);
-		renderer.setPixelRatio(sizes.pixelRatio);
-
-		/**
-		 * Animate
-		 */
-		const clock = new THREE.Clock();
-
-		const tick = () => {
-			const elapsedTime = clock.getElapsedTime();
-
-			// Update controls
-			controls.update();
-
-			// Update material
-			material.uniforms.uTime.value = elapsedTime;
-
-			// Render
-			renderer.render(scene, camera);
-
-			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
-		};
-
-		tick();
-	});
+	const generateUniqueId = () => crypto.randomUUID();
 </script>
 
 <div>
-	<canvas class="webgl"></canvas>
+	<div class="w-full flex gap-10 justify-center py-10">
+		{#each futuristicVirusCards as card}
+			<VirusCard
+				title={card.name}
+				description={card.description}
+				href=""
+				technologies={card.symptoms}
+				canvasId={generateUniqueId()}
+				mortalityRate={card.mortalityRate}
+				uniforms={card.uniforms}
+			/>
+		{/each}
+	</div>
 </div>

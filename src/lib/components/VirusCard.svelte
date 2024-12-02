@@ -1,15 +1,31 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { gsap } from 'gsap';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
+	import VirusModel from '../../routes/three-js-shaders-wobbly-sphere/VirusModel.svelte';
 
-	const { title, description, href, technologies } = $props<{
+	type Uniform = {
+		uPositionFrequency: number;
+		uTimeFrequency: number;
+		uStrength: number;
+		uWarpPositionFrequency: number;
+		uWarpTimeFrequency: number;
+		uWarpStrength: number;
+		uColorA: string;
+		uColorB: string;
+	};
+
+	const { title, description, href, technologies, canvasId, mortalityRate, uniforms } = $props<{
 		title: string;
 		description: string;
 		href: string;
 		technologies: string[];
+		canvasId: string;
+		mortalityRate: string;
+		uniforms: Uniform;
 	}>();
+
+	// export let canvasId: string;
 
 	let cardElement: HTMLDivElement;
 	let gooEffect = tweened(0, {
@@ -111,13 +127,17 @@
 						<h3 class="main-text font-audiowide">{title}</h3>
 						<p class="secondary-text mt-4 font-exo2">{description}</p>
 					</div>
-					<div class="flex gap-2 mt-4 flex-wrap">
+					<div class="flex gap-2 mt-4 flex-col">
 						{#each technologies as technology}
-							<div class="border rounded-full px-3 border-[#fafafa] secondary-text">
+							<div class="border rounded-full px-3 border-[#fafafa] w-fit secondary-text">
 								{technology}
 							</div>
 						{/each}
 					</div>
+					<div class="absolute right-1 bottom-7">
+						<VirusModel {canvasId} propUniforms={uniforms} />
+					</div>
+					<p class="text-red-500 absolute top-5 right-5">{mortalityRate}</p>
 				</div>
 			</div>
 		</div>

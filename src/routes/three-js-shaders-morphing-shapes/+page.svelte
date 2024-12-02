@@ -89,130 +89,135 @@
 		// Load models
 		gltfLoader.load('/models/models.glb', (gltf) => {
 			gltfLoader.load('/models/WMStar/star.glb', (star) => {
-				// Particles
-				particles = {};
-				particles.index = 0;
-				particles.maxCount = 0;
+				gltfLoader.load('/models/WMText/WM-text.glb', (text) => {
+					// Particles
+					particles = {};
+					particles.index = 4;
 
-				// Positions
-				const positions = [...gltf.scene.children, star.scene.children[0]].map(
-					(child: any) => child.geometry.attributes.position
-				);
+					particles.maxCount = 0;
+					// Positions
+					const positions = [
+						...gltf.scene.children,
+						text.scene.children[0],
+						star.scene.children[0]
+					].map((child: any) => child.geometry.attributes.position);
 
-				for (const position of positions) {
-					if (position.count > particles.maxCount) {
-						particles.maxCount = position.count;
-					}
-				}
-
-				particles.aRandomSize = new Float32Array(particles.maxCount);
-				particles.positions = [];
-
-				for (const position of positions) {
-					const originalArray = position.array;
-					const newArray = new Float32Array(particles.maxCount * 3);
-
-					for (let i = 0; i < particles.maxCount; i++) {
-						const i3 = i * 3;
-						particles.aRandomSize[i] = Math.random();
-
-						if (i3 < originalArray.length) {
-							newArray[i3 + 0] = originalArray[i3 + 0];
-							newArray[i3 + 1] = originalArray[i3 + 1];
-							newArray[i3 + 2] = originalArray[i3 + 2];
-						} else {
-							const randomIndex = Math.floor(position.count * Math.random()) * 3;
-							newArray[i3 + 0] = originalArray[randomIndex + 0];
-							newArray[i3 + 1] = originalArray[randomIndex + 1];
-							newArray[i3 + 2] = originalArray[randomIndex + 2];
+					for (const position of positions) {
+						if (position.count > particles.maxCount) {
+							particles.maxCount = position.count;
 						}
 					}
 
-					particles.positions.push(new THREE.Float32BufferAttribute(newArray, 3));
-				}
+					particles.aRandomSize = new Float32Array(particles.maxCount);
+					particles.positions = [];
 
-				// Geometry
-				particles.geometry = new THREE.BufferGeometry();
-				particles.geometry.setAttribute('position', particles.positions[particles.index]);
-				particles.geometry.setAttribute('aPositionTarget', particles.positions[3]);
-				particles.geometry.setAttribute(
-					'aRandomSize',
-					new THREE.Float32BufferAttribute(particles.aRandomSize, 1)
-				);
+					for (const position of positions) {
+						const originalArray = position.array;
+						const newArray = new Float32Array(particles.maxCount * 3);
 
-				// Material
-				particles.colorA = '#ff7300';
-				particles.colorB = '#0091ff';
-				particles.material = new THREE.ShaderMaterial({
-					vertexShader: particlesVertexShader,
-					fragmentShader: particlesFragmentShader,
-					blending: THREE.AdditiveBlending,
-					depthWrite: false,
-					uniforms: {
-						uSize: new THREE.Uniform(0.3),
-						uResolution: new THREE.Uniform(
-							new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
-						),
-						uProgress: new THREE.Uniform(0),
-						uColorA: new THREE.Uniform(new THREE.Color(particles.colorA)),
-						uColorB: new THREE.Uniform(new THREE.Color(particles.colorB))
+						for (let i = 0; i < particles.maxCount; i++) {
+							const i3 = i * 3;
+							particles.aRandomSize[i] = Math.random();
+
+							if (i3 < originalArray.length) {
+								newArray[i3 + 0] = originalArray[i3 + 0];
+								newArray[i3 + 1] = originalArray[i3 + 1];
+								newArray[i3 + 2] = originalArray[i3 + 2];
+							} else {
+								const randomIndex = Math.floor(position.count * Math.random()) * 3;
+								newArray[i3 + 0] = originalArray[randomIndex + 0];
+								newArray[i3 + 1] = originalArray[randomIndex + 1];
+								newArray[i3 + 2] = originalArray[randomIndex + 2];
+							}
+						}
+
+						particles.positions.push(new THREE.Float32BufferAttribute(newArray, 3));
 					}
-				});
 
-				particles.morph = (index: number) => {
-					// Update attributes
-					particles.geometry.attributes.position = particles.positions[particles.index];
-					particles.geometry.attributes.aPositionTarget = particles.positions[index];
-
-					// Animate uProgress
-					gsap.fromTo(
-						particles.material.uniforms.uProgress,
-						{ value: 0 },
-						{ value: 1, duration: 3, ease: 'linear' }
+					// Geometry
+					particles.geometry = new THREE.BufferGeometry();
+					particles.geometry.setAttribute('position', particles.positions[particles.index]);
+					particles.geometry.setAttribute('aPositionTarget', particles.positions[3]);
+					particles.geometry.setAttribute(
+						'aRandomSize',
+						new THREE.Float32BufferAttribute(particles.aRandomSize, 1)
 					);
 
-					// Update index
-					particles.index = index;
-				};
+					// Material
+					particles.colorA = '#ff7300';
+					particles.colorB = '#0091ff';
+					particles.material = new THREE.ShaderMaterial({
+						vertexShader: particlesVertexShader,
+						fragmentShader: particlesFragmentShader,
+						blending: THREE.AdditiveBlending,
+						depthWrite: false,
+						transparent: true,
+						uniforms: {
+							uSize: new THREE.Uniform(0.3),
+							uResolution: new THREE.Uniform(
+								new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
+							),
+							uProgress: new THREE.Uniform(0),
+							uColorA: new THREE.Uniform(new THREE.Color(particles.colorA)),
+							uColorB: new THREE.Uniform(new THREE.Color(particles.colorB))
+						}
+					});
 
-				particles.Donut = () => {
-					particles.morph(0);
-				};
-				particles.Monkey = () => {
-					particles.morph(1);
-				};
-				particles.Ball = () => {
-					particles.morph(2);
-				};
-				particles.Text = () => {
-					particles.morph(3);
-				};
-				particles.WM_Star = () => {
-					particles.morph(4);
-				};
+					particles.morph = (index: number) => {
+						// Update attributes
+						particles.geometry.attributes.position = particles.positions[particles.index];
+						particles.geometry.attributes.aPositionTarget = particles.positions[index];
 
-				gui
-					.add(particles.material.uniforms.uProgress, 'value', 0, 1, 0.001)
-					.name('progress')
-					.listen();
-				gui.add(particles, 'Donut');
-				gui.add(particles, 'Monkey');
-				gui.add(particles, 'Ball');
-				gui.add(particles, 'Text');
-				gui.add(particles, 'WM_Star');
+						// Animate uProgress
+						gsap.fromTo(
+							particles.material.uniforms.uProgress,
+							{ value: 0 },
+							{ value: 1, duration: 3, ease: 'linear' }
+						);
 
-				gui.addColor(particles, 'colorA').onChange(() => {
-					particles.material.uniforms.uColorA.value.set(particles.colorA);
+						// Update index
+						particles.index = index;
+					};
+
+					particles.Donut = () => {
+						particles.morph(0);
+					};
+					particles.Monkey = () => {
+						particles.morph(1);
+					};
+					particles.Ball = () => {
+						particles.morph(2);
+					};
+					particles.Text = () => {
+						particles.morph(3);
+					};
+					particles.WM_Star = () => {
+						particles.morph(4);
+					};
+
+					gui
+						.add(particles.material.uniforms.uProgress, 'value', 0, 1, 0.001)
+						.name('progress')
+						.listen();
+					gui.add(particles, 'WM_Star');
+					gui.add(particles, 'Donut');
+					gui.add(particles, 'Monkey');
+					gui.add(particles, 'Ball');
+					gui.add(particles, 'Text');
+
+					gui.addColor(particles, 'colorA').onChange(() => {
+						particles.material.uniforms.uColorA.value.set(particles.colorA);
+					});
+
+					gui.addColor(particles, 'colorB').onChange(() => {
+						particles.material.uniforms.uColorB.value.set(particles.colorB);
+					});
+
+					// Points
+					particles.points = new THREE.Points(particles.geometry, particles.material);
+					particles.points.frustumCulled = false;
+					scene.add(particles.points);
 				});
-
-				gui.addColor(particles, 'colorB').onChange(() => {
-					particles.material.uniforms.uColorB.value.set(particles.colorB);
-				});
-
-				// Points
-				particles.points = new THREE.Points(particles.geometry, particles.material);
-				particles.points.frustumCulled = false;
-				scene.add(particles.points);
 			});
 		});
 
