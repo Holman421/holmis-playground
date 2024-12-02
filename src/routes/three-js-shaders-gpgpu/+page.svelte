@@ -6,10 +6,15 @@
 	import particlesFragmentShader from './shaders/fragment.glsl';
 	import gpgpuParticlesShader from './shaders/gpgpu/particles.glsl';
 	import { DRACOLoader, GLTFLoader, GPUComputationRenderer } from 'three/examples/jsm/Addons.js';
+	import gsap from 'gsap';
 
 	$effect(() => {
 		const gui = new GUI({ width: 340 });
-		const debugObject: any = {};
+		const debugObject: any = {
+			modelOpacity: 0.0,
+			pointsOpacity: 1.0
+		};
+		gui.hide();
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -59,12 +64,18 @@
 		 */
 		// Base camera
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(4.5, 4, 11);
+		camera.position.set(15, 4, 10);
 		scene.add(camera);
 
 		// Controls
 		const controls = new OrbitControls(camera, canvas);
+		controls.position0.set(6.5, 0, 1);
 		controls.enableDamping = true;
+
+		// Lights
+		const directionalLight = new THREE.DirectionalLight('#ffffff', 3);
+		directionalLight.position.set(3.25, 2, 4.25);
+		scene.add(directionalLight);
 
 		/**
 		 * Renderer
@@ -82,7 +93,17 @@
 		const particles: any = {};
 		const gpgpu: any = {};
 
-		const gltf = gltfLoader.load('/models/ship/model.glb', (gltf) => {
+		let gltfScene: any = null;
+
+		gltfLoader.load('/models/ship/model.glb', (gltf) => {
+			gltfScene = gltf.scene;
+			gltf.scene.traverse((child) => {
+				if (child instanceof THREE.Mesh) {
+					child.material.transparent = true;
+					child.material.opacity = debugObject.modelOpacity; // Set the desired opacity here
+				}
+			});
+
 			// Base geometry
 			const baseGeometry: any = {
 				instance: (gltf.scene.children[0] as THREE.Mesh).geometry
@@ -173,20 +194,46 @@
 			particles.material = new THREE.ShaderMaterial({
 				vertexShader: particlesVertexShader,
 				fragmentShader: particlesFragmentShader,
+				transparent: true,
+				// depthWrite: false,
 				uniforms: {
-					uSize: new THREE.Uniform(0.07),
+					uSize: new THREE.Uniform(0.035),
 					uResolution: new THREE.Uniform(
 						new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
 					),
 					uParticlesTexture: new THREE.Uniform(
 						gpgpu.computation.getCurrentRenderTarget(gpgpu.particlesVariable).texture
-					)
+					),
+					uOpacity: new THREE.Uniform(debugObject.pointsOpacity)
 				}
 			});
 
 			// Points
 			particles.points = new THREE.Points(particles.geometry, particles.material);
+
 			scene.add(particles.points);
+			scene.add(gltf.scene);
+
+			// Add the gsap function here
+			gsap.fromTo(
+				gltf.scene.position,
+				{ x: 9, y: 0, z: -12 },
+				{ x: 6.5, y: -0.0, z: -4.5, duration: 2, delay: 0.5, ease: 'power1.inOut' }
+			);
+			gsap.fromTo(
+				particles.points.position,
+				{ x: 9, y: 0, z: -12 },
+				{ x: 6.5, y: -0.0, z: -4.5, duration: 2, delay: 0.5, ease: 'power1.inOut' }
+			);
+
+			// Add axis helper
+			// const axesHelper = new THREE.AxesHelper(5);
+			// axesHelper.setColors('red', 'green', 'blue');
+			// scene.add(axesHelper);
+
+			// Update controls target position
+			controls.target.set(6.5, 1, 1);
+			controls.update();
 
 			/**
 			 * Tweaks
@@ -215,6 +262,75 @@
 				.max(1)
 				.step(0.001)
 				.name('uFlowFieldFrequency');
+
+			gui
+				.add(debugObject, 'modelOpacity')
+				.min(0)
+				.max(1)
+				.step(0.001)
+				.name('Model Opacity')
+				.onChange(() => {
+					gltf.scene.traverse((child) => {
+						if (child instanceof THREE.Mesh) {
+							child.material.transparent = true;
+							child.material.opacity = debugObject.modelOpacity;
+						}
+					});
+				});
+
+			gui.add(debugObject, 'pointsOpacity').onChange(() => {
+				particles.material.uniforms.uOpacity.value = debugObject.pointsOpacity;
+			});
+		});
+
+		// Add the gsap function here
+
+		const button = document.querySelector('#bro-button')!;
+
+		const updateOpacity = (
+			modelOpacity: number,
+			pointsOpacity: number,
+			flowFieldInfluence: number
+		) => {
+			gsap.to(gpgpu.particlesVariable.material.uniforms.uFlowFieldInfluence, {
+				value: flowFieldInfluence,
+				duration: 2,
+				ease: 'power2.inOut'
+			});
+
+			gsap.to(debugObject, {
+				modelOpacity: modelOpacity,
+				duration: 2,
+				ease: 'power2.inOut',
+				onUpdate: () => {
+					gltfScene.traverse((child: any) => {
+						if (child instanceof THREE.Mesh) {
+							child.material.transparent = true;
+							child.material.opacity = debugObject.modelOpacity;
+						}
+					});
+				}
+			});
+
+			gsap.to(debugObject, {
+				pointsOpacity: pointsOpacity,
+				duration: 2,
+				ease: 'power2.inOut',
+				onUpdate: () => {
+					particles.material.depthWrite = pointsOpacity === 1;
+					particles.material.uniforms.uOpacity.value = debugObject.pointsOpacity;
+				}
+			});
+		};
+
+		button.addEventListener('click', () => {
+			if (!gltfScene) return;
+
+			if (debugObject.modelOpacity === 0) {
+				updateOpacity(1, 0, 0);
+			} else {
+				updateOpacity(0, 1, 0.5);
+			}
 		});
 
 		/**
@@ -250,6 +366,12 @@
 	});
 </script>
 
-<div>
+<div class="relative">
 	<canvas class="webgl"></canvas>
+	<div class="absolute top-40 left-40 flex flex-col gap-8">
+		<h1 class="text-5xl">Let us make your vision clear</h1>
+		<button class=" bg-slate-50 text-black py-4 px-8 w-fit rounded-sm text-xl" id="bro-button"
+			>Show me</button
+		>
+	</div>
 </div>
