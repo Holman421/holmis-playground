@@ -120,9 +120,7 @@
 		const wobble = new THREE.Mesh(geometry, material);
 		scene.add(wobble);
 
-		/**
-		 * Lights
-		 */
+		// Lights
 		const directionalLight = new THREE.DirectionalLight('#ffffff', 3);
 		directionalLight.position.set(3.25, 2, 4.25);
 		scene.add(directionalLight);
