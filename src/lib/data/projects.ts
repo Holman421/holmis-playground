@@ -179,7 +179,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-wobbly-sphere',
-		title: 'Wobbly Sphere',
+		title: 'Virus project',
 		description: 'Experimentation with Custom Shader Material',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true

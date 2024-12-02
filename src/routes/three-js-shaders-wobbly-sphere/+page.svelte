@@ -3,16 +3,16 @@
 
 	const futuristicVirusCards = [
 		{
-			name: 'NecroX-22',
+			name: 'OblivionX-9',
 			description:
-				'A bioengineered virus designed as a weapon, NecroX-22 disrupts cellular regeneration, causing rapid tissue necrosis. It spreads through airborne particles and contaminated water sources.',
+				'A bioengineered virus designed as a weapon, OblivionX-9 disrupts cellular regeneration, causing rapid tissue necrosis. It spreads through airborne particles and contaminated water sources.',
 			symptoms: [
 				'Skin discoloration',
 				'Extreme fatigue',
 				'Internal hemorrhaging',
 				'Loss of consciousness'
 			],
-			mortalityRate: '98%',
+			mortalityRate: '92%',
 			regionsAffected: ['Global urban centers', 'High-density populations'],
 			transmissionMode: 'Airborne and waterborne',
 			uniforms: {
@@ -27,16 +27,16 @@
 			}
 		},
 		{
-			name: 'CryoPathogen Zeta',
+			name: 'XenoPlague Zeta',
 			description:
-				'CryoPathogen Zeta thrives in extreme cold and attacks the nervous system, leading to paralysis and eventual brain shutdown. It emerged in Arctic biolabs and spread during polar cargo operations.',
+				'XenoPlague Zeta, derived from alien microbes in deep-space mining, rewrites host biology. With 0% mortality, survivors mutate into hive-controlled drones, losing individuality.',
 			symptoms: [
-				'Severe migraines',
-				'Blurred vision',
-				'Progressive paralysis',
-				'Mental disorientation'
+				'Bioluminescent skin lesions',
+				'Unnatural limb elongation',
+				'Excessive saliva production',
+				'Loss of independent thought'
 			],
-			mortalityRate: '85%',
+			mortalityRate: '0%',
 			regionsAffected: ['Polar regions', 'Temperate zones during winter'],
 			transmissionMode: 'Contact with contaminated surfaces and frozen aerosols',
 			uniforms: {
@@ -53,7 +53,7 @@
 		{
 			name: 'NecroForge Pathogen',
 			description:
-				"Engineered as a failed immortality experiment, the NecroForge Pathogen overrides the host's nervous system, transforming them into relentless, reanimated predators. The pathogen spreads uncontrollably, leaving a trail of destruction and horror in its wake.",
+				"Engineered as a failed immortality experiment, the NecroForge Pathogen overrides the host's nervous system, transforming them into relentless, reanimated predators.",
 			symptoms: [
 				'Loss of cognitive function',
 				'Hyper-aggression',
@@ -80,7 +80,7 @@
 </script>
 
 <div>
-	<div class="w-full flex gap-10 justify-center py-10">
+	<div class="w-full flex flex-wrap gap-10 justify-center py-10">
 		{#each futuristicVirusCards as card}
 			<VirusCard
 				title={card.name}

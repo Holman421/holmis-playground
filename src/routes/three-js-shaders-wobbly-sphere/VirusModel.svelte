@@ -24,7 +24,6 @@
 	}>();
 
 	$effect(() => {
-		const gui = new GUI({ width: 325 });
 		const debugObject: any = {};
 
 		// Canvas
@@ -73,6 +72,8 @@
 
 		// Tweaks
 		const initTweaks = () => {
+			const gui = new GUI({ width: 325 });
+
 			gui
 				.add(uniforms.uPositionFrequency, 'value')
 				.min(0)
@@ -111,7 +112,7 @@
 		// initTweaks();
 
 		// Geometry
-		let geometry = new THREE.IcosahedronGeometry(2.5, 100);
+		let geometry = new THREE.IcosahedronGeometry(2.5, 75);
 		geometry = mergeVertices(geometry) as THREE.IcosahedronGeometry;
 		geometry.computeTangents();
 

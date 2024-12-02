@@ -125,6 +125,9 @@
 				>
 					<div>
 						<h3 class="main-text font-audiowide">{title}</h3>
+						<p class="text-red-500">
+							<span class="bold">Mortality Rate: {' '}</span>{mortalityRate}
+						</p>
 						<p class="secondary-text mt-4 font-exo2">{description}</p>
 					</div>
 					<div class="flex gap-2 mt-4 flex-col">
@@ -137,7 +140,6 @@
 					<div class="absolute right-1 bottom-7">
 						<VirusModel {canvasId} propUniforms={uniforms} />
 					</div>
-					<p class="text-red-500 absolute top-5 right-5">{mortalityRate}</p>
 				</div>
 			</div>
 		</div>
