@@ -183,5 +183,19 @@ export const projects = [
 		description: 'Experimentation with Custom Shader Material',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-terrain',
+		title: 'Procedural Terrain',
+		description: 'Experimentation with Custom Shader Material',
+		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
+		shared: true
+	},
+	{
+		href: '/three-js-shaders-sliced-model',
+		title: 'Sliced model',
+		description: 'Experimentation with Custom Shader Material',
+		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
+		shared: true
 	}
 ];
