@@ -3,9 +3,10 @@
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
+	import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 	import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
-	import slicedVertexShader from './shaders/sliced/vertex.glsl';
-	import slicedFragmentShader from './shaders/sliced/fragment.glsl';
+	import terrainVertexShader from './shaders/terrain/vertex.glsl';
+	import terrainFragmentShader from './shaders/terrain/fragment.glsl';
 
 	$effect(() => {
 		/**
@@ -13,7 +14,7 @@
 		 */
 		// Debug
 		const gui = new GUI({ width: 325 });
-		const debugObject: any = {};
+		const debugObject = {};
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -23,15 +24,11 @@
 
 		// Loaders
 		const rgbeLoader = new RGBELoader();
-		const dracoLoader = new DRACOLoader();
-		dracoLoader.setDecoderPath('./draco/');
-		const gltfLoader = new GLTFLoader();
-		gltfLoader.setDRACOLoader(dracoLoader);
 
 		/**
 		 * Environment map
 		 */
-		rgbeLoader.load('/aerodynamics/aerodynamics_workshop.hdr', (environmentMap) => {
+		rgbeLoader.load('/environmentMaps/spruit_sunrise.hdr', (environmentMap) => {
 			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
 
 			scene.background = environmentMap;
@@ -39,125 +36,89 @@
 			scene.environment = environmentMap;
 		});
 
-		/**
-		 * Sliced model
-		 */
+		// Terrain
+
+		// Geometry
+		const geometry = new THREE.PlaneGeometry(10, 10, 750, 750);
+		geometry.rotateX(-Math.PI * 0.5);
+		geometry.deleteAttribute('normal');
+		geometry.deleteAttribute('uv');
 
 		// Uniforms
 		const uniforms = {
-			uSliceStart: new THREE.Uniform(1.75),
-			uSliceArc: new THREE.Uniform(1.25)
+			uPositionFrequency: { value: 0.2 },
+			uStrength: { value: 2.0 },
+			uWarpFrequency: { value: 5.0 },
+			uWarpStrength: { value: 0.5 },
+			uTime: { value: 0 },
+			uAnimationSpeed: { value: 0.2 }
 		};
 
-		const patchMap = {
-			csm_Slice: {
-				'#include <colorspace_fragment>': `
-            		#include <colorspace_fragment>
-			
-    				if(!gl_FrontFacing)
-    				    gl_FragColor = vec4(0.9, 0.0, 0.2, 1.0);
-      	  `
-			}
-		};
-
-		gui
-			.add(uniforms.uSliceStart, 'value')
-			.min(-Math.PI)
-			.max(Math.PI)
-			.step(0.01)
-			.name('Slice start');
-		gui
-			.add(uniforms.uSliceArc, 'value')
-			.min(0)
-			.max(Math.PI * 2)
-			.step(0.01)
-			.name('Slice arc');
-
-		// Geometry
-		const geometry = new THREE.IcosahedronGeometry(2.5, 5);
+		// GUI Debug
+		gui.add(uniforms.uPositionFrequency, 'value', 0, 1, 0.01).name('Position Frequency');
+		gui.add(uniforms.uStrength, 'value', 0, 10, 0.1).name('Strength');
+		gui.add(uniforms.uWarpFrequency, 'value', 0, 10, 0.1).name('Warp Frequency');
+		gui.add(uniforms.uWarpStrength, 'value', 0, 1, 0.01).name('Warp Strength');
+		gui.add(uniforms.uAnimationSpeed, 'value', 0, 1, 0.01).name('Animation Speed');
 
 		// Material
-		const material = new THREE.MeshStandardMaterial({
-			metalness: 0.95,
-			roughness: 0.15,
-			envMapIntensity: 0.5,
-			color: '#858080'
-		});
-
-		const slicedMaterial = new CustomShaderMaterial({
-			// CMS
+		const material = new CustomShaderMaterial({
+			// CSM
 			baseMaterial: THREE.MeshStandardMaterial,
-			vertexShader: slicedVertexShader,
-			fragmentShader: slicedFragmentShader,
 			silent: true,
+			vertexShader: terrainVertexShader,
+			fragmentShader: terrainFragmentShader,
 			uniforms: uniforms,
-			patchMap: patchMap,
 
-			// MeshStandardMaterial properties
-			metalness: 0.95,
-			roughness: 0.15,
-			envMapIntensity: 0.5,
-			color: '#858080',
-			side: THREE.DoubleSide
+			// MeshStandartMaterial
+			color: '#85d534',
+			metalness: 0,
+			roughness: 0.5
 		});
 
-		const slicedDepthMaterial = new CustomShaderMaterial({
-			// CMS
+		const depthMaterial = new CustomShaderMaterial({
+			// CSM
 			baseMaterial: THREE.MeshDepthMaterial,
-			vertexShader: slicedVertexShader,
-			fragmentShader: slicedFragmentShader,
 			silent: true,
+			vertexShader: terrainVertexShader,
 			uniforms: uniforms,
-			patchMap: patchMap,
-
 			depthPacking: THREE.RGBADepthPacking
 		});
 
-		let model: any = null;
-		// Model
-		gltfLoader.load('/aerodynamics/gears.glb', (gltf) => {
-			model = gltf.scene;
+		// Mesh
+		const terrain = new THREE.Mesh(geometry, material);
+		terrain.customDepthMaterial = depthMaterial;
+		terrain.castShadow = true;
+		terrain.receiveShadow = true;
+		scene.add(terrain);
 
-			model.traverse((child: any) => {
-				if (child.isMesh) {
-					if (child.name === 'outerHull') {
-						child.material = slicedMaterial;
-						child.customDepthMaterial = slicedDepthMaterial;
-					} else {
-						child.material = material;
-					}
-					child.castShadow = true;
-					child.receiveShadow = true;
-				}
-			});
-
-			scene.add(model);
+		// Board
+		const boardFill = new Brush(new THREE.BoxGeometry(11, 2, 11));
+		const boardHole = new Brush(new THREE.BoxGeometry(10, 2.1, 10));
+		const evaluator = new Evaluator();
+		const board = evaluator.evaluate(boardFill, boardHole, SUBTRACTION);
+		board.geometry.clearGroups();
+		const boardMaterial = new THREE.MeshStandardMaterial({
+			color: '#ffffff',
+			metalness: 0,
+			roughness: 0.3
 		});
 
-		/**
-		 * Plane
-		 */
-		const plane = new THREE.Mesh(
-			new THREE.PlaneGeometry(10, 10, 10),
-			new THREE.MeshStandardMaterial({ color: '#aaaaaa' })
-		);
-		plane.receiveShadow = true;
-		plane.position.x = -4;
-		plane.position.y = -3;
-		plane.position.z = -4;
-		plane.lookAt(new THREE.Vector3(0, 0, 0));
-		scene.add(plane);
+		board.material = boardMaterial;
+		board.castShadow = true;
+		board.receiveShadow = true;
+
+		scene.add(board);
 
 		/**
 		 * Lights
 		 */
-		const directionalLight = new THREE.DirectionalLight('#ffffff', 4);
+		const directionalLight = new THREE.DirectionalLight('#ffffff', 2);
 		directionalLight.position.set(6.25, 3, 4);
 		directionalLight.castShadow = true;
 		directionalLight.shadow.mapSize.set(1024, 1024);
 		directionalLight.shadow.camera.near = 0.1;
 		directionalLight.shadow.camera.far = 30;
-		directionalLight.shadow.normalBias = 0.05;
 		directionalLight.shadow.camera.top = 8;
 		directionalLight.shadow.camera.right = 8;
 		directionalLight.shadow.camera.bottom = -8;
@@ -193,7 +154,7 @@
 		 */
 		// Base camera
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(-5, 5, 12);
+		camera.position.set(-10, 6, -2);
 		scene.add(camera);
 
 		// Controls
@@ -225,10 +186,8 @@
 			// Update controls
 			controls.update();
 
-			// Rotate model
-			if (model) {
-				model.rotation.y = elapsedTime * 0.1;
-			}
+			// Update uniforms
+			uniforms.uTime.value = elapsedTime;
 
 			// Render
 			renderer.render(scene, camera);
