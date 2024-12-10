@@ -4,7 +4,7 @@ export const projects = [
 		title: 'Todo flip',
 		description: 'Simple todo app with Svelte and gsap flip animation',
 		technologies: ['Svetle', 'GSAP', 'GSAP-Flip', 'Svelte-state'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/flip',
@@ -25,14 +25,14 @@ export const projects = [
 		title: 'Three.js Lights',
 		description: 'Training with Three.js lights and GUI',
 		technologies: ['Three.js', 'Lights', 'Three.js GUI'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-hounted-house',
 		title: 'Three.js Hounted house',
 		description: 'Bigger Three.js project with textures and geometries',
 		technologies: ['Three.js', 'Textures', 'Geometries'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-particles',
@@ -67,7 +67,7 @@ export const projects = [
 		title: 'Three.js Physics',
 		description: 'Learning about THREE.js physics',
 		technologies: ['Three.js', 'GSAP', 'Cannon.js'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-imported-models',
@@ -96,7 +96,7 @@ export const projects = [
 		title: 'Shaders Basic',
 		description: 'First experimentation with GLSL shaders',
 		technologies: ['THREE.js', 'Shaders'],
-		shared: true
+		shared: false
 	},
 	{
 		href: '/three-js-shaders-sea',

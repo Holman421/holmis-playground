@@ -9,25 +9,15 @@
 	import terrainFragmentShader from './shaders/terrain/fragment.glsl';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
+		//Setup
 		const gui = new GUI({ width: 325 });
-		const debugObject = {};
-
-		// Canvas
+		const debugObject: any = {};
+		debugObject.showWireframe = false;
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-
-		// Scene
 		const scene = new THREE.Scene();
-
-		// Loaders
 		const rgbeLoader = new RGBELoader();
 
-		/**
-		 * Environment map
-		 */
+		// Environment map
 		rgbeLoader.load('/environmentMaps/spruit_sunrise.hdr', (environmentMap) => {
 			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
 
@@ -36,10 +26,8 @@
 			scene.environment = environmentMap;
 		});
 
-		// Terrain
-
 		// Geometry
-		const geometry = new THREE.PlaneGeometry(10, 10, 750, 750);
+		const geometry = new THREE.PlaneGeometry(10, 10, 1000, 1000);
 		geometry.rotateX(-Math.PI * 0.5);
 		geometry.deleteAttribute('normal');
 		geometry.deleteAttribute('uv');
@@ -47,11 +35,18 @@
 		// Uniforms
 		const uniforms = {
 			uPositionFrequency: { value: 0.2 },
-			uStrength: { value: 2.0 },
+			uStrength: { value: 2.5 },
 			uWarpFrequency: { value: 5.0 },
 			uWarpStrength: { value: 0.5 },
 			uTime: { value: 0 },
-			uAnimationSpeed: { value: 0.2 }
+			uAnimationSpeed: { value: 0.05 },
+			uStepSize: { value: 0.05 },
+			uColorWaterDeep: { value: new THREE.Color('#0066ff') },
+			uColorWaterSurface: { value: new THREE.Color('#4d94ff') },
+			uColorSand: { value: new THREE.Color('#ffcc99') },
+			uColorGrass: { value: new THREE.Color('#66cc00') },
+			uColorRock: { value: new THREE.Color('#999999') },
+			uColorSnow: { value: new THREE.Color('#ffffff') }
 		};
 
 		// GUI Debug
@@ -60,6 +55,7 @@
 		gui.add(uniforms.uWarpFrequency, 'value', 0, 10, 0.1).name('Warp Frequency');
 		gui.add(uniforms.uWarpStrength, 'value', 0, 1, 0.01).name('Warp Strength');
 		gui.add(uniforms.uAnimationSpeed, 'value', 0, 1, 0.01).name('Animation Speed');
+		gui.add(uniforms.uStepSize, 'value', 0, 1, 0.01).name('Step Size');
 
 		// Material
 		const material = new CustomShaderMaterial({
@@ -69,15 +65,20 @@
 			vertexShader: terrainVertexShader,
 			fragmentShader: terrainFragmentShader,
 			uniforms: uniforms,
-
 			// MeshStandartMaterial
 			color: '#85d534',
 			metalness: 0,
-			roughness: 0.5
+			roughness: 1.5
 		});
 
+		gui
+			.add(debugObject, 'showWireframe')
+			.name('Show Wireframe')
+			.onChange(() => {
+				(material as any).wireframe = debugObject.showWireframe;
+			});
+
 		const depthMaterial = new CustomShaderMaterial({
-			// CSM
 			baseMaterial: THREE.MeshDepthMaterial,
 			silent: true,
 			vertexShader: terrainVertexShader,
@@ -93,26 +94,25 @@
 		scene.add(terrain);
 
 		// Board
-		const boardFill = new Brush(new THREE.BoxGeometry(11, 2, 11));
-		const boardHole = new Brush(new THREE.BoxGeometry(10, 2.1, 10));
-		const evaluator = new Evaluator();
-		const board = evaluator.evaluate(boardFill, boardHole, SUBTRACTION);
-		board.geometry.clearGroups();
-		const boardMaterial = new THREE.MeshStandardMaterial({
-			color: '#ffffff',
-			metalness: 0,
-			roughness: 0.3
-		});
+		const createBoard = () => {
+			const boardFill = new Brush(new THREE.BoxGeometry(11, 2, 11));
+			const boardHole = new Brush(new THREE.BoxGeometry(10, 2.1, 10));
+			const evaluator = new Evaluator();
+			const board = evaluator.evaluate(boardFill, boardHole, SUBTRACTION);
+			board.geometry.clearGroups();
+			const boardMaterial = new THREE.MeshStandardMaterial({
+				color: '#ffffff',
+				metalness: 0,
+				roughness: 0.3
+			});
+			board.material = boardMaterial;
+			board.castShadow = true;
+			board.receiveShadow = true;
+			scene.add(board);
+		};
+		createBoard();
 
-		board.material = boardMaterial;
-		board.castShadow = true;
-		board.receiveShadow = true;
-
-		scene.add(board);
-
-		/**
-		 * Lights
-		 */
+		//Lights
 		const directionalLight = new THREE.DirectionalLight('#ffffff', 2);
 		directionalLight.position.set(6.25, 3, 4);
 		directionalLight.castShadow = true;
@@ -124,10 +124,11 @@
 		directionalLight.shadow.camera.bottom = -8;
 		directionalLight.shadow.camera.left = -8;
 		scene.add(directionalLight);
+		// Helper
+		const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5);
+		scene.add(directionalLightHelper);
 
-		/**
-		 * Sizes
-		 */
+		// Sizes
 		const sizes = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56,
@@ -135,24 +136,15 @@
 		};
 
 		window.addEventListener('resize', () => {
-			// Update sizes
 			sizes.width = window.innerWidth;
 			sizes.height = window.innerHeight - 56;
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
-
-			// Update camera
 			camera.aspect = sizes.width / sizes.height;
 			camera.updateProjectionMatrix();
-
-			// Update renderer
 			renderer.setSize(sizes.width, sizes.height);
 			renderer.setPixelRatio(sizes.pixelRatio);
 		});
-
-		/**
-		 * Camera
-		 */
-		// Base camera
+		// camera
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
 		camera.position.set(-10, 6, -2);
 		scene.add(camera);
@@ -161,9 +153,7 @@
 		const controls = new OrbitControls(camera, canvas);
 		controls.enableDamping = true;
 
-		/**
-		 * Renderer
-		 */
+		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
 			antialias: true
@@ -175,24 +165,14 @@
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
-		/**
-		 * Animate
-		 */
+		//Animate
 		const clock = new THREE.Clock();
 
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
-
-			// Update controls
 			controls.update();
-
-			// Update uniforms
 			uniforms.uTime.value = elapsedTime;
-
-			// Render
 			renderer.render(scene, camera);
-
-			// Call tick again on the next frame
 			window.requestAnimationFrame(tick);
 		};
 

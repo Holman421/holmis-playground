@@ -30,7 +30,7 @@ void main() {
     vec4 modelPosition = modelMatrix * vec4(mixedPosition, 1.0);
     vec4 viewPosition = viewMatrix * modelPosition;
     vec4 projectedPosition = projectionMatrix * viewPosition;
-    gl_Position = projectedPosition;
+    gl_Position = vec4(projectedPosition.xy, 0.0, 1.0); // Remove perspective
 
     // Point size
     float finalRandomSize = smoothstep(0.2, 1.0, aRandomSize);

@@ -9,23 +9,14 @@
 
 	$effect(() => {
 		const gui = new GUI({ width: 340 });
+		gui.hide(); // Hide the GUI
 		const debugObject: any = {};
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-
-		// Scene
 		const scene = new THREE.Scene();
-
-		// Loaders
 		const dracoLoader = new DRACOLoader();
 		dracoLoader.setDecoderPath('./draco/');
 		const gltfLoader = new GLTFLoader();
 		gltfLoader.setDRACOLoader(dracoLoader);
-
-		/**
-		 * Sizes
-		 */
 		const sizes = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56,
@@ -33,13 +24,11 @@
 		};
 
 		window.addEventListener('resize', () => {
-			// Update sizes
 			sizes.width = window.innerWidth;
 			sizes.height = window.innerHeight - 56;
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
 			if (particles) {
-				// Materials
 				particles.material.uniforms.uResolution.value.set(
 					sizes.width * sizes.pixelRatio,
 					sizes.height * sizes.pixelRatio
@@ -47,7 +36,10 @@
 			}
 
 			// Update camera
-			camera.aspect = sizes.width / sizes.height;
+			camera.left = -sizes.width / 2;
+			camera.right = sizes.width / 2;
+			camera.top = sizes.height / 2;
+			camera.bottom = -sizes.height / 2;
 			camera.updateProjectionMatrix();
 
 			// Update renderer
@@ -55,21 +47,22 @@
 			renderer.setPixelRatio(sizes.pixelRatio);
 		});
 
-		/**
-		 * Camera
-		 */
-		// Base camera
-		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(0, 0, 8 * 2);
+		//Camera
+		const aspect = sizes.width / sizes.height;
+		const camera = new THREE.OrthographicCamera(
+			-sizes.width / 2,
+			sizes.width / 2,
+			sizes.height / 2,
+			-sizes.height / 2,
+			0.1,
+			100
+		);
+		camera.zoom = 35;
+		camera.updateProjectionMatrix();
+		camera.position.set(0, 0, 15);
 		scene.add(camera);
 
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
-
-		/**
-		 * Renderer
-		 */
+		//Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
 			antialias: true
@@ -84,23 +77,37 @@
 		});
 		renderer.setClearColor(debugObject.clearColor);
 
-		let particles: any = null;
+		let particles: any = {
+			maxCount: 0,
+			index: 4,
+			aRandomSize: null,
+			positions: []
+		};
 
 		// Load models
 		gltfLoader.load('/models/models.glb', (gltf) => {
 			gltfLoader.load('/models/WMStar/star.glb', (star) => {
-				gltfLoader.load('/models/WMText/WM-text.glb', (text) => {
-					// Particles
-					particles = {};
-					particles.index = 4;
+				gltfLoader.load('/models/WMText/WM_text.glb', (text) => {
+					text.scene.children[0].scale.set(3, 3, 3);
+					text.scene.children[0].position.x = 1.5;
+					// text.scene.children[0].rotateX(Math.PI * 0.5);
 
-					particles.maxCount = 0;
+					star.scene.children[0].rotateX(Math.PI * 0.5);
+					star.scene.children[0].scale.set(2.25, 2.25, 2.25);
+
+					// Update positions after transformations
+					text.scene.updateMatrixWorld(true);
+					star.scene.updateMatrixWorld(true);
+
 					// Positions
 					const positions = [
 						...gltf.scene.children,
 						text.scene.children[0],
 						star.scene.children[0]
-					].map((child: any) => child.geometry.attributes.position);
+					].map((child: any) => {
+						child.geometry.applyMatrix4(child.matrixWorld);
+						return child.geometry.attributes.position;
+					});
 
 					for (const position of positions) {
 						if (position.count > particles.maxCount) {
@@ -168,6 +175,30 @@
 						particles.geometry.attributes.position = particles.positions[particles.index];
 						particles.geometry.attributes.aPositionTarget = particles.positions[index];
 
+						if (index === 5) {
+							// move camera up with gsap
+							gsap.to(camera.position, {
+								duration: 3,
+								y: 20,
+								x: 10,
+								ease: 'power2.inOut',
+								onUpdate: () => {
+									camera.lookAt(0, 0, 0);
+								}
+							});
+						} else if (index === 4) {
+							// make the camera go back to default
+							gsap.to(camera.position, {
+								duration: 3,
+								y: 0,
+								x: 0,
+								ease: 'power2.inOut',
+								onUpdate: () => {
+									camera.lookAt(0, 0, 0);
+								}
+							});
+						}
+
 						// Animate uProgress
 						gsap.fromTo(
 							particles.material.uniforms.uProgress,
@@ -191,19 +222,19 @@
 					particles.Text = () => {
 						particles.morph(3);
 					};
-					particles.WM_Star = () => {
+					particles.WM_Text = () => {
 						particles.morph(4);
+					};
+					particles.WM_Logo = () => {
+						particles.morph(5);
 					};
 
 					gui
 						.add(particles.material.uniforms.uProgress, 'value', 0, 1, 0.001)
 						.name('progress')
 						.listen();
-					gui.add(particles, 'WM_Star');
-					gui.add(particles, 'Donut');
-					gui.add(particles, 'Monkey');
-					gui.add(particles, 'Ball');
-					gui.add(particles, 'Text');
+					gui.add(particles, 'WM_Text');
+					gui.add(particles, 'WM_Logo');
 
 					gui.addColor(particles, 'colorA').onChange(() => {
 						particles.material.uniforms.uColorA.value.set(particles.colorA);
@@ -217,6 +248,15 @@
 					particles.points = new THREE.Points(particles.geometry, particles.material);
 					particles.points.frustumCulled = false;
 					scene.add(particles.points);
+
+					// Periodically change index from 4 to 5 every 5 seconds
+					setInterval(() => {
+						if (particles.index === 4) {
+							particles.WM_Logo();
+						} else {
+							particles.WM_Text();
+						}
+					}, 5000);
 				});
 			});
 		});
@@ -226,7 +266,7 @@
 		 */
 		const tick = () => {
 			// Update controls
-			controls.update();
+			// controls.update();
 
 			// Render normal scene
 			renderer.render(scene, camera);

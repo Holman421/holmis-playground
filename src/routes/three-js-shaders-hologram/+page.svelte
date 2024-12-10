@@ -79,6 +79,46 @@
 			color: '#339ef0'
 		};
 
+		const geometry = new THREE.BoxGeometry(1, 1, 1);
+		const shaderMaterial = new THREE.ShaderMaterial({
+			vertexShader: `
+    uniform float edgeThickness;
+    varying vec3 vPosition;
+    void main() {
+      vPosition = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+			fragmentShader: `
+    uniform vec3 edgeColor;
+    varying vec3 vPosition;
+    void main() {
+      vec3 edgeWidth = vec3(0.05);
+      vec3 absDiff = abs(vPosition);
+      
+      // Check if point is near cube edges
+      if (
+        (abs(absDiff.x - 0.5) < edgeWidth.x) ||
+        (abs(absDiff.y - 0.5) < edgeWidth.y) ||
+        (abs(absDiff.z - 0.5) < edgeWidth.z)
+      ) {
+        gl_FragColor = vec4(edgeColor, 1.0);
+      } else {
+        discard; // Hide interior points
+      }
+    }
+  `,
+			uniforms: {
+				edgeColor: { value: new THREE.Color(1, 0, 0) },
+				edgeThickness: { value: 0.05 }
+			}
+		});
+
+		const points = new THREE.Points(geometry, shaderMaterial);
+		// const normalBox = new THREE.Mesh(geometry, new THREE.MeshNormalMaterial());
+		scene.add(points);
+		// scene.add(normalBox);
+
 		/**
 		 * Material
 		 */
@@ -113,18 +153,18 @@
 		scene.add(sphere);
 
 		// Suzanne
-		let suzanne: any = null;
-		gltfLoader.load('./models/WMStar/star.glb', (gltf) => {
-			suzanne = gltf.scene;
-			gltf.scene.scale.set(0.75, 0.75, 0.75);
-			gltf.scene.position.y = -10.5;
-			console.log(gltf);
-			suzanne.traverse((child: any) => {
-				if (child.isMesh) child.material = material;
-			});
-			suzanne.position.set(0, -1, 0);
-			scene.add(suzanne);
-		});
+		// let suzanne: any = null;
+		// gltfLoader.load('./models/WMStar/star.glb', (gltf) => {
+		// 	suzanne = gltf.scene;
+		// 	gltf.scene.scale.set(0.75, 0.75, 0.75);
+		// 	gltf.scene.position.y = -10.5;
+		// 	console.log(gltf);
+		// 	suzanne.traverse((child: any) => {
+		// 		if (child.isMesh) child.material = material;
+		// 	});
+		// 	suzanne.position.set(0, -1, 0);
+		// 	scene.add(suzanne);
+		// });
 
 		/**
 		 * Animate
@@ -138,10 +178,10 @@
 			material.uniforms.uTime.value = elapsedTime;
 
 			// Rotate objects
-			if (suzanne) {
-				// suzanne.rotation.x = -elapsedTime * 0.1;
-				suzanne.rotation.y = elapsedTime * 0.2;
-			}
+			// if (suzanne) {
+			// 	// suzanne.rotation.x = -elapsedTime * 0.1;
+			// 	suzanne.rotation.y = elapsedTime * 0.2;
+			// }
 
 			sphere.rotation.x = -elapsedTime * 0.1;
 			sphere.rotation.y = elapsedTime * 0.2;
