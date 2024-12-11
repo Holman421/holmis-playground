@@ -197,5 +197,26 @@ export const projects = [
 		description: 'Experimentation with Custom Shader Material',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true
+	},
+	{
+		href: '/three-js-shaders-can-brush',
+		title: 'Can brush effect',
+		description: 'Mouse can brush effect',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: true
+	},
+	{
+		href: '/three-js-shaders-terrain-thirdTry',
+		title: 'Minecraft terrain',
+		description: 'Minecraft terrain project',
+		technologies: ['THREE.js', 'Shaders'],
+		shared: true
+	},
+	{
+		href: '/three-js-postprocesing',
+		title: 'Postprocessing effects',
+		description: 'Trying various post procesing effects',
+		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
+		shared: true
 	}
 ];

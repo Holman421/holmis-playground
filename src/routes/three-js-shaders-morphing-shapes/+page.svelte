@@ -75,7 +75,7 @@
 		gui.addColor(debugObject, 'clearColor').onChange(() => {
 			renderer.setClearColor(debugObject.clearColor);
 		});
-		renderer.setClearColor(debugObject.clearColor);
+		// renderer.setClearColor(debugObject.clearColor);
 
 		let particles: any = {
 			maxCount: 0,
@@ -249,8 +249,6 @@
 					particles.points.frustumCulled = false;
 					scene.add(particles.points);
 
-					let isFirstAnimation = true;
-					// Periodically change index from 4 to 5 every 5 seconds
 					setInterval(() => {
 						if (particles.index === 4) {
 							particles.WM_Logo();

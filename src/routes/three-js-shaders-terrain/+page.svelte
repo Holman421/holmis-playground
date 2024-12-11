@@ -18,13 +18,28 @@
 		const rgbeLoader = new RGBELoader();
 
 		// Environment map
+		let environmentMapVariable: THREE.Texture;
 		rgbeLoader.load('/environmentMaps/spruit_sunrise.hdr', (environmentMap) => {
+			environmentMapVariable = environmentMap;
 			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
 
 			scene.background = environmentMap;
 			scene.backgroundBlurriness = 0.5;
 			scene.environment = environmentMap;
 		});
+
+		const envMapParams = {
+			visible: true
+		};
+
+		gui
+			.add(envMapParams, 'visible')
+			.name('Show Environment Map')
+			.onChange((visible: boolean) => {
+				scene.background = visible ? environmentMapVariable : null;
+				// Keep the environment's influence on materials
+				scene.environment = environmentMapVariable;
+			});
 
 		// Geometry
 		const geometry = new THREE.PlaneGeometry(10, 10, 1000, 1000);
@@ -36,7 +51,7 @@
 		const uniforms = {
 			uPositionFrequency: { value: 0.2 },
 			uStrength: { value: 2.5 },
-			uWarpFrequency: { value: 5.0 },
+			uWarpFrequency: { value: 1.0 },
 			uWarpStrength: { value: 0.5 },
 			uTime: { value: 0 },
 			uAnimationSpeed: { value: 0.05 },
@@ -125,8 +140,6 @@
 		directionalLight.shadow.camera.left = -8;
 		scene.add(directionalLight);
 		// Helper
-		const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5);
-		scene.add(directionalLightHelper);
 
 		// Sizes
 		const sizes = {
