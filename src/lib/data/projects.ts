@@ -206,7 +206,7 @@ export const projects = [
 		shared: true
 	},
 	{
-		href: '/three-js-shaders-terrain-thirdTry',
+		href: '/three-js-shaders-minecraft',
 		title: 'Minecraft terrain',
 		description: 'Minecraft terrain project',
 		technologies: ['THREE.js', 'Shaders'],

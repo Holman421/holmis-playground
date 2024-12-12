@@ -7,14 +7,13 @@
 	import terrainVertexShader from './shaders/terrain/vertex.glsl';
 	import terrainFragmentShader from './shaders/terrain/fragment.glsl';
 	import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
+	import { gsap } from 'gsap';
 
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
 		const scene = new THREE.Scene();
 		const rgbeLoader = new RGBELoader();
-
-		// Camera and Renderer
 		const sizes = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56,
@@ -29,13 +28,13 @@
 			environmentMapVariable = environmentMap;
 			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
 
-			scene.background = environmentMap;
+			// scene.background = environmentMap;
 			scene.backgroundBlurriness = 0.5;
 			scene.environment = environmentMap;
 		});
 
 		const envMapParams = {
-			visible: true
+			visible: false
 		};
 
 		gui
@@ -43,7 +42,6 @@
 			.name('Show Environment Map')
 			.onChange((visible: boolean) => {
 				scene.background = visible ? environmentMapVariable : null;
-				// Keep the environment's influence on materials
 				scene.environment = environmentMapVariable;
 			});
 
@@ -62,24 +60,21 @@
 		directionalLight.shadow.camera.bottom = -8;
 		directionalLight.shadow.camera.left = -8;
 		scene.add(directionalLight);
-		// Helper
-		// const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5);
-		// scene.add(directionalLightHelper);
 
 		// GUI Settings
 		const settings = {
 			uPositionFrequency: 2.0,
 			uWarpFrequency: 0.2,
 			uWarpStrength: 0.5,
-			uStrength: 1.65, // Changed default to 0.5 for more moderate initial terrain
-			uBaseHeight: 0.85, // Increased to make default height more visible
-			uAnimationSpeed: 0.0 // Add this line
+			uStrength: 1.65,
+			uBaseHeight: 0.85,
+			uAnimationSpeed: 0.0
 		};
 
-		const gridSize = 250; // Changed from 100 to 250
+		const gridSize = 250;
 
 		// Create Geometry
-		const pillarGeometry = new THREE.BoxGeometry(0.04, 1, 0.04); // Reduced width from 0.1 to 0.04
+		const pillarGeometry = new THREE.BoxGeometry(0.04, 1, 0.04);
 
 		// Replace ShaderMaterial with CustomShaderMaterial
 		const material = new CustomShaderMaterial({
@@ -102,12 +97,11 @@
 				uColorRock: { value: new THREE.Color('#666666') },
 				uColorSnow: { value: new THREE.Color('#FFFFFF') }
 			},
-			// MeshStandardMaterial properties
 			metalness: 0,
 			roughness: 1
 		});
 
-		// Create Instanced Mesh
+		// Instanced Mesh
 		const instancedMesh = new THREE.InstancedMesh(pillarGeometry, material, gridSize * gridSize);
 		instancedMesh.castShadow = true;
 		instancedMesh.receiveShadow = true;
@@ -115,8 +109,8 @@
 		// Position Instances
 		const dummy = new THREE.Object3D();
 		for (let i = 0; i < gridSize * gridSize; i++) {
-			const x = (i % gridSize) * 0.04 - (gridSize * 0.04) / 2; // Changed from 0.1 to 0.04
-			const z = Math.floor(i / gridSize) * 0.04 - (gridSize * 0.04) / 2; // Changed from 0.1 to 0.05
+			const x = (i % gridSize) * 0.04 - (gridSize * 0.04) / 2;
+			const z = Math.floor(i / gridSize) * 0.04 - (gridSize * 0.04) / 2;
 
 			dummy.position.set(x, 0, z);
 			dummy.updateMatrix();
@@ -124,6 +118,7 @@
 		}
 		scene.add(instancedMesh);
 
+		// Outer Box
 		const createBoard = () => {
 			const boardFill = new Brush(new THREE.BoxGeometry(11, 2, 11));
 			const boardHole = new Brush(new THREE.BoxGeometry(10, 2.1, 10));
@@ -143,6 +138,99 @@
 		};
 		createBoard();
 
+		const animatePositionFrequency = () => {
+			gsap.to(settings, {
+				uPositionFrequency: 0,
+				duration: 3,
+				easing: 'power4.in',
+				onUpdate: () => {
+					material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
+				},
+				onComplete: () => {
+					gsap.to(settings, {
+						uPositionFrequency: 5,
+						duration: 3,
+						easing: 'power4.inOut',
+						onUpdate: () => {
+							material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
+						},
+						onComplete: () => {
+							gsap.to(settings, {
+								uPositionFrequency: 2,
+								duration: 3,
+								easing: 'power4.inOut',
+								onUpdate: () => {
+									material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
+								}
+							});
+						}
+					});
+				}
+			});
+		};
+
+		const animateBaseHeight = () => {
+			gsap.to(settings, {
+				uBaseHeight: 0.5,
+				duration: 2,
+				easing: 'power4.inOut',
+				onUpdate: () => {
+					material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+				},
+				onComplete: () => {
+					gsap.to(settings, {
+						uBaseHeight: 1,
+						duration: 2.5,
+						easing: 'power4.inOut',
+						onUpdate: () => {
+							material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+						},
+						onComplete: () => {
+							gsap.to(settings, {
+								uBaseHeight: 0.85,
+								duration: 1.5,
+								easing: 'power4.inOut',
+								onUpdate: () => {
+									material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+								}
+							});
+						}
+					});
+				}
+			});
+		};
+
+		const animateTerrainIntensity = () => {
+			const timeline = gsap.timeline();
+
+			timeline
+				.to(settings, {
+					uStrength: 0.6,
+					duration: 2,
+					easing: 'power4.out',
+					onUpdate: () => {
+						material.uniforms.uStrength.value = settings.uStrength;
+					}
+				})
+				.to(settings, {
+					uStrength: 2.25,
+					duration: 3,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uStrength.value = settings.uStrength;
+					},
+					delay: 0.75
+				})
+				.to(settings, {
+					uStrength: 1.65,
+					duration: 2,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uStrength.value = settings.uStrength;
+					}
+				});
+		};
+
 		// GUI Controls
 		gui
 			.add(settings, 'uPositionFrequency', 0.1, 5.0, 0.05)
@@ -150,6 +238,9 @@
 			.onChange(() => {
 				material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
 			});
+		gui.add({ animate: animatePositionFrequency }, 'animate').name('Animate Position Frequency');
+		gui.add({ animate: animateBaseHeight }, 'animate').name('Animate Base Height');
+		gui.add({ animate: animateTerrainIntensity }, 'animate').name('Animate Terrain Intensity');
 		gui
 			.add(settings, 'uWarpFrequency', 0.1, 1.0, 0.01)
 			.name('Warp Frequency')
@@ -163,7 +254,7 @@
 				material.uniforms.uWarpStrength.value = settings.uWarpStrength;
 			});
 		gui
-			.add(settings, 'uStrength', 0.1, 2.0, 0.1)
+			.add(settings, 'uStrength', 0.0, 2.0, 0.1)
 			.name('Terrain Intensity') // Changed name to better reflect its new purpose
 			.onChange(() => {
 				material.uniforms.uStrength.value = settings.uStrength;
