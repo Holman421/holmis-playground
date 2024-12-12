@@ -8,12 +8,16 @@
 	import terrainFragmentShader from './shaders/terrain/fragment.glsl';
 	import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 	import { gsap } from 'gsap';
+	import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+	import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
 		const scene = new THREE.Scene();
 		const rgbeLoader = new RGBELoader();
+		const gltfLoader = new GLTFLoader();
 		const sizes = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56,
@@ -66,7 +70,7 @@
 			uPositionFrequency: 2.0,
 			uWarpFrequency: 0.2,
 			uWarpStrength: 0.5,
-			uStrength: 1.65,
+			uStrength: 1.6,
 			uBaseHeight: 0.85,
 			uAnimationSpeed: 0.0
 		};
@@ -120,11 +124,11 @@
 
 		// Outer Box
 		const createBoard = () => {
-			const boardFill = new Brush(new THREE.BoxGeometry(11, 2, 11));
-			const boardHole = new Brush(new THREE.BoxGeometry(10, 2.1, 10));
+			const boardFill = new Brush(new THREE.BoxGeometry(11, 2.5, 11));
+			const boardHole = new Brush(new THREE.BoxGeometry(10, 2.6, 10));
 			const evaluator = new Evaluator();
 			const board = evaluator.evaluate(boardFill, boardHole, SUBTRACTION);
-			board.position.set(0, 0.75, 0);
+			board.position.set(0, 0.5, 0);
 			board.geometry.clearGroups();
 			const boardMaterial = new THREE.MeshStandardMaterial({
 				color: '#ffffff',
@@ -138,6 +142,78 @@
 		};
 		createBoard();
 
+		// Add WMStar
+		let wmStar: any = null;
+		const starSettings = {
+			scale: 0.2,
+			color: '#eafd05',
+			rotationSpeed: 0.4
+		};
+
+		gltfLoader.load('/models/WMStar/star.glb', (gltf) => {
+			wmStar = gltf.scene;
+
+			// Set initial scale
+			wmStar.scale.set(starSettings.scale, starSettings.scale, starSettings.scale);
+			wmStar.position.y = 2.0;
+			wmStar.rotateX(Math.PI * 0.5);
+
+			// Add custom material with strong color for visibility
+			const debugMaterial = new THREE.MeshStandardMaterial({
+				color: starSettings.color,
+				metalness: 0.3,
+				roughness: 0.4,
+				emissive: starSettings.color,
+				emissiveIntensity: 0.5
+			});
+
+			wmStar.traverse((child: any) => {
+				if (child.isMesh) {
+					child.material = debugMaterial;
+					child.castShadow = true;
+					child.receiveShadow = false;
+				}
+			});
+
+			scene.add(wmStar);
+		});
+
+		// Add error handling for model loading
+		gltfLoader.manager.onError = function (url) {
+			console.error('Error loading', url);
+		};
+
+		// Add 3D Text
+		const fontLoader = new FontLoader();
+		fontLoader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
+			const textGeometry = new TextGeometry('Wonder Makers', {
+				font,
+				size: 0.75,
+				height: 0.2,
+				curveSegments: 12,
+				bevelEnabled: true,
+				bevelThickness: 0.03,
+				bevelSize: 0.02,
+				bevelOffset: 0,
+				bevelSegments: 5
+			});
+
+			const textMaterial = new THREE.MeshStandardMaterial({
+				color: '#eafd05',
+				metalness: 0.3,
+				roughness: 0.4
+			});
+
+			const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+			textGeometry.center();
+			textMesh.position.y = 0.6;
+			textMesh.position.x = -5.5;
+			textMesh.castShadow = false;
+			textMesh.rotateY(-Math.PI * 0.5);
+			scene.add(textMesh);
+		});
+
+		// GSAP GUI Animations
 		const animatePositionFrequency = () => {
 			gsap.to(settings, {
 				uPositionFrequency: 0,
@@ -168,7 +244,6 @@
 				}
 			});
 		};
-
 		const animateBaseHeight = () => {
 			gsap.to(settings, {
 				uBaseHeight: 0.5,
@@ -199,7 +274,6 @@
 				}
 			});
 		};
-
 		const animateTerrainIntensity = () => {
 			const timeline = gsap.timeline();
 
@@ -286,7 +360,14 @@
 		const clock = new THREE.Clock();
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
-			material.uniforms.uTime.value = elapsedTime; // Add this line
+			material.uniforms.uTime.value = elapsedTime;
+
+			// Rotate WMStar
+			if (wmStar) {
+				wmStar.rotation.y = elapsedTime * starSettings.rotationSpeed;
+				wmStar.rotation.z = elapsedTime * starSettings.rotationSpeed;
+			}
+
 			controls.update();
 			renderer.render(scene, camera);
 			window.requestAnimationFrame(tick);
