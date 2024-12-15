@@ -9,11 +9,23 @@ uniform float uBaseHeight;
 uniform float uTime;
 uniform float uAnimationSpeed;  // Add this line
 
-float getElevation(vec2 position) {
-    vec2 steppedPosition = floor(position / (1.0 / uGridSize)) * (1.0 / uGridSize);
+uniform vec3 uColorWaterDeep;
+uniform vec3 uColorWaterSurface;
+uniform vec3 uColorSand;
+uniform vec3 uColorGrass;
+uniform vec3 uColorRock;
+uniform vec3 uColorSnow;
 
+float getElevation(vec2 position) {
+    // Center the position around origin
+    vec2 centeredPosition = position - 0.5;
+
+    // Step the position based on grid size
+    vec2 steppedPosition = floor(centeredPosition * uGridSize) / uGridSize;
+
+    // Apply warping from center
     vec2 warpedPosition = steppedPosition;
-    warpedPosition += uTime * uAnimationSpeed; // Modify this line
+    warpedPosition += uTime * (uAnimationSpeed * 0.25) - vec2(0.0, 0.1);
     warpedPosition += simplexNoise2d(warpedPosition * uWarpFrequency) * uWarpStrength;
 
     float elevation = 0.0;
@@ -35,10 +47,7 @@ float getElevation(vec2 position) {
     return elevation;
 }
 
-varying vec3 vWorldPosition; // World position for accurate elevation
-varying float vElevation;    // Elevation value for coloring
-varying float vUpDot;        // For slope detection
-varying vec3 vLocalPosition; // Add this new varying
+varying vec3 vColor;  // New varying for color
 
 // Need to declare csm_Position as an output
 out vec3 csm_Position;
@@ -61,12 +70,24 @@ void main() {
     // Set csm_Position
     csm_Position = pos;
 
-    // Calculate world position for varyings
-    vec4 meshWorldPos = instanceMatrix * vec4(pos, 1.0);
+    // Calculate color in vertex shader
+    float height = floor((pos.y - 0.5) * 80.0) / 80.0;
+
+    // Define threshold levels
+    float waterLevel = 0.2;
+    float waterDeepLevel = waterLevel * 0.4;
+    float sandLevel = 0.25;
+    float grassLevel = 0.55;
+    float snowLevel = 0.9;
+
+    // Use step function for sharp transitions
+    vec3 color = uColorWaterDeep;
+    color = mix(color, uColorWaterSurface, step(waterDeepLevel, height));
+    color = mix(color, uColorSand, step(waterLevel, height));
+    color = mix(color, uColorGrass, step(sandLevel, height));
+    color = mix(color, uColorRock, step(grassLevel, height));
+    color = mix(color, uColorSnow, step(snowLevel, height));
 
     // Set varyings
-    vWorldPosition = meshWorldPos.xyz;
-    vElevation = elevation;
-    vUpDot = dot(normalMatrix * vec3(0.0, 1.0, 0.0), normalize(meshWorldPos.xyz));
-    vLocalPosition = pos;
+    vColor = color;  // Pass color to fragment shader
 }

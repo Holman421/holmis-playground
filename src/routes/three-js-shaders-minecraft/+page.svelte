@@ -15,9 +15,24 @@
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+		const loadingBarElement = document.querySelector('.loading-bar') as HTMLDivElement;
+		const loadingManager = new THREE.LoadingManager(
+			() => {
+				gsap.delayedCall(0.5, () => {
+					gsap.to(overlayMaterial.uniforms.uAplha, { duration: 3, value: 0 });
+					loadingBarElement.classList.add('ended');
+					loadingBarElement.style.transform = '';
+				});
+			},
+			(itemUrl, itemsLoaded, itemsTotal) => {
+				const progressRatio = itemsLoaded / itemsTotal;
+				console.log(`Loading ${itemUrl}: ${progressRatio * 100}%`);
+				gsap.to(loadingBarElement, { scaleX: progressRatio, duration: 0.5 });
+			}
+		);
 		const scene = new THREE.Scene();
-		const rgbeLoader = new RGBELoader();
-		const gltfLoader = new GLTFLoader();
+		const rgbeLoader = new RGBELoader(loadingManager);
+		const gltfLoader = new GLTFLoader(loadingManager);
 		const sizes = {
 			width: window.innerWidth,
 			height: window.innerHeight - 56,
@@ -40,6 +55,30 @@
 		const envMapParams = {
 			visible: false
 		};
+
+		// Overlay
+		const overlayGeometry = new THREE.PlaneGeometry(2, 2, 1, 1);
+		const overlayMaterial = new THREE.ShaderMaterial({
+			uniforms: {
+				uAplha: { value: 1 }
+			},
+			vertexShader: `
+        void main()
+        {
+            gl_Position = vec4(position, 1.0);
+        }
+    `,
+			fragmentShader: `
+			uniform float uAplha;
+        void main()
+        {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, uAplha);
+        }
+    `,
+			transparent: true
+		});
+		const overlay = new THREE.Mesh(overlayGeometry, overlayMaterial);
+		scene.add(overlay);
 
 		gui
 			.add(envMapParams, 'visible')
@@ -72,7 +111,11 @@
 			uWarpStrength: 0.5,
 			uStrength: 1.6,
 			uBaseHeight: 0.85,
-			uAnimationSpeed: 0.0
+			uAnimationSpeed: 0.1
+		};
+
+		const animationState = {
+			isTerrainAnimating: false
 		};
 
 		const gridSize = 250;
@@ -82,6 +125,7 @@
 
 		// Replace ShaderMaterial with CustomShaderMaterial
 		const material = new CustomShaderMaterial({
+			precision: 'lowp',
 			baseMaterial: THREE.MeshStandardMaterial,
 			vertexShader: terrainVertexShader,
 			fragmentShader: terrainFragmentShader,
@@ -146,8 +190,7 @@
 		let wmStar: any = null;
 		const starSettings = {
 			scale: 0.2,
-			color: '#eafd05',
-			rotationSpeed: 0.4
+			color: '#eafd05'
 		};
 
 		gltfLoader.load('/models/WMStar/star.glb', (gltf) => {
@@ -183,13 +226,24 @@
 			console.error('Error loading', url);
 		};
 
-		// Add 3D Text
-		const fontLoader = new FontLoader();
-		fontLoader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
-			const textGeometry = new TextGeometry('Wonder Makers', {
+		const text3D = 'Wonder Makers';
+
+		// Add text settings
+		const textSettings = {
+			content: text3D,
+			size: 0.9,
+			height: 0.2
+		};
+
+		// Store the text mesh reference
+		let textMesh: THREE.Mesh | null = null;
+
+		// Function to create or update text
+		const updateText = (font: any) => {
+			const textGeometry = new TextGeometry(textSettings.content, {
 				font,
-				size: 0.75,
-				height: 0.2,
+				size: textSettings.size,
+				height: textSettings.height,
 				curveSegments: 12,
 				bevelEnabled: true,
 				bevelThickness: 0.03,
@@ -204,76 +258,197 @@
 				roughness: 0.4
 			});
 
-			const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+			// Remove existing text mesh if it exists
+			if (textMesh) {
+				scene.remove(textMesh);
+			}
+
+			// Create new text mesh
+			textMesh = new THREE.Mesh(textGeometry, textMaterial);
 			textGeometry.center();
 			textMesh.position.y = 0.6;
 			textMesh.position.x = -5.5;
 			textMesh.castShadow = false;
 			textMesh.rotateY(-Math.PI * 0.5);
 			scene.add(textMesh);
+		};
+
+		// Add 3D Text
+		const fontLoader = new FontLoader();
+		fontLoader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
+			// Store font for later use
+			const storedFont = font;
+
+			// Initial text creation
+			updateText(font);
+
+			// Add GUI controls for text
+			const textFolder = gui.addFolder('Text Settings');
+			textFolder
+				.add(textSettings, 'content')
+				.name('Text Content')
+				.onChange(() => updateText(storedFont));
+			textFolder
+				.add(textSettings, 'size', 0.1, 2, 0.1)
+				.name('Text Size')
+				.onChange(() => updateText(storedFont));
+			textFolder
+				.add(textSettings, 'height', 0.1, 1, 0.1)
+				.name('Text Height')
+				.onChange(() => updateText(storedFont));
 		});
 
 		// GSAP GUI Animations
 		const animatePositionFrequency = () => {
-			gsap.to(settings, {
-				uPositionFrequency: 0,
-				duration: 3,
-				easing: 'power4.in',
-				onUpdate: () => {
-					material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
-				},
-				onComplete: () => {
-					gsap.to(settings, {
-						uPositionFrequency: 5,
+			const timeline = gsap.timeline();
+
+			// Terrain animation timeline
+			timeline
+				.to(settings, {
+					uPositionFrequency: 0,
+					duration: 3,
+					easing: 'power4.in',
+					onUpdate: () => {
+						material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
+					}
+				})
+				.to(settings, {
+					uPositionFrequency: 5,
+					duration: 3,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
+					}
+				})
+				.to(settings, {
+					uPositionFrequency: 2,
+					duration: 3,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
+					}
+				});
+
+			// Star animation timeline
+			if (wmStar) {
+				const starTimeline = gsap.timeline();
+				starTimeline
+					.to(wmStar.scale, {
+						x: 0.8,
+						y: 0.8,
+						z: 0.8,
 						duration: 3,
-						easing: 'power4.inOut',
-						onUpdate: () => {
-							material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
-						},
-						onComplete: () => {
-							gsap.to(settings, {
-								uPositionFrequency: 2,
-								duration: 3,
-								easing: 'power4.inOut',
-								onUpdate: () => {
-									material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
-								}
-							});
-						}
+						easing: 'power4.in'
+					})
+					.to(wmStar.scale, {
+						x: 0.05,
+						y: 0.05,
+						z: 0.05,
+						duration: 3,
+						easing: 'power4.inOut'
+					})
+					.to(wmStar.scale, {
+						x: 0.2,
+						y: 0.2,
+						z: 0.2,
+						duration: 3,
+						easing: 'power4.inOut'
 					});
-				}
-			});
+
+				timeline
+					.to(
+						wmStar.position,
+						{
+							y: 2.5,
+							duration: 2,
+							easing: 'power4.inOut'
+						},
+						0
+					)
+					.to(
+						wmStar.position,
+						{
+							y: 2.0,
+							duration: 2.5,
+							easing: 'power4.inOut'
+						},
+						3
+					)
+					.to(
+						wmStar.position,
+						{
+							y: 2.0,
+							duration: 1.5,
+							easing: 'power4.inOut'
+						},
+						6
+					);
+			}
 		};
+
 		const animateBaseHeight = () => {
-			gsap.to(settings, {
-				uBaseHeight: 0.5,
-				duration: 2,
-				easing: 'power4.inOut',
-				onUpdate: () => {
-					material.uniforms.uBaseHeight.value = settings.uBaseHeight;
-				},
-				onComplete: () => {
-					gsap.to(settings, {
-						uBaseHeight: 1,
-						duration: 2.5,
-						easing: 'power4.inOut',
-						onUpdate: () => {
-							material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+			const timeline = gsap.timeline();
+
+			// Terrain animation
+			timeline
+				.to(settings, {
+					uBaseHeight: 0.5,
+					duration: 2,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+					}
+				})
+				.to(settings, {
+					uBaseHeight: 1,
+					duration: 2.5,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+					}
+				})
+				.to(settings, {
+					uBaseHeight: 0.85,
+					duration: 1.5,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uBaseHeight.value = settings.uBaseHeight;
+					}
+				});
+
+			// Star animation
+			if (wmStar) {
+				timeline
+					.to(
+						wmStar.position,
+						{
+							y: 0.5,
+							duration: 2,
+							easing: 'power4.inOut'
 						},
-						onComplete: () => {
-							gsap.to(settings, {
-								uBaseHeight: 0.85,
-								duration: 1.5,
-								easing: 'power4.inOut',
-								onUpdate: () => {
-									material.uniforms.uBaseHeight.value = settings.uBaseHeight;
-								}
-							});
-						}
-					});
-				}
-			});
+						0
+					)
+					.to(
+						wmStar.position,
+						{
+							y: 2.5,
+							duration: 2.5,
+							easing: 'power4.inOut'
+						},
+						2
+					)
+					.to(
+						wmStar.position,
+						{
+							y: 2.0,
+							duration: 1.5,
+							easing: 'power4.inOut'
+						},
+						4.5
+					);
+			}
 		};
+
 		const animateTerrainIntensity = () => {
 			const timeline = gsap.timeline();
 
@@ -286,15 +461,18 @@
 						material.uniforms.uStrength.value = settings.uStrength;
 					}
 				})
-				.to(settings, {
-					uStrength: 2.25,
-					duration: 3,
-					easing: 'power4.inOut',
-					onUpdate: () => {
-						material.uniforms.uStrength.value = settings.uStrength;
+				.to(
+					settings,
+					{
+						uStrength: 2.25,
+						duration: 3,
+						easing: 'power4.inOut',
+						onUpdate: () => {
+							material.uniforms.uStrength.value = settings.uStrength;
+						}
 					},
-					delay: 0.75
-				})
+					'+=0.75'
+				) // Using position parameter instead of delay
 				.to(settings, {
 					uStrength: 1.65,
 					duration: 2,
@@ -345,8 +523,13 @@
 			.onChange(() => {
 				material.uniforms.uAnimationSpeed.value = settings.uAnimationSpeed;
 			});
+		gui.add(animationState, 'isTerrainAnimating').name('Toggle Terrain Animation');
 
-		const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+		const renderer = new THREE.WebGLRenderer({
+			canvas,
+			antialias: true,
+			powerPreference: 'high-performance'
+		});
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 		renderer.shadowMap.enabled = true;
@@ -360,12 +543,16 @@
 		const clock = new THREE.Clock();
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
-			material.uniforms.uTime.value = elapsedTime;
 
-			// Rotate WMStar
+			// Update star rotation always
 			if (wmStar) {
-				wmStar.rotation.y = elapsedTime * starSettings.rotationSpeed;
-				wmStar.rotation.z = elapsedTime * starSettings.rotationSpeed;
+				wmStar.rotation.y = elapsedTime * settings.uAnimationSpeed * 2.0;
+				wmStar.rotation.z = elapsedTime * settings.uAnimationSpeed * 2.0;
+			}
+
+			// Update terrain animation only if enabled
+			if (animationState.isTerrainAnimating) {
+				material.uniforms.uTime.value = elapsedTime;
 			}
 
 			controls.update();
@@ -378,4 +565,24 @@
 
 <div>
 	<canvas class="webgl"></canvas>
+	<div class="loading-bar"></div>
 </div>
+
+<style>
+	.loading-bar {
+		position: absolute;
+		top: 50%;
+		width: 100%;
+		height: 2px;
+		background: #ffffff;
+		transform: scaleX(0);
+		transform-origin: top left;
+		transition: transform 0.5s;
+		will-change: transform;
+	}
+
+	.loading-bar.ended {
+		transform-origin: top right;
+		transition: transform 1.5s ease-in-out;
+	}
+</style>
