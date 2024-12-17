@@ -115,7 +115,8 @@
 		};
 
 		const animationState = {
-			isTerrainAnimating: false
+			isTerrainAnimating: false,
+			isButtonsActive: true
 		};
 
 		const gridSize = 250;
@@ -235,6 +236,8 @@
 			height: 0.2
 		};
 
+		const mainColor = '#eafd05';
+
 		// Store the text mesh reference
 		let textMesh: THREE.Mesh | null = null;
 
@@ -253,7 +256,7 @@
 			});
 
 			const textMaterial = new THREE.MeshStandardMaterial({
-				color: '#eafd05',
+				color: mainColor,
 				metalness: 0.3,
 				roughness: 0.4
 			});
@@ -266,7 +269,7 @@
 			// Create new text mesh
 			textMesh = new THREE.Mesh(textGeometry, textMaterial);
 			textGeometry.center();
-			textMesh.position.y = 0.6;
+			textMesh.position.y = 1.0;
 			textMesh.position.x = -5.5;
 			textMesh.castShadow = false;
 			textMesh.rotateY(-Math.PI * 0.5);
@@ -301,19 +304,19 @@
 		// GSAP GUI Animations
 		const animatePositionFrequency = () => {
 			const timeline = gsap.timeline();
+			const duration = 7;
 
-			// Terrain animation timeline
 			timeline
 				.to(settings, {
-					uPositionFrequency: 0,
-					duration: 3,
-					easing: 'power4.in',
+					uPositionFrequency: 0.2,
+					duration: 2,
+					easing: 'power4.inOut',
 					onUpdate: () => {
 						material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
 					}
 				})
 				.to(settings, {
-					uPositionFrequency: 5,
+					uPositionFrequency: 4.5,
 					duration: 3,
 					easing: 'power4.inOut',
 					onUpdate: () => {
@@ -322,38 +325,48 @@
 				})
 				.to(settings, {
 					uPositionFrequency: 2,
-					duration: 3,
+					duration: 2,
 					easing: 'power4.inOut',
 					onUpdate: () => {
 						material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
 					}
 				});
 
-			// Star animation timeline
 			if (wmStar) {
-				const starTimeline = gsap.timeline();
-				starTimeline
-					.to(wmStar.scale, {
-						x: 0.8,
-						y: 0.8,
-						z: 0.8,
-						duration: 3,
-						easing: 'power4.in'
-					})
-					.to(wmStar.scale, {
-						x: 0.05,
-						y: 0.05,
-						z: 0.05,
-						duration: 3,
-						easing: 'power4.inOut'
-					})
-					.to(wmStar.scale, {
-						x: 0.2,
-						y: 0.2,
-						z: 0.2,
-						duration: 3,
-						easing: 'power4.inOut'
-					});
+				timeline
+					.to(
+						wmStar.scale,
+						{
+							x: 0.8,
+							y: 0.8,
+							z: 0.8,
+							duration: 2,
+							easing: 'power4.inOut'
+						},
+						0
+					)
+					.to(
+						wmStar.scale,
+						{
+							x: 0.05,
+							y: 0.05,
+							z: 0.05,
+							duration: 3,
+							easing: 'power4.inOut'
+						},
+						2
+					)
+					.to(
+						wmStar.scale,
+						{
+							x: 0.2,
+							y: 0.2,
+							z: 0.2,
+							duration: 2,
+							easing: 'power4.inOut'
+						},
+						5
+					);
 
 				timeline
 					.to(
@@ -369,31 +382,34 @@
 						wmStar.position,
 						{
 							y: 2.0,
-							duration: 2.5,
+							duration: 3,
 							easing: 'power4.inOut'
 						},
-						3
+						2
 					)
 					.to(
 						wmStar.position,
 						{
 							y: 2.0,
-							duration: 1.5,
+							duration: 2,
 							easing: 'power4.inOut'
 						},
-						6
+						5
 					);
 			}
+
+			return { timeline, duration };
 		};
 
 		const animateBaseHeight = () => {
 			const timeline = gsap.timeline();
+			const duration = 4.75;
 
 			// Terrain animation
 			timeline
 				.to(settings, {
 					uBaseHeight: 0.5,
-					duration: 2,
+					duration: 1.5,
 					easing: 'power4.inOut',
 					onUpdate: () => {
 						material.uniforms.uBaseHeight.value = settings.uBaseHeight;
@@ -401,7 +417,7 @@
 				})
 				.to(settings, {
 					uBaseHeight: 1,
-					duration: 2.5,
+					duration: 2,
 					easing: 'power4.inOut',
 					onUpdate: () => {
 						material.uniforms.uBaseHeight.value = settings.uBaseHeight;
@@ -409,7 +425,7 @@
 				})
 				.to(settings, {
 					uBaseHeight: 0.85,
-					duration: 1.5,
+					duration: 1.25,
 					easing: 'power4.inOut',
 					onUpdate: () => {
 						material.uniforms.uBaseHeight.value = settings.uBaseHeight;
@@ -423,7 +439,7 @@
 						wmStar.position,
 						{
 							y: 0.5,
-							duration: 2,
+							duration: 1.5,
 							easing: 'power4.inOut'
 						},
 						0
@@ -432,56 +448,228 @@
 						wmStar.position,
 						{
 							y: 2.5,
-							duration: 2.5,
+							duration: 2,
 							easing: 'power4.inOut'
 						},
-						2
+						1.5
 					)
 					.to(
 						wmStar.position,
 						{
 							y: 2.0,
-							duration: 1.5,
+							duration: 1.25,
 							easing: 'power4.inOut'
 						},
-						4.5
+						3.5
 					);
 			}
+
+			return { timeline, duration };
 		};
 
 		const animateTerrainIntensity = () => {
 			const timeline = gsap.timeline();
+			const duration = 4.5; // 2 + 3 + 2 + 0.75 seconds total
 
 			timeline
 				.to(settings, {
 					uStrength: 0.6,
-					duration: 2,
+					duration: 1.5,
 					easing: 'power4.out',
 					onUpdate: () => {
 						material.uniforms.uStrength.value = settings.uStrength;
 					}
 				})
-				.to(
-					settings,
-					{
-						uStrength: 2.25,
-						duration: 3,
-						easing: 'power4.inOut',
-						onUpdate: () => {
-							material.uniforms.uStrength.value = settings.uStrength;
-						}
-					},
-					'+=0.75'
-				) // Using position parameter instead of delay
+				.to(settings, {
+					uStrength: 2,
+					duration: 1.75,
+					easing: 'power4.inOut',
+					onUpdate: () => {
+						material.uniforms.uStrength.value = settings.uStrength;
+					}
+				})
 				.to(settings, {
 					uStrength: 1.65,
-					duration: 2,
+					duration: 1.25,
 					easing: 'power4.inOut',
 					onUpdate: () => {
 						material.uniforms.uStrength.value = settings.uStrength;
 					}
 				});
+
+			return { timeline, duration };
 		};
+
+		// Add raycaster setup
+		const raycaster = new THREE.Raycaster();
+		const mouse = new THREE.Vector2();
+		let hoveredBox: any = null;
+
+		const boxPosition = {
+			x: -5.5,
+			y: -0.1,
+			z: 0
+		};
+
+		const labelPosition = {
+			x: -5.63,
+			y: -0.1,
+			z: 0
+		};
+
+		// Create box labels
+		const createBoxLabel = (text: string, font: any, parentBox: THREE.Mesh) => {
+			const textGeometry = new TextGeometry(text, {
+				font,
+				size: 0.15,
+				height: 0.05,
+				curveSegments: 12,
+				bevelEnabled: true,
+				bevelThickness: 0.01,
+				bevelSize: 0.005,
+				bevelOffset: 0,
+				bevelSegments: 5
+			});
+
+			const textMaterial = new THREE.MeshStandardMaterial({
+				color: '#000000',
+				metalness: 0.3,
+				roughness: 0.4
+			});
+
+			const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+			textGeometry.center();
+
+			// Position text relative to parent box using labelPosition
+			textMesh.position.copy(parentBox.position);
+			textMesh.position.x = labelPosition.x;
+			textMesh.rotation.y = -Math.PI * 0.5;
+
+			scene.add(textMesh);
+			return textMesh;
+		};
+
+		// Create boxes with labels
+		const boxOne = new THREE.Mesh(
+			new THREE.BoxGeometry(0.3, 0.5, 1.5),
+			new THREE.MeshStandardMaterial({ color: mainColor })
+		);
+		const boxTwo = new THREE.Mesh(
+			new THREE.BoxGeometry(0.3, 0.5, 1.5),
+			new THREE.MeshStandardMaterial({ color: mainColor })
+		);
+		const boxThree = new THREE.Mesh(
+			new THREE.BoxGeometry(0.3, 0.5, 1.5),
+			new THREE.MeshStandardMaterial({ color: mainColor })
+		);
+
+		const boxes = [boxOne, boxTwo, boxThree];
+		let boxLabels: THREE.Mesh[] = [];
+
+		boxOne.position.set(boxPosition.x, boxPosition.y, boxPosition.z);
+		boxTwo.position.set(boxPosition.x, boxPosition.y, boxPosition.z + 2.5);
+		boxThree.position.set(boxPosition.x, boxPosition.y, boxPosition.z - 2.5);
+
+		scene.add(boxOne);
+		scene.add(boxTwo);
+		scene.add(boxThree);
+
+		// Load font and create labels
+		fontLoader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
+			boxLabels = [
+				createBoxLabel('Position', font, boxOne),
+				createBoxLabel('Height', font, boxTwo),
+				createBoxLabel('Intensity', font, boxThree)
+			];
+		});
+
+		// Add event listeners
+		const onMouseMove = (event: MouseEvent) => {
+			mouse.x = (event.clientX / sizes.width) * 2 - 1;
+			mouse.y = -((event.clientY - 56) / sizes.height) * 2 + 1;
+		};
+
+		const triggerButtonAnimation = (
+			boxIndex: number,
+			animation: { timeline: gsap.core.Timeline; duration: number }
+		) => {
+			if (!animationState.isButtonsActive) return;
+
+			animationState.isButtonsActive = false;
+
+			const clickTimeline = gsap.timeline();
+
+			// Create click animation
+			clickTimeline
+				.to(
+					boxLabels[boxIndex].position,
+					{
+						x: labelPosition.x + 0.1,
+						duration: 0.2,
+						ease: 'power2.out'
+					},
+					0
+				)
+				.to(
+					boxes[boxIndex].position,
+					{
+						x: boxPosition.x + 0.1,
+						duration: 0.2,
+						ease: 'power2.out'
+					},
+					0
+				)
+				.to(
+					boxLabels[boxIndex].position,
+					{
+						x: labelPosition.x,
+						duration: 0.3,
+						ease: 'elastic.out(1, 0.3)'
+					},
+					'+=0.2'
+				)
+				.to(
+					boxes[boxIndex].position,
+					{
+						x: boxPosition.x,
+						duration: 0.3,
+						ease: 'elastic.out(1, 0.3)'
+					},
+					'-=0.3'
+				);
+
+			// Create master timeline
+			const masterTimeline = gsap.timeline({
+				onComplete: () => {
+					animationState.isButtonsActive = true;
+				}
+			});
+
+			masterTimeline
+				.add(clickTimeline)
+				.add(animation.timeline, '>')
+				.add(() => {}, `+=${animation.duration - animation.timeline.duration()}`);
+		};
+
+		const onClick = () => {
+			if (hoveredBox && animationState.isButtonsActive) {
+				let animation: any;
+				const boxIndex = boxes.indexOf(hoveredBox);
+
+				if (hoveredBox === boxOne) {
+					animation = animatePositionFrequency();
+				} else if (hoveredBox === boxTwo) {
+					animation = animateBaseHeight();
+				} else if (hoveredBox === boxThree) {
+					animation = animateTerrainIntensity();
+				}
+
+				triggerButtonAnimation(boxIndex, animation);
+			}
+		};
+
+		window.addEventListener('mousemove', onMouseMove);
+		window.addEventListener('click', onClick);
 
 		// GUI Controls
 		gui
@@ -490,9 +678,15 @@
 			.onChange(() => {
 				material.uniforms.uPositionFrequency.value = settings.uPositionFrequency;
 			});
-		gui.add({ animate: animatePositionFrequency }, 'animate').name('Animate Position Frequency');
-		gui.add({ animate: animateBaseHeight }, 'animate').name('Animate Base Height');
-		gui.add({ animate: animateTerrainIntensity }, 'animate').name('Animate Terrain Intensity');
+		gui
+			.add({ animate: () => triggerButtonAnimation(0, animatePositionFrequency()) }, 'animate')
+			.name('Animate Position Frequency');
+		gui
+			.add({ animate: () => triggerButtonAnimation(1, animateBaseHeight()) }, 'animate')
+			.name('Animate Base Height');
+		gui
+			.add({ animate: () => triggerButtonAnimation(2, animateTerrainIntensity()) }, 'animate')
+			.name('Animate Terrain Intensity');
 		gui
 			.add(settings, 'uWarpFrequency', 0.1, 1.0, 0.01)
 			.name('Warp Frequency')
@@ -544,6 +738,50 @@
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
+			// Update raycaster
+			raycaster.setFromCamera(mouse, camera);
+			const intersects = raycaster.intersectObjects(boxes);
+
+			// Reset previously hovered box
+			if (hoveredBox && (!intersects.length || intersects[0].object !== hoveredBox)) {
+				const boxIndex = boxes.indexOf(hoveredBox);
+				gsap.to(hoveredBox.position, {
+					x: boxPosition.x,
+					duration: 0.3
+				});
+				gsap.to(boxLabels[boxIndex].position, {
+					x: labelPosition.x,
+					duration: 0.3
+				});
+				hoveredBox = null;
+				canvas.style.cursor = 'default'; // Add this line
+			}
+
+			// Handle new hover
+			if (intersects.length) {
+				const newHoveredBox = intersects[0].object as THREE.Mesh;
+				if (hoveredBox !== newHoveredBox && animationState.isButtonsActive) {
+					hoveredBox = newHoveredBox;
+					gsap.to(hoveredBox.position, {
+						x: boxPosition.x - 0.05,
+						duration: 0.3
+					});
+
+					// Move corresponding label
+					const boxIndex = boxes.indexOf(hoveredBox);
+					if (boxIndex !== -1 && boxLabels[boxIndex]) {
+						gsap.to(boxLabels[boxIndex].position, {
+							x: labelPosition.x - 0.05,
+							duration: 0.3
+						});
+					}
+
+					canvas.style.cursor = 'pointer'; // Add this line
+				}
+			} else {
+				canvas.style.cursor = animationState.isButtonsActive ? 'default' : 'not-allowed';
+			}
+
 			// Update star rotation always
 			if (wmStar) {
 				wmStar.rotation.y = elapsedTime * settings.uAnimationSpeed * 2.0;
@@ -560,6 +798,12 @@
 			window.requestAnimationFrame(tick);
 		};
 		tick();
+
+		// Clean up event listeners
+		return () => {
+			window.removeEventListener('mousemove', onMouseMove);
+			window.removeEventListener('click', onClick);
+		};
 	});
 </script>
 

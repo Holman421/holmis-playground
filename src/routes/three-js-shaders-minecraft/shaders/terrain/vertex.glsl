@@ -47,7 +47,8 @@ float getElevation(vec2 position) {
     return elevation;
 }
 
-varying vec3 vColor;  // New varying for color
+varying vec3 vColor;  // Keep this for compatibility
+varying float vElevation; // Add this to pass elevation to fragment
 
 // Need to declare csm_Position as an output
 out vec3 csm_Position;
@@ -70,24 +71,6 @@ void main() {
     // Set csm_Position
     csm_Position = pos;
 
-    // Calculate color in vertex shader
-    float height = floor((pos.y - 0.5) * 80.0) / 80.0;
-
-    // Define threshold levels
-    float waterLevel = 0.2;
-    float waterDeepLevel = waterLevel * 0.4;
-    float sandLevel = 0.25;
-    float grassLevel = 0.55;
-    float snowLevel = 0.9;
-
-    // Use step function for sharp transitions
-    vec3 color = uColorWaterDeep;
-    color = mix(color, uColorWaterSurface, step(waterDeepLevel, height));
-    color = mix(color, uColorSand, step(waterLevel, height));
-    color = mix(color, uColorGrass, step(sandLevel, height));
-    color = mix(color, uColorRock, step(grassLevel, height));
-    color = mix(color, uColorSnow, step(snowLevel, height));
-
-    // Set varyings
-    vColor = color;  // Pass color to fragment shader
+    // Pass elevation to fragment shader
+    vElevation = pos.y;
 }

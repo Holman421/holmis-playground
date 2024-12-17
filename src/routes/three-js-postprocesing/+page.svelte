@@ -17,25 +17,131 @@
 	import Stats from 'stats.js';
 	import { gsap } from 'gsap';
 
+	let activePointText: number | null = null;
+	let activeGroup: 'helmet' | 'sword' = 'sword';
+
 	$effect(() => {
 		const gui = new GUI();
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-
-		// Scene
 		const scene = new THREE.Scene();
-
-		/**
-		 * Loaders
-		 */
 		const gltfLoader = new GLTFLoader();
 		const cubeTextureLoader = new THREE.CubeTextureLoader();
 		const textureLoader = new THREE.TextureLoader();
 
-		/**
-		 * Update all materials
-		 */
+		// Lights
+		const directionalLight = new THREE.DirectionalLight('#ffffff', 3);
+		directionalLight.castShadow = true;
+		directionalLight.shadow.mapSize.set(1024, 1024);
+		directionalLight.shadow.camera.far = 15;
+		directionalLight.shadow.normalBias = 0.05;
+		directionalLight.position.set(0.25, 3, -2.25);
+		scene.add(directionalLight);
+
+		// Sizes
+		const sizes = {
+			width: window.innerWidth,
+			height: window.innerHeight - 56
+		};
+
+		window.addEventListener('resize', () => {
+			sizes.width = window.innerWidth;
+			sizes.height = window.innerHeight - 56;
+			camera.aspect = sizes.width / sizes.height;
+			camera.updateProjectionMatrix();
+			renderer.setSize(sizes.width, sizes.height);
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+			effectComposer.setSize(sizes.width, sizes.height);
+			effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		});
+
+		// Base camera
+		const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100);
+		camera.position.set(1, 0, -6);
+		scene.add(camera);
+
+		// Store initial camera state
+		const initialCameraState = {
+			position: new THREE.Vector3(1, 0, -6),
+			target: new THREE.Vector3(0, 0, 0)
+		};
+
+		// Controls
+		const controls = new OrbitControls(camera, canvas);
+		controls.enableDamping = true;
+
+		// Add controls toggle to GUI (place near other GUI controls)
+		const controlsParams = {
+			enabled: true
+		};
+
+		gui
+			.add(controlsParams, 'enabled')
+			.name('Enable Controls')
+			.onChange((value: boolean) => {
+				controls.enabled = value;
+			});
+
+		// Add reset camera function
+		const resetCamera = () => {
+			const wasEnabled = controls.enabled;
+			controls.enabled = false;
+
+			const timeline = gsap.timeline({
+				onComplete: () => {
+					controls.enabled = wasEnabled && controlsParams.enabled;
+				}
+			});
+
+			timeline.to(
+				camera.position,
+				{
+					duration: 1.5,
+					x: initialCameraState.position.x,
+					y: initialCameraState.position.y,
+					z: initialCameraState.position.z,
+					ease: 'power2.inOut'
+				},
+				0
+			);
+
+			timeline.to(
+				controls.target,
+				{
+					duration: 1.5,
+					x: initialCameraState.target.x,
+					y: initialCameraState.target.y,
+					z: initialCameraState.target.z,
+					ease: 'power2.inOut',
+					onUpdate: () => {
+						camera.lookAt(controls.target);
+					}
+				},
+				0
+			);
+		};
+
+		// Add click listener to the back button
+		document.querySelector('button')!.addEventListener('click', () => {
+			if (activePointText !== null) {
+				points[activePointText].element.querySelector('.text')?.classList.remove('visible');
+				activePointText = null;
+			}
+			resetCamera();
+		})! as HTMLElement;
+
+		// Renderer
+		const renderer = new THREE.WebGLRenderer({
+			canvas: canvas,
+			antialias: true
+		});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCFShadowMap;
+		renderer.toneMapping = THREE.ReinhardToneMapping;
+		renderer.toneMappingExposure = 1.5;
+		renderer.setSize(sizes.width, sizes.height);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+		// Update all materials
 		const updateAllMaterials = () => {
 			scene.traverse((child) => {
 				if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
@@ -47,9 +153,9 @@
 			});
 		};
 
-		/**
-		 * Environment map
-		 */
+		const raycaster = new THREE.Raycaster();
+
+		//Environment map
 		const environmentMap = cubeTextureLoader.load([
 			'/environmentMaps/0/px.png',
 			'/environmentMaps/0/nx.png',
@@ -58,13 +164,11 @@
 			'/environmentMaps/0/pz.png',
 			'/environmentMaps/0/nz.png'
 		]);
-
-		scene.background = environmentMap;
 		scene.environment = environmentMap;
 
 		// Add environment map controls
 		const envMapParams = {
-			visible: true
+			visible: false
 		};
 
 		gui
@@ -72,83 +176,239 @@
 			.name('Show Environment Map')
 			.onChange((visible: boolean) => {
 				scene.background = visible ? environmentMap : null;
-				// Keep the environment's influence on materials
 				scene.environment = environmentMap;
 			});
 
-		/**
-		 * Models
-		 */
+		// Model references and parameters
+		let helmetModel: THREE.Group | null = null;
+		let swordModel: THREE.Group | null = null;
+
+		// Change initial values - sword visible first
+		const modelParams = {
+			showHelmet: false,
+			showSword: true
+		};
+
+		// Create models folder
+		const modelsFolder = gui.addFolder('Models');
+
+		const togglePointVisibility = (group: 'helmet' | 'sword') => {
+			points.forEach((point) => {
+				if (group === point.group) {
+					point.element.classList.add('visible');
+				} else {
+					point.element.classList.remove('visible');
+				}
+			});
+		};
+
+		// Add model controls with manual update of GUI values
+		const helmetController = modelsFolder
+			.add(modelParams, 'showHelmet')
+			.onChange((visible: boolean) => {
+				if (helmetModel) {
+					activeGroup = 'helmet';
+					helmetModel.visible = visible;
+					togglePointVisibility('helmet');
+					if (visible && swordModel) {
+						modelParams.showSword = false;
+						swordModel.visible = false;
+						swordController.updateDisplay();
+					}
+				}
+			});
+
+		const swordController = modelsFolder
+			.add(modelParams, 'showSword')
+			.onChange((visible: boolean) => {
+				if (swordModel) {
+					activeGroup = 'sword';
+					swordModel.visible = visible;
+					togglePointVisibility('sword');
+
+					activePointText = null;
+
+					if (visible && helmetModel) {
+						modelParams.showHelmet = false;
+						helmetModel.visible = false;
+						helmetController.updateDisplay();
+					}
+				}
+			});
+
+		// Models
 		gltfLoader.load('/models/DamagedHelmet/glTF/DamagedHelmet.gltf', (gltf) => {
-			gltf.scene.scale.set(2, 2, 2);
-			gltf.scene.rotation.y = Math.PI * 0.5;
-			scene.add(gltf.scene);
+			helmetModel = gltf.scene;
+			helmetModel.scale.set(2, 2, 2);
+			helmetModel.rotation.y = Math.PI * 0.5;
+			helmetModel.visible = modelParams.showHelmet;
+			scene.add(helmetModel);
 
 			updateAllMaterials();
 		});
 
-		/**
-		 * Lights
-		 */
-		const directionalLight = new THREE.DirectionalLight('#ffffff', 3);
-		directionalLight.castShadow = true;
-		directionalLight.shadow.mapSize.set(1024, 1024);
-		directionalLight.shadow.camera.far = 15;
-		directionalLight.shadow.normalBias = 0.05;
-		directionalLight.position.set(0.25, 3, -2.25);
-		scene.add(directionalLight);
+		gltfLoader.load('/models/sword/fantasy_longsword.glb', (gltf) => {
+			swordModel = gltf.scene;
+			const scale = 6;
+			swordModel.scale.set(scale, scale, scale);
 
-		/**
-		 * Sizes
-		 */
-		const sizes = {
-			width: window.innerWidth,
-			height: window.innerHeight - 56
+			const boundingBox = new THREE.Box3().setFromObject(swordModel);
+			const center = boundingBox.getCenter(new THREE.Vector3());
+
+			swordModel.position.x = -center.x;
+			swordModel.position.y = -center.y;
+			swordModel.position.z = -center.z;
+
+			swordModel.visible = modelParams.showSword;
+			scene.add(swordModel);
+
+			updateAllMaterials();
+		});
+
+		// Points
+		const points = [
+			{
+				positions: new THREE.Vector3(3.1, 2.6, -0.2),
+				element: document.querySelector('.point-0') as HTMLElement,
+				group: 'sword'
+			},
+			{
+				positions: new THREE.Vector3(1.2, 0.85, -0.2),
+				element: document.querySelector('.point-1') as HTMLElement,
+				group: 'sword'
+			},
+			{
+				positions: new THREE.Vector3(-1.2, -1.7, -0.2),
+				element: document.querySelector('.point-2') as HTMLElement,
+				group: 'sword'
+			},
+			{
+				positions: new THREE.Vector3(-2.4, -2.4, -0.1),
+				element: document.querySelector('.point-3') as HTMLElement,
+				group: 'sword'
+			},
+			{
+				positions: new THREE.Vector3(0.8, -0.5, -0.9),
+				element: document.querySelector('.point-4') as HTMLElement,
+				group: 'helmet'
+			},
+			{
+				positions: new THREE.Vector3(1, 0.85, 0.6),
+				element: document.querySelector('.point-5') as HTMLElement,
+				group: 'helmet'
+			}
+		];
+
+		// After points array definition, add the camera positions and targets
+		const pointCameraPositions = [
+			{
+				position: new THREE.Vector3(2.76, 2.3, -2.33),
+				target: new THREE.Vector3(3.3, 2.65, -0.2) // Change lookAt to target
+			},
+			{
+				position: new THREE.Vector3(1.24, 0.89, -1.42),
+				target: new THREE.Vector3(1.2, 0.85, -0.2)
+			},
+			{
+				position: new THREE.Vector3(-1.04, -1.0, -1.15),
+				target: new THREE.Vector3(-1.2, -1.2, -0.2)
+			},
+			{
+				position: new THREE.Vector3(-2.35, -2.3, -1.04),
+				target: new THREE.Vector3(-2.4, -2.2, -0.1)
+			},
+			{
+				position: new THREE.Vector3(0.8, -0.5, -2),
+				target: new THREE.Vector3(0.8, -0.5, -0.9)
+			},
+			{
+				position: new THREE.Vector3(1.5, 0.85, 1.2),
+				target: new THREE.Vector3(1, 0.85, 0.6)
+			}
+		];
+
+		// Update camera transition function
+		const moveCamera = (pointIndex: number) => {
+			if (pointIndex >= pointCameraPositions.length) return;
+
+			const config = pointCameraPositions[pointIndex];
+			const targetLookAt = config.target;
+
+			const wasEnabled = controls.enabled;
+			controls.enabled = false;
+
+			// Create a temporary vector to store current controls target
+			const currentTarget = controls.target.clone();
+
+			// Animate camera position
+			gsap.fromTo(
+				camera.position,
+				{
+					x: camera.position.x,
+					y: camera.position.y,
+					z: camera.position.z
+				},
+				{
+					duration: 1.5,
+					x: config.position.x,
+					y: config.position.y,
+					z: config.position.z,
+					ease: 'power2.inOut'
+				}
+			);
+
+			// Animate controls target
+			gsap.fromTo(
+				currentTarget,
+				{
+					x: controls.target.x,
+					y: controls.target.y,
+					z: controls.target.z
+				},
+				{
+					duration: 1.5,
+					x: targetLookAt.x,
+					y: targetLookAt.y,
+					z: targetLookAt.z,
+					ease: 'power2.inOut',
+					onUpdate: function () {
+						controls.target.copy(currentTarget);
+						camera.lookAt(currentTarget);
+					},
+					onComplete: () => {
+						controls.enabled = wasEnabled && controlsParams.enabled;
+					}
+				}
+			);
 		};
 
-		window.addEventListener('resize', () => {
-			// Update sizes
-			sizes.width = window.innerWidth;
-			sizes.height = window.innerHeight - 56;
-
-			// Update camera
-			camera.aspect = sizes.width / sizes.height;
-			camera.updateProjectionMatrix();
-
-			// Update renderer
-			renderer.setSize(sizes.width, sizes.height);
-			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-			// Update effect composer
-			effectComposer.setSize(sizes.width, sizes.height);
-			effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		// After points are defined, add click handlers
+		points.forEach((point, index) => {
+			point.element.addEventListener('click', () => {
+				// If clicking the same point, hide its text
+				if (activePointText === index) {
+					point.element.querySelector('.text')?.classList.remove('visible');
+					activePointText = null;
+				} else {
+					// Hide previous point's text if any
+					if (activePointText !== null) {
+						points[activePointText].element.querySelector('.text')?.classList.remove('visible');
+					}
+					// Show current point's text
+					point.element.querySelector('.text')?.classList.add('visible');
+					activePointText = index;
+				}
+				moveCamera(index);
+			});
 		});
 
-		/**
-		 * Camera
-		 */
-		// Base camera
-		const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(4, 1, -4);
-		scene.add(camera);
-
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
-
-		/**
-		 * Renderer
-		 */
-		const renderer = new THREE.WebGLRenderer({
-			canvas: canvas,
-			antialias: true
+		points.map((point) => {
+			points
+				.filter((p) => p.group === 'helmet')
+				.forEach((p) => {
+					p.element.classList.remove('visible');
+				});
 		});
-		renderer.shadowMap.enabled = true;
-		renderer.shadowMap.type = THREE.PCFShadowMap;
-		renderer.toneMapping = THREE.ReinhardToneMapping;
-		renderer.toneMappingExposure = 1.5;
-		renderer.setSize(sizes.width, sizes.height);
-		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 		// Render target
 		const renderTarget = new THREE.WebGLRenderTarget(sizes.width, sizes.height, {
@@ -176,7 +436,7 @@
 		effectComposer.addPass(rgbShiftPass);
 
 		const stats = new Stats();
-		stats.showPanel(0); // 0: fps, 1: ms, 2:
+		stats.showPanel(0);
 		document.body.appendChild(stats.dom);
 
 		const TintShader = {
@@ -410,15 +670,14 @@
 			normalEdgeStrength: 0.3,
 			depthEdgeStrength: 0.4,
 			pixelAlignedPanning: true,
-			rotationSpeed: 0.2 // Move rotation speed into params object
+			rotationSpeed: 0.2,
+			enableRotation: false
 		};
 
-		// Simplified animation parameters
 		const pixelAnimation = {
 			size: 6
 		};
 
-		// Updated animation trigger function using GSAP
 		const triggerPixelAnimation = () => {
 			renderPixelatedPass.enabled = true;
 			updatePasses('pixels');
@@ -462,27 +721,76 @@
 		// Update GUI control
 		gui.add(params, 'rotationSpeed').min(0).max(1).step(0.01).name('Rotation Speed');
 
-		/**
-		 * Animate
-		 */
+		// Add rotation control to GUI (place near other GUI controls)
+		gui.add(params, 'enableRotation').name('Enable Camera Rotation');
+
+		// Add these variables after the points array
+		const pointsScreenPositions = points.map(() => ({
+			x: 0,
+			y: 0,
+			visible: false,
+			lerpFactor: 1
+		}));
+
 		const clock = new THREE.Clock();
 
-		console.log(renderer.info);
+		const radius = 6;
 
-		const radius = 6; // Distance from center
-
+		// Replace the tick function
 		const tick = () => {
 			stats.begin();
 			const elapsedTime = clock.getElapsedTime();
 
-			// Use params.rotationSpeed instead of rotationSpeed
-			const angle = elapsedTime * params.rotationSpeed;
-			camera.position.x = Math.cos(angle) * radius;
-			camera.position.z = Math.sin(angle) * radius;
-			camera.lookAt(0, 0, 0);
-
 			// Update controls
 			controls.update();
+
+			// Only rotate if enabled
+			if (params.enableRotation) {
+				const angle = elapsedTime * params.rotationSpeed;
+				camera.position.x = Math.cos(angle) * radius;
+				camera.position.z = Math.sin(angle) * radius;
+				camera.lookAt(0, 0, 0);
+			}
+
+			// Update points
+			points
+				.filter((p) => p.group === activeGroup)
+				.forEach((point, index) => {
+					const screenPosition = point.positions.clone();
+					screenPosition.project(camera);
+
+					raycaster.setFromCamera(new THREE.Vector2(screenPosition.x, screenPosition.y), camera);
+					const intersects = raycaster.intersectObjects(scene.children, true);
+
+					let isVisible =
+						intersects.length === 0 ||
+						intersects[0].distance > point.positions.distanceTo(camera.position);
+
+					if (point.group === 'sword') {
+						isVisible = true;
+					}
+
+					// Update visibility
+					if (isVisible) {
+						point.element.classList.add('visible');
+					} else {
+						point.element.classList.remove('visible');
+					}
+
+					// Calculate target position
+					const targetX = screenPosition.x * sizes.width * 0.5;
+					const targetY = -screenPosition.y * sizes.height * 0.5;
+
+					// Lerp current position to target
+					pointsScreenPositions[index].x +=
+						(targetX - pointsScreenPositions[index].x) * pointsScreenPositions[index].lerpFactor;
+					pointsScreenPositions[index].y +=
+						(targetY - pointsScreenPositions[index].y) * pointsScreenPositions[index].lerpFactor;
+
+					// Apply smoothed position
+					point.element.style.transform = `translate(${pointsScreenPositions[index].x}px, 
+						${pointsScreenPositions[index].y}px)`;
+				});
 
 			// Update passes
 			displacementPass.material.uniforms.uTime.value = elapsedTime;
@@ -499,6 +807,96 @@
 	});
 </script>
 
-<div>
+<div class="fixed inset-0">
 	<canvas class="webgl"></canvas>
+
+	<button class="absolute top-[85px] left-[30px]">Go back</button>
+
+	{#each Array(6) as _, i}
+		<div class="point point-{i} visible">
+			<div class="label">{i + 1}</div>
+			<div class="text" class:visible={activePointText === i}>
+				{#if i === 0}
+					The point is pretty sharp
+				{:else if i === 1}
+					Imagine cool a fact about the blade
+				{:else if i === 2}
+					Expensive af gem
+				{:else if i === 3}
+					This is a really cool handle
+				{:else if i === 4}
+					This helmet is from 2045
+				{:else if i === 5}
+					Another helmet fact
+				{:else}
+					And another one
+				{/if}
+			</div>
+		</div>
+	{/each}
 </div>
+
+<style>
+	.point {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		z-index: 0;
+	}
+
+	.point .label {
+		position: absolute;
+		top: -20px;
+		left: -20px;
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: #00000077;
+		border: 1px solid #ffffff77;
+		color: #ffffff;
+		font-family: Helvetica, Arial, sans-serif;
+		text-align: center;
+		line-height: 40px;
+		font-weight: 100;
+		font-size: 18px;
+		cursor: pointer;
+		transform: scale(0, 0);
+		transition: transform 0.3s;
+	}
+
+	.point.visible .label {
+		transform: scale(1, 1);
+	}
+
+	.point .text {
+		position: absolute;
+		top: 30px;
+		left: -120px;
+		width: 200px;
+		padding: 20px;
+		border-radius: 4px;
+		background: #00000077;
+		border: 1px solid #ffffff77;
+		color: #ffffff;
+		line-height: 1.3em;
+		font-family: Helvetica, Arial, sans-serif;
+		font-weight: 100;
+		font-size: 18px;
+		opacity: 0;
+		transition: opacity 1s ease-in-out;
+		pointer-events: none;
+	}
+
+	/* Remove the hover style and add active class style */
+	.point .text.visible {
+		opacity: 1;
+		transition: opacity 1s ease-in-out 0.5s;
+	}
+
+	canvas.webgl {
+		position: fixed;
+		top: 56px;
+		left: 0;
+		outline: none;
+	}
+</style>
