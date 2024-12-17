@@ -13,7 +13,10 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: {
-		include: ['three-custom-shader-material', 'three'] // Explicitly optimize the dependencies
+		include: ['three-custom-shader-material']
+	},
+	ssr: {
+		noExternal: ['three-custom-shader-material']
 	},
 	plugins: [sveltekit(), glsl()]
 });
