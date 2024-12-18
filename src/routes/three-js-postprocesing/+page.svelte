@@ -18,7 +18,7 @@
 	import { gsap } from 'gsap';
 
 	let activePointText: number | null = null;
-	let activeGroup: 'helmet' | 'sword' = 'sword';
+	let activeGroup: 'helmet' | 'sword' | 'knot' = 'sword';
 
 	$effect(() => {
 		const gui = new GUI();
@@ -186,25 +186,61 @@
 		// Change initial values - sword visible first
 		const modelParams = {
 			showHelmet: false,
-			showSword: true
+			showSword: true,
+			knotModel: false
 		};
+
+		const solidify = (mesh: any) => {
+			const THICKNESS = 0.02;
+			const geometry = mesh.geometry;
+			const material = new THREE.ShaderMaterial({
+				vertexShader: `
+					void main() {
+					vec3 newPosition = position + normal * ${THICKNESS};
+					gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+				}`,
+				fragmentShader: `
+					void main() {
+					gl_FragColor = vec4(0, 0, 0, 1);
+				}`,
+				transparent: true,
+				side: THREE.BackSide
+			});
+
+			return new THREE.Mesh(geometry, material);
+		};
+
+		// Create knot model
+		const texture = textureLoader.load('/textures/fourTone.jpg');
+		texture.minFilter = texture.magFilter = THREE.NearestFilter;
+		const knot = new THREE.Mesh(
+			new THREE.TorusKnotGeometry(0.75, 0.2, 100, 16),
+			new THREE.MeshToonMaterial({
+				color: '#4e62f9',
+				gradientMap: texture
+			})
+		);
+		const adjustedKnot = solidify(knot);
+		adjustedKnot.visible = modelParams.knotModel;
+		knot.visible = modelParams.knotModel;
+		scene.add(knot);
+		scene.add(adjustedKnot);
 
 		// Create models folder
 		const modelsFolder = gui.addFolder('Models');
 
-		const togglePointVisibility = (group: 'helmet' | 'sword') => {
+		const togglePointVisibility = (group: 'helmet' | 'sword' | 'knot') => {
 			points.forEach((point) => {
-				if (group === point.group) {
-					point.element.classList.add('visible');
-				} else {
-					point.element.classList.remove('visible');
-				}
+				point.group === group
+					? point.element.classList.add('visible')
+					: point.element.classList.remove('visible');
 			});
 		};
 
 		// Add model controls with manual update of GUI values
 		const helmetController = modelsFolder
 			.add(modelParams, 'showHelmet')
+			.name('Show Helmet')
 			.onChange((visible: boolean) => {
 				if (helmetModel) {
 					activeGroup = 'helmet';
@@ -215,11 +251,16 @@
 						swordModel.visible = false;
 						swordController.updateDisplay();
 					}
+					adjustedKnot.visible = false;
+					knot.visible = false;
+					modelParams.knotModel = false;
+					knotController.updateDisplay();
 				}
 			});
 
 		const swordController = modelsFolder
 			.add(modelParams, 'showSword')
+			.name('Show Sword')
 			.onChange((visible: boolean) => {
 				if (swordModel) {
 					activeGroup = 'sword';
@@ -233,6 +274,31 @@
 						helmetModel.visible = false;
 						helmetController.updateDisplay();
 					}
+					adjustedKnot.visible = false;
+					knot.visible = false;
+					modelParams.knotModel = false;
+					knotController.updateDisplay();
+				}
+			});
+
+		const knotController = modelsFolder
+			.add(modelParams, 'knotModel')
+			.name('Show Knot')
+			.onChange((visible: boolean) => {
+				adjustedKnot.visible = visible;
+				knot.visible = visible;
+				activeGroup = 'knot';
+				togglePointVisibility('knot');
+				if (visible && helmetModel) {
+					modelParams.showHelmet = false;
+					helmetModel.visible = false;
+					helmetController.updateDisplay();
+				}
+
+				if (visible && swordModel) {
+					modelParams.showSword = false;
+					swordModel.visible = false;
+					swordController.updateDisplay();
 				}
 			});
 
@@ -298,6 +364,13 @@
 				group: 'helmet'
 			}
 		];
+
+		const addPoints = () => {
+			const mainContainer = document.querySelector('.mainContainer') as HTMLElement;
+			points.forEach((point, index) => {
+				mainContainer;
+			});
+		};
 
 		// After points array definition, add the camera positions and targets
 		const pointCameraPositions = [
@@ -717,11 +790,7 @@
 
 		// Add animation button
 		gui.add({ animate: triggerPixelAnimation }, 'animate').name('Trigger Pixel Animation');
-
-		// Update GUI control
 		gui.add(params, 'rotationSpeed').min(0).max(1).step(0.01).name('Rotation Speed');
-
-		// Add rotation control to GUI (place near other GUI controls)
 		gui.add(params, 'enableRotation').name('Enable Camera Rotation');
 
 		// Add these variables after the points array
@@ -733,10 +802,8 @@
 		}));
 
 		const clock = new THREE.Clock();
-
 		const radius = 6;
 
-		// Replace the tick function
 		const tick = () => {
 			stats.begin();
 			const elapsedTime = clock.getElapsedTime();
@@ -807,7 +874,7 @@
 	});
 </script>
 
-<div class="fixed inset-0">
+<div class="fixed inset-0 mainContainer">
 	<canvas class="webgl"></canvas>
 
 	<button class="absolute top-[85px] left-[30px]">Go back</button>
@@ -846,18 +913,14 @@
 
 	.point .label {
 		position: absolute;
-		top: -20px;
-		left: -20px;
 		width: 40px;
 		height: 40px;
 		border-radius: 50%;
 		background: #00000077;
 		border: 1px solid #ffffff77;
-		color: #ffffff;
 		font-family: Helvetica, Arial, sans-serif;
 		text-align: center;
 		line-height: 40px;
-		font-weight: 100;
 		font-size: 18px;
 		cursor: pointer;
 		transform: scale(0, 0);
@@ -870,8 +933,9 @@
 
 	.point .text {
 		position: absolute;
-		top: 30px;
-		left: -120px;
+		top: 50px;
+		left: 40%;
+		transform: translateX(-50%);
 		width: 200px;
 		padding: 20px;
 		border-radius: 4px;
@@ -880,14 +944,12 @@
 		color: #ffffff;
 		line-height: 1.3em;
 		font-family: Helvetica, Arial, sans-serif;
-		font-weight: 100;
 		font-size: 18px;
 		opacity: 0;
 		transition: opacity 1s ease-in-out;
 		pointer-events: none;
 	}
 
-	/* Remove the hover style and add active class style */
 	.point .text.visible {
 		opacity: 1;
 		transition: opacity 1s ease-in-out 0.5s;

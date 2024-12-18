@@ -18,10 +18,18 @@
 		const loadingBarElement = document.querySelector('.loading-bar') as HTMLDivElement;
 		const loadingManager = new THREE.LoadingManager(
 			() => {
-				gsap.delayedCall(0.5, () => {
-					gsap.to(overlayMaterial.uniforms.uAplha, { duration: 3, value: 0 });
-					loadingBarElement.classList.add('ended');
-					loadingBarElement.style.transform = '';
+				// First ensure loading bar reaches 100%
+				gsap.to(loadingBarElement, {
+					scaleX: 1,
+					duration: 0.5,
+					onComplete: () => {
+						// Then start the fade sequence
+						gsap.delayedCall(0.5, () => {
+							gsap.to(overlayMaterial.uniforms.uAplha, { duration: 3, value: 0 });
+							loadingBarElement.classList.add('ended');
+							loadingBarElement.style.transform = '';
+						});
+					}
 				});
 			},
 			(itemUrl, itemsLoaded, itemsTotal) => {

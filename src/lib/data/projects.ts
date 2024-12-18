@@ -218,5 +218,12 @@ export const projects = [
 		description: 'Trying various post procesing effects',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: true
+	},
+	{
+		href: '/three-js-tags',
+		title: 'Tags with Three.js',
+		description: 'Applying html tags to 3D objects',
+		technologies: ['THREE.js'],
+		shared: true
 	}
 ];
