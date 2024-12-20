@@ -162,13 +162,23 @@
 		};
 
 		// Add click listener to the back button
-		document.querySelector('button')!.addEventListener('click', () => {
+		document.querySelector('#resetCameraButton')!.addEventListener('click', () => {
 			if (activePointText !== null) {
 				points[activePointText].element.querySelector('.text')?.classList.remove('visible');
 				activePointText = null;
 			}
 			resetCamera();
 		})! as HTMLElement;
+
+		// Get all model switch buttons
+		const [sword1Btn, sword2Btn, sword3Btn, sword4Btn] =
+			document.querySelectorAll('.model-switch-btn');
+
+		// Add click handlers to buttons
+		sword1Btn.addEventListener('click', () => switchToModel('sword1'));
+		sword2Btn.addEventListener('click', () => switchToModel('sword2'));
+		sword3Btn.addEventListener('click', () => switchToModel('sword3'));
+		sword4Btn.addEventListener('click', () => switchToModel('sword4'));
 
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
@@ -269,9 +279,9 @@
 				updateAllMaterials();
 			});
 
-			gltfLoader.load('/models/sword3/fire_sword.glb', (gltf) => {
+			gltfLoader.load('/models/sword3/ice_sword.glb', (gltf) => {
 				swordModel3 = gltf.scene;
-				const scale = 0.05;
+				const scale = 0.02;
 				swordModel3.scale.set(scale, scale, scale);
 
 				const boundingBox = new THREE.Box3().setFromObject(swordModel3);
@@ -289,21 +299,21 @@
 				updateAllMaterials();
 			});
 
-			gltfLoader.load('/models/sword4/fantasy_sword.glb', (gltf) => {
+			gltfLoader.load('/models/sword4/scifi_red_sword.glb', (gltf) => {
 				swordModel4 = gltf.scene;
-				const scale = 2.5;
+				const scale = 0.15;
 				swordModel4.scale.set(scale, scale, scale);
 
 				const boundingBox = new THREE.Box3().setFromObject(swordModel4);
 				const center = boundingBox.getCenter(new THREE.Vector3());
 
-				swordModel4.position.x = -center.x - 0.5;
-				swordModel4.position.y = -center.y - 0.5;
+				swordModel4.position.x = -center.x - 2.5;
+				swordModel4.position.y = -center.y + 1.0;
 				swordModel4.position.z = -center.z;
 
-				// Rotate model
-				swordModel4.rotation.y = Math.PI / 1.35;
-				swordModel4.rotation.x = Math.PI / 2;
+				swordModel4.rotation.y = Math.PI / 3.85;
+				swordModel4.rotation.x = Math.PI / 2.6;
+				swordModel4.rotation.z = -Math.PI / 2.9;
 
 				swordModel4.visible = guiObject.showSword4;
 				scene.add(swordModel4);
@@ -321,7 +331,7 @@
 
 			const labelElement = document.createElement('div');
 			labelElement.className = 'label';
-			labelElement.textContent = (point + 1).toString();
+			labelElement.textContent = point.toString();
 			pointElement.appendChild(labelElement);
 
 			const textElement = document.createElement('div');
@@ -337,8 +347,8 @@
 			{
 				id: 0,
 				tagNumber: 1,
-				positions: new THREE.Vector3(3.1, 2.6, -0.2),
-				element: createTagElement(0, 'The point is pretty sharp'),
+				positions: new THREE.Vector3(3.6, 3.2, -0.2),
+				element: createTagElement(1, 'The point is pretty sharp'),
 				group: 'sword1',
 				camera: {
 					position: new THREE.Vector3(2.76, 2.3, -2.33),
@@ -349,7 +359,7 @@
 				id: 1,
 				tagNumber: 2,
 				positions: new THREE.Vector3(1.2, 0.85, -0.2),
-				element: createTagElement(1, 'Imagine cool a fact about the blade'),
+				element: createTagElement(2, 'Imagine cool a fact about the blade'),
 				group: 'sword1',
 				camera: {
 					position: new THREE.Vector3(1.24, 0.89, -1.42),
@@ -360,7 +370,7 @@
 				id: 2,
 				tagNumber: 3,
 				positions: new THREE.Vector3(-1.0, -1.4, -0.2),
-				element: createTagElement(2, 'Expensive af gem'),
+				element: createTagElement(3, 'Expensive af gem'),
 				group: 'sword1',
 				camera: {
 					position: new THREE.Vector3(-1.04, -1.0, -1.15),
@@ -371,7 +381,7 @@
 				id: 3,
 				tagNumber: 4,
 				positions: new THREE.Vector3(-2.4, -2.4, -0.1),
-				element: createTagElement(3, 'This is a really cool handle'),
+				element: createTagElement(4, 'This is a really cool handle'),
 				group: 'sword1',
 				camera: {
 					position: new THREE.Vector3(-2.35, -2.3, -1.04),
@@ -382,7 +392,7 @@
 				id: 4,
 				tagNumber: 1,
 				positions: new THREE.Vector3(3.1, 2.6, -0.2),
-				element: createTagElement(0, 'The point is pretty sharp'),
+				element: createTagElement(1, 'Extra sharp venomous point'),
 				group: 'sword2',
 				camera: {
 					position: new THREE.Vector3(2.76, 2.3, -2.33),
@@ -392,32 +402,87 @@
 			{
 				id: 5,
 				tagNumber: 2,
-				positions: new THREE.Vector3(1.2, 0.85, -0.2),
-				element: createTagElement(1, 'Imagine cool a fact about the blade'),
+				positions: new THREE.Vector3(1.0, 0.5, -0.2),
+				element: createTagElement(2, 'Powerful claw-like grip'),
 				group: 'sword2',
 				camera: {
-					position: new THREE.Vector3(1.24, 0.89, -1.42),
-					target: new THREE.Vector3(1.2, 0.85, -0.2)
+					position: new THREE.Vector3(0.84, 0.84, -1.42),
+					target: new THREE.Vector3(0.58, 0.84, -0.2)
 				}
 			},
 			{
 				id: 6,
 				tagNumber: 3,
 				positions: new THREE.Vector3(-1.5, -1.6, -0.2),
-				element: createTagElement(2, 'Organically automated adjustable handle'),
+				element: createTagElement(3, 'Organically automated adjustable handle'),
 				group: 'sword2',
 				camera: {
 					position: new THREE.Vector3(-0.5, -2.0, -1.8),
 					target: new THREE.Vector3(-1.8, -1.6, -0.2)
 				}
+			},
+			{
+				id: 7,
+				tagNumber: 1,
+				positions: new THREE.Vector3(3.1, 3.3, -0.2),
+				element: createTagElement(1, 'Point that freezes on contact'),
+				group: 'sword3',
+				camera: {
+					position: new THREE.Vector3(1.01, 2.3, -2.33),
+					target: new THREE.Vector3(2.6, 2.65, -0.2)
+				}
+			},
+			{
+				id: 8,
+				tagNumber: 2,
+				positions: new THREE.Vector3(1.2, 0.85, -0.2),
+				element: createTagElement(2, 'Anti-gravity blades'),
+				group: 'sword3',
+				camera: {
+					position: new THREE.Vector3(1.24, 0.89, -1.42),
+					target: new THREE.Vector3(1.2, 0.85, -0.2)
+				}
+			},
+			{
+				id: 9,
+				tagNumber: 3,
+				positions: new THREE.Vector3(-2.0, -1.9, -0.2),
+				element: createTagElement(3, 'Comfortable handle'),
+				group: 'sword3',
+				camera: {
+					position: new THREE.Vector3(-2.56, -1.52, -1.52),
+					target: new THREE.Vector3(-2.3, -1.78, -0.2)
+				}
+			},
+			{
+				id: 10,
+				tagNumber: 1,
+				positions: new THREE.Vector3(0.7, 0.2, 0.8),
+				element: createTagElement(1, 'Heated blade'),
+				group: 'sword4',
+				camera: {
+					position: new THREE.Vector3(0.58, 0.31, -1.42),
+					target: new THREE.Vector3(0.58, 0.05, -0.2)
+				}
+			},
+			{
+				id: 11,
+				tagNumber: 2,
+				positions: new THREE.Vector3(-1.6, -1.6, -0.2),
+				element: createTagElement(2, 'Comfortable handle'),
+				group: 'sword4',
+				camera: {
+					position: new THREE.Vector3(-2.04, -1.26, -1.52),
+					target: new THREE.Vector3(-1.78, -1.78, -0.2)
+				}
 			}
 		];
 
 		const addTagsToDom = () => {
-			const mainContainer = document.querySelector('.mainContainer') as HTMLElement;
+			const canvasContainer = document.querySelector('.canvasContainer') as HTMLElement;
 			points.forEach((point) => {
 				point.element.classList.add('loading');
-				mainContainer.appendChild(point.element);
+				canvasContainer.appendChild(point.element);
 			});
 		};
 
@@ -429,33 +494,35 @@
 		let sword3Controller: Controller;
 		let sword4Controller: Controller;
 
+		const switchToModel = (group: Sword) => {
+			guiObject.showSword1 = false;
+			guiObject.showSword2 = false;
+			guiObject.showSword3 = false;
+			guiObject.showSword4 = false;
+
+			const propertyName =
+				`show${group.charAt(0).toUpperCase() + group.slice(1)}` as keyof typeof guiObject;
+			guiObject[propertyName] = true;
+
+			if (swordModel1) swordModel1.visible = group === 'sword1';
+			if (swordModel2) swordModel2.visible = group === 'sword2';
+			if (swordModel3) swordModel3.visible = group === 'sword3';
+			if (swordModel4) swordModel4.visible = group === 'sword4';
+
+			[sword1Controller, sword2Controller, sword3Controller, sword4Controller].forEach((ctrl) => {
+				if (ctrl) ctrl.updateDisplay();
+			});
+
+			activeGroup = group;
+			togglePointVisibility(group);
+		};
+
 		const addPointVisibilityController = (group: Sword) => {
 			const controller = modelsFolder
 				.add(guiObject, `show${group.charAt(0).toUpperCase() + group.slice(1)}`)
 				.onChange((visible: boolean) => {
 					if (visible) {
-						guiObject.showSword1 = false;
-						guiObject.showSword2 = false;
-						guiObject.showSword3 = false;
-						guiObject.showSword4 = false;
-
-						const propertyName =
-							`show${group.charAt(0).toUpperCase() + group.slice(1)}` as keyof typeof guiObject;
-						guiObject[propertyName] = true;
-
-						if (swordModel1) swordModel1.visible = group === 'sword1';
-						if (swordModel2) swordModel2.visible = group === 'sword2';
-						if (swordModel3) swordModel3.visible = group === 'sword3';
-						if (swordModel4) swordModel4.visible = group === 'sword4';
-
-						[sword1Controller, sword2Controller, sword3Controller, sword4Controller].forEach(
-							(ctrl) => {
-								if (ctrl) ctrl.updateDisplay();
-							}
-						);
-
-						activeGroup = group;
-						togglePointVisibility(group);
+						switchToModel(group);
 					} else {
 						const propertyName = `show${group.charAt(0).toUpperCase() + group.slice(1)}` as
 							| 'showSword1'
@@ -653,11 +720,31 @@
 	});
 </script>
 
-<div class="fixed inset-0">
+<div class="fixed inset-0 mt-[56px]">
 	<div class="loading-bar"></div>
-	<div class="mainContainer">
-		<canvas class="webgl"></canvas>
-		<button class="absolute top-[30px] right-[30px]">Go back</button>
+	<div class="border-2 relative w-fit m-auto rounded-md flex mt-6">
+		<div class="flex flex-col gap-4 p-8 border-r">
+			<button
+				class="model-switch-btn border py-2 px-4 rounded-md hover:bg-white hover:text-black transition-all"
+				>Fantasy sword</button
+			>
+			<button
+				class="model-switch-btn border py-2 px-4 rounded-md hover:bg-white hover:text-black transition-all"
+				>Plant sword</button
+			>
+			<button
+				class="model-switch-btn border py-2 px-4 rounded-md hover:bg-white hover:text-black transition-all"
+				>Ice sword</button
+			>
+			<button
+				class="model-switch-btn border py-2 px-4 rounded-md hover:bg-white hover:text-black transition-all"
+				>Futuristic sword</button
+			>
+		</div>
+		<div class="canvasContainer">
+			<canvas class="webgl"></canvas>
+			<button id="resetCameraButton" class="absolute top-[15px] right-[20px]">Reset camera</button>
+		</div>
 	</div>
 </div>
 
@@ -669,31 +756,29 @@
 		z-index: 0;
 	}
 
-	:global(.mainContainer) {
-		position: absolute;
-		top: 20%;
-		left: 50%;
-		transform: translateX(-50%);
+	:global(.canvasContainer) {
+		position: relative;
 		width: 400px;
 		height: 400px;
-		top: 56px;
 		overflow: hidden;
 	}
 
 	:global(.point .label) {
 		position: absolute;
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
+		border-radius: 20px;
+		width: 30px;
+		height: 30px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 		background: #00000077;
 		border: 1px solid #ffffff77;
 		font-family: Helvetica, Arial, sans-serif;
 		text-align: center;
-		line-height: 40px;
-		font-size: 18px;
+		font-size: 14px;
 		cursor: pointer;
 		transform: scale(0, 0);
-		transition: transform 0.3s;
+		transition: transform 0.3s ease-in-out;
 	}
 
 	:global(.point.visible .label) {
@@ -705,7 +790,8 @@
 		top: 50px;
 		left: 50%;
 		transform: translateX(-50%);
-		width: 200px;
+		max-width: 200px;
+		width: max-content;
 		padding: 10px;
 		border-radius: 4px;
 		background: #00000077;
@@ -723,16 +809,15 @@
 		opacity: 1;
 		transition: opacity 1s ease-in-out 0.5s;
 	}
+	/* 
+	:global(.point:has(.text.visible) .label) {
+		width: 200px;
+		height: 80px;
+		transition: all 1s ease-in-out 0.5s;
+	} */
 
 	:global(.point.loading) {
 		display: none;
-	}
-
-	canvas.webgl {
-		position: fixed;
-		/* top: 56px; */
-		left: 0;
-		outline: none;
 	}
 
 	.loading-bar {
