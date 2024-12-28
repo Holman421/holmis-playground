@@ -225,5 +225,12 @@ export const projects = [
 		description: 'Applying html tags to 3D objects',
 		technologies: ['THREE.js'],
 		shared: true
+	},
+	{
+		href: '/three-js-random-blocks',
+		title: 'Test project with basic blocks',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true
 	}
 ];
