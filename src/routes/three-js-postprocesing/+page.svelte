@@ -313,7 +313,7 @@
 			updateAllMaterials();
 		});
 
-		gltfLoader.load('/models/sword/fantasy_longsword.glb', (gltf) => {
+		gltfLoader.load('/models/sword1/fantasy_longsword.glb', (gltf) => {
 			swordModel = gltf.scene;
 			const scale = 6;
 			swordModel.scale.set(scale, scale, scale);

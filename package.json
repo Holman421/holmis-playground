@@ -45,6 +45,7 @@
 		"gsap": "^3.12.5",
 		"lil-gui": "^0.19.2",
 		"shadcn-svelte": "^0.13.0",
+		"split-type": "^0.3.4",
 		"stats.js": "^0.17.0",
 		"tailwind-merge": "^2.5.3",
 		"tailwind-variants": "^0.2.1",

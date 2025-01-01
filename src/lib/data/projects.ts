@@ -210,27 +210,47 @@ export const projects = [
 		title: 'Minecraft terrain',
 		description: 'Minecraft terrain project',
 		technologies: ['THREE.js', 'Shaders'],
-		shared: true
+		shared: true,
+		isForNextTuesday: true
 	},
 	{
 		href: '/three-js-postprocesing',
 		title: 'Postprocessing effects',
 		description: 'Trying various post procesing effects',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
-		shared: true
+		shared: true,
+		isForNextTuesday: true
 	},
 	{
 		href: '/three-js-tags',
 		title: 'Tags with Three.js',
 		description: 'Applying html tags to 3D objects',
 		technologies: ['THREE.js'],
-		shared: true
+		shared: true,
+		isForNextTuesday: true
 	},
 	{
 		href: '/three-js-random-blocks',
-		title: 'Test project with basic blocks',
-		description: '',
+		title: 'Block sphere',
+		description: 'Scene with random moving cubes with cool animation and transition to normal page',
 		technologies: ['THREE.js'],
-		shared: true
+		shared: true,
+		isForNextTuesday: true
+	},
+	{
+		href: '/three-js-interactive-grid',
+		title: 'Interactive Grid',
+		description: 'Background scene with interactive grid of colorfull cubes',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true
+	},
+	{
+		href: '/three-js-shaders-pixelated',
+		title: 'Pixelation effect',
+		description: 'Simple Image load pixelated effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true
 	}
 ];

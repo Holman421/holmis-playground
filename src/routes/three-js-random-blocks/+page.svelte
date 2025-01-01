@@ -2,6 +2,7 @@
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
+	import { gsap } from 'gsap';
 	import {
 		DRACOLoader,
 		EffectComposer,
@@ -53,6 +54,8 @@
 			lerpFactor: number;
 		};
 		isHoverEnabled: boolean;
+		groupRotationSpeed: number; // Add this
+		boxesRotationSpeed: number; // Add this
 	}
 
 	$effect(() => {
@@ -91,14 +94,16 @@
 			camera: {
 				initialZ: 13,
 				targetZ: 1,
-				zoomStartThreshold: 0.99, // When to start camera zoom (80% through centering)
+				zoomStartThreshold: 0.85, // Adjusted from 0.99 to start later
 				lerpFactor: 0.05
 			},
 			title: {
 				opacity: 0,
 				lerpFactor: 0.05
 			},
-			isHoverEnabled: true // Add this flag
+			isHoverEnabled: true, // Add this flag
+			groupRotationSpeed: 0.002, // Add this
+			boxesRotationSpeed: 0.0035 // Add this
 		};
 
 		// Canvas
@@ -141,6 +146,54 @@
 			const y = radius * Math.sin(phi) * Math.sin(theta);
 			const z = radius * Math.cos(phi);
 			return new THREE.Vector3(x, y, z);
+		}
+
+		// Add this helper function after getSpherePoint
+		function getNearestRightAngle(angle: number): number {
+			// Convert to positive angle in range [0, 2π]
+			angle = angle % (Math.PI * 2);
+			if (angle < 0) angle += Math.PI * 2;
+
+			// Find the nearest multiple of π/2 (90 degrees)
+			const quarterTurns = Math.round(angle / (Math.PI / 2));
+
+			// Return the nearest right angle
+			return quarterTurns * (Math.PI / 2);
+		}
+
+		// Add this new function after getNearestRightAngle
+		function getNearestRightAnglePlus180(angle: number): number {
+			// Convert to positive angle in range [0, 2π]
+			angle = angle % (Math.PI * 2);
+			if (angle < 0) angle += Math.PI * 2;
+
+			// Find the nearest multiple of π/2 (90 degrees)
+			const quarterTurns = Math.round(angle / (Math.PI / 2));
+			const nearestRightAngle = quarterTurns * (Math.PI / 2);
+
+			// Add 180 degrees (π)
+			return nearestRightAngle + Math.PI;
+		}
+
+		// Replace the old getGroupTargetRotation function with this improved version
+		function getGroupTargetRotation(currentRotation: number): number {
+			// Normalize angle to 0-2π range
+			currentRotation = currentRotation % (Math.PI * 2);
+			if (currentRotation < 0) currentRotation += Math.PI * 2;
+
+			// Find the smallest rotation to reach the next 90-degree angle
+			const quarterTurns = Math.round(currentRotation / (Math.PI / 2));
+			const targetAngle = quarterTurns * (Math.PI / 2);
+
+			// Calculate both clockwise and counterclockwise distances
+			const clockwiseDist = (targetAngle - currentRotation + Math.PI * 2) % (Math.PI * 2);
+			const counterclockwiseDist = (currentRotation - targetAngle + Math.PI * 2) % (Math.PI * 2);
+
+			// Choose the shortest path
+			return (
+				currentRotation +
+				(clockwiseDist < counterclockwiseDist ? clockwiseDist : -counterclockwiseDist)
+			);
 		}
 
 		// Sizes
@@ -222,6 +275,7 @@
 			originalRotation: number;
 			centeringDelay: number;
 			update: () => void;
+			isStillRotating: boolean; // Add this flag
 		}
 
 		function getBox() {
@@ -255,7 +309,7 @@
 			cube.userData = {
 				originalAxis: axis as 'x' | 'y' | 'z',
 				originalRate: rate,
-				targetRotation: new THREE.Euler(0, 0, 0),
+				// Remove targetRotation from initial setup as it needs to be calculated at straightening time
 				straightenDelay: Math.random() * debugObject.maxDelay,
 				originalPosition: cube.position.clone(),
 				originalRotation: initialRotation,
@@ -265,32 +319,39 @@
 
 					if (debugObject.isResetting) {
 						cube.position.lerp(this.originalPosition, debugObject.centeringLerpFactor);
+						// Calculate nearest 90-degree angle for reset
+						const targetAngle = getNearestRightAngle(cube.rotation[this.originalAxis]);
 						cube.rotation[this.originalAxis] = THREE.MathUtils.lerp(
 							cube.rotation[this.originalAxis],
-							this.originalRotation,
+							targetAngle,
 							debugObject.lerpFactor
 						);
 					} else if (debugObject.isStraightening) {
-						// Only start straightening after delay
 						if (debugObject.elapsedStraightenTime > this.straightenDelay) {
+							// Calculate target rotations with additional 180 degrees
+							const targetX = getNearestRightAnglePlus180(cube.rotation.x);
+							const targetY = getNearestRightAnglePlus180(cube.rotation.y);
+							const targetZ = getNearestRightAnglePlus180(cube.rotation.z);
+
+							// Smoothly interpolate to nearest 90-degree angles + 180
 							cube.rotation.x = THREE.MathUtils.lerp(
 								cube.rotation.x,
-								this.targetRotation.x,
+								targetX,
 								debugObject.lerpFactor
 							);
 							cube.rotation.y = THREE.MathUtils.lerp(
 								cube.rotation.y,
-								this.targetRotation.y,
+								targetY,
 								debugObject.lerpFactor
 							);
 							cube.rotation.z = THREE.MathUtils.lerp(
 								cube.rotation.z,
-								this.targetRotation.z,
+								targetZ,
 								debugObject.lerpFactor
 							);
 						} else {
 							cube.rotation[this.originalAxis] +=
-								this.originalRate * (debugObject.rotationSpeed / 0.002);
+								this.originalRate * (debugObject.boxesRotationSpeed / 0.002);
 						}
 					} else if (debugObject.isCentering) {
 						if (debugObject.elapsedCenteringTime > this.centeringDelay) {
@@ -298,9 +359,10 @@
 						}
 					} else {
 						cube.rotation[this.originalAxis] +=
-							this.originalRate * (debugObject.rotationSpeed / 0.002);
+							this.originalRate * (debugObject.boxesRotationSpeed / 0.002);
 					}
-				}
+				},
+				isStillRotating: true // Initialize the flag
 			} as CubeUserData;
 			return cube;
 		}
@@ -329,92 +391,123 @@
 		boxFolder.add(debugObject, 'lerpFactor', 0.01, 0.1, 0.01).name('Straighten Speed');
 		boxFolder.add(debugObject, 'maxDelay', 0, 2, 0.1).name('Max Delay');
 		boxFolder.add(debugObject, 'centeringLerpFactor', 0.01, 0.1, 0.01).name('Center Speed');
+		boxFolder.add(debugObject, 'groupRotationSpeed', 0, 0.01, 0.0001).name('Group Rotation');
+		boxFolder.add(debugObject, 'boxesRotationSpeed', 0, 0.05, 0.0001).name('Boxes Rotation');
 		boxFolder
 			.add(
 				{
 					straightenBoxes: () => {
-						debugObject.isStraightening = true;
-						debugObject.elapsedStraightenTime = 0;
-						debugObject.isHoverEnabled = false; // Disable hover effect
+						debugObject.isHoverEnabled = false;
 						if (hoveredBox) {
 							(hoveredBox.material as THREE.MeshBasicMaterial).color.setHex(debugObject.boxColor);
 							hoveredBox = null;
 						}
 
-						// Check if boxes are close enough to target rotation
-						const checkComplete = () => {
-							debugObject.elapsedStraightenTime += 0.016; // Approximate for 60fps
-							let allStraight = true;
+						const timeline = gsap.timeline();
 
-							// Update central cube opacity
-							debugObject.centralCube.opacity = THREE.MathUtils.lerp(
-								debugObject.centralCube.opacity,
-								1,
-								debugObject.centralCube.lerpFactor
+						// First straighten all boxes
+						const straightenDuration = 1.5;
+						boxGroup.children.forEach((box) => {
+							// Calculate nearest right angles based on current rotation
+							const targetX = getNearestRightAnglePlus180(box.rotation.x);
+							const targetY = getNearestRightAnglePlus180(box.rotation.y);
+							const targetZ = getNearestRightAnglePlus180(box.rotation.z);
+
+							const straightenDelay = Math.random() * debugObject.maxDelay;
+							const centeringDelay = Math.random() * debugObject.maxDelay;
+
+							// Straighten phase
+							timeline.to(
+								box.rotation,
+								{
+									x: targetX,
+									y: targetY,
+									z: targetZ,
+									duration: straightenDuration,
+									delay: straightenDelay,
+									ease: 'power2.inOut',
+									onComplete: () => {
+										box.userData.isStillRotating = false;
+									}
+								},
+								0
 							);
-							centralCubeMaterial.opacity = debugObject.centralCube.opacity;
-							(centralCubeLines.material as THREE.LineBasicMaterial).opacity =
-								debugObject.centralCube.opacity;
 
-							boxGroup.children.forEach((box) => {
-								const rot = box.rotation;
-								const target = box.userData.targetRotation;
-								if (
-									Math.abs(rot.x - target.x) > 0.01 ||
-									Math.abs(rot.y - target.y) > 0.01 ||
-									Math.abs(rot.z - target.z) > 0.01
-								) {
-									allStraight = false;
-								}
-							});
-							if (allStraight && debugObject.elapsedStraightenTime > debugObject.maxDelay) {
-								debugObject.isStraightening = false;
-								// Start centering animation
-								debugObject.isCentering = true;
-								debugObject.elapsedCenteringTime = 0;
-								checkCenteringComplete();
-							} else {
-								requestAnimationFrame(checkComplete);
-							}
-						};
+							box.userData.isStillRotating = true;
+						});
 
-						const checkCenteringComplete = () => {
-							debugObject.elapsedCenteringTime += 0.016;
-							let allCentered = true;
-							boxGroup.children.forEach((box) => {
-								if (box.position.distanceTo(debugObject.centerPosition) > 0.01) {
-									allCentered = false;
-								}
-							});
-							const groupRotationComplete = Math.abs(boxGroup.rotation.y) < 0.01;
+						// Fade in central cube during straightening phase
+						timeline.to(
+							[centralCubeMaterial, centralCubeLines.material],
+							{
+								opacity: 1,
+								duration: straightenDuration,
+								ease: 'power2.inOut'
+							},
+							0
+						);
 
-							// Calculate progress through centering phase
-							const centeringProgress = debugObject.elapsedCenteringTime / debugObject.maxDelay;
-
-							// Start camera zoom when reaching threshold
-							if (centeringProgress > debugObject.camera.zoomStartThreshold) {
-								camera.position.z = THREE.MathUtils.lerp(
-									camera.position.z,
-									debugObject.camera.targetZ,
-									debugObject.camera.lerpFactor
-								);
-							}
-
-							if (
-								allCentered &&
-								groupRotationComplete &&
-								debugObject.elapsedCenteringTime > debugObject.maxDelay
-							) {
-								debugObject.isCentering = false;
+						// After straightening, center everything
+						timeline.call(
+							() => {
 								debugObject.isAnimating = false;
-								// Start title animation
-								showTitle();
-							} else {
-								requestAnimationFrame(checkCenteringComplete);
-							}
-						};
+							},
+							`>${straightenDuration + debugObject.maxDelay}`
+						);
 
-						checkComplete();
+						// Start centering phase - all at same position marker but with individual delays
+						const centeringLabel = 'centering';
+						timeline.addLabel(centeringLabel, '>');
+
+						// Center all boxes with individual delays
+						boxGroup.children.forEach((box) => {
+							const centeringDelay = Math.random() * debugObject.maxDelay;
+							timeline.to(
+								box.position,
+								{
+									x: 0,
+									y: 0,
+									z: 0,
+									duration: 1.5,
+									delay: centeringDelay,
+									ease: 'power2.inOut'
+								},
+								centeringLabel // All boxes start from same position in timeline
+							);
+						});
+
+						// Group rotation centering
+						timeline.to(
+							boxGroup.rotation,
+							{
+								y: getGroupTargetRotation(boxGroup.userData.totalRotation),
+								duration: 1.5,
+								ease: 'power2.inOut'
+							},
+							centeringLabel // Align with box movements
+						);
+
+						// Camera zoom
+						timeline.to(
+							camera.position,
+							{
+								z: debugObject.camera.targetZ,
+								duration: 2,
+								ease: 'power2.inOut'
+							},
+							`${centeringLabel}+=0.5`
+						);
+
+						// Show title
+						timeline.to(
+							'.title',
+							{
+								opacity: 1,
+								duration: 1,
+								ease: 'power2.inOut'
+							},
+							`${centeringLabel}+=2`
+						);
 					}
 				},
 				'straightenBoxes'
@@ -424,57 +517,90 @@
 			.add(
 				{
 					resetScene: () => {
-						debugObject.isResetting = true;
-						debugObject.isStraightening = false;
-						debugObject.isCentering = false;
-						debugObject.elapsedStraightenTime = 0;
-						debugObject.elapsedCenteringTime = 0;
-						debugObject.isHoverEnabled = true; // Re-enable hover effect
-						debugObject.title.opacity = 0;
-						const titleElement = document.querySelector('.title') as HTMLElement;
-						titleElement.style.opacity = '0';
+						debugObject.isHoverEnabled = true;
 
-						const checkResetComplete = () => {
-							let allReset = true;
-							boxGroup.children.forEach((box) => {
-								const pos = box.position;
-								const originalPos = box.userData.originalPosition;
-								const rot = box.rotation[box.userData.originalAxis as keyof THREE.Euler];
-								const originalRot = box.userData.originalRotation;
+						const timeline = gsap.timeline();
 
-								if (
-									pos.distanceTo(originalPos) > 0.01 ||
-									Math.abs((rot as any) - originalRot) > 0.01
-								) {
-									allReset = false;
+						// Reset title
+						timeline.to(
+							'.title',
+							{
+								opacity: 0,
+								duration: 0.5,
+								ease: 'power2.inOut'
+							},
+							0
+						);
+
+						// Reset camera
+						timeline.to(
+							camera.position,
+							{
+								z: debugObject.camera.initialZ,
+								duration: 1.5,
+								ease: 'power2.inOut'
+							},
+							0
+						);
+
+						// Reset group rotation
+						timeline.to(
+							boxGroup.rotation,
+							{
+								y: 0,
+								duration: 1,
+								ease: 'power2.inOut',
+								onComplete: () => {
+									boxGroup.userData.totalRotation = 0;
 								}
-							});
+							},
+							0
+						);
 
-							// Add camera position check
-							const cameraReset = Math.abs(camera.position.z - debugObject.camera.initialZ) < 0.01;
-							const groupRotationComplete = Math.abs(boxGroup.rotation.y % (Math.PI * 2)) < 0.01;
+						// Reset central cube
+						timeline.to(
+							[centralCubeMaterial, centralCubeLines.material],
+							{
+								opacity: 0,
+								duration: 1,
+								ease: 'power2.inOut'
+							},
+							0
+						);
 
-							// Lerp camera position
-							camera.position.z = THREE.MathUtils.lerp(
-								camera.position.z,
-								debugObject.camera.initialZ,
-								debugObject.camera.lerpFactor
+						// Reset all boxes
+						boxGroup.children.forEach((box) => {
+							const userData = box.userData;
+							timeline.to(
+								box.position,
+								{
+									x: userData.originalPosition.x,
+									y: userData.originalPosition.y,
+									z: userData.originalPosition.z,
+									duration: 1.5,
+									ease: 'power2.inOut'
+								},
+								0
 							);
 
-							if (allReset && groupRotationComplete && cameraReset) {
-								debugObject.isResetting = false;
-								debugObject.isAnimating = true;
-								boxGroup.rotation.y = 0;
-								debugObject.centralCube.opacity = 0;
-								centralCubeMaterial.opacity = 0;
-								(centralCubeLines.material as THREE.LineBasicMaterial).opacity = 0;
-								camera.position.z = debugObject.camera.initialZ; // Set final position exactly
-							} else {
-								requestAnimationFrame(checkResetComplete);
-							}
-						};
+							const resetRotation = {
+								[userData.originalAxis]: userData.originalRotation
+							};
+							timeline.to(
+								box.rotation,
+								{
+									...resetRotation,
+									duration: 1.5,
+									ease: 'power2.inOut'
+								},
+								0
+							);
+						});
 
-						checkResetComplete();
+						// Re-enable animations when complete
+						timeline.call(() => {
+							debugObject.isAnimating = true;
+						});
 					}
 				},
 				'resetScene'
@@ -500,25 +626,29 @@
 		const numBoxes = debugObject.numBoxes;
 
 		const boxGroup = new THREE.Group();
-		boxGroup.userData.update = () => {
-			if (debugObject.isResetting) {
-				boxGroup.rotation.y = THREE.MathUtils.lerp(
-					boxGroup.rotation.y,
-					0,
-					debugObject.centeringLerpFactor
-				);
-			} else if (debugObject.isCentering) {
-				boxGroup.rotation.y = THREE.MathUtils.lerp(
-					boxGroup.rotation.y,
-					0,
-					debugObject.centeringLerpFactor
-				);
-			} else if (debugObject.isAnimating) {
-				boxGroup.rotation.y += debugObject.groupRotation;
+		boxGroup.userData = {
+			totalRotation: 0,
+			update: () => {
+				if (debugObject.isResetting) {
+					boxGroup.rotation.y = THREE.MathUtils.lerp(
+						boxGroup.rotation.y,
+						0,
+						debugObject.centeringLerpFactor
+					);
+				} else if (debugObject.isCentering) {
+					boxGroup.rotation.y = THREE.MathUtils.lerp(
+						boxGroup.rotation.y,
+						0,
+						debugObject.centeringLerpFactor
+					);
+				} else if (debugObject.isAnimating) {
+					boxGroup.rotation.y += debugObject.groupRotationSpeed;
+					boxGroup.userData.totalRotation += debugObject.groupRotationSpeed;
+				}
+				boxGroup.children.forEach((box) => {
+					box.userData.update();
+				});
 			}
-			boxGroup.children.forEach((box) => {
-				box.userData.update();
-			});
 		};
 		scene.add(boxGroup);
 
@@ -600,7 +730,18 @@
 				}
 			}
 
-			boxGroup.userData.update();
+			if (debugObject.isAnimating) {
+				boxGroup.rotation.y += debugObject.groupRotationSpeed;
+				boxGroup.userData.totalRotation += debugObject.groupRotationSpeed;
+				boxGroup.children.forEach((box) => {
+					const userData = box.userData;
+					if (userData.isStillRotating) {
+						box.rotation[userData.originalAxis] +=
+							userData.originalRate * (debugObject.boxesRotationSpeed / 0.002);
+					}
+				});
+			}
+
 			controls.update();
 			composer.render();
 			window.requestAnimationFrame(tick);

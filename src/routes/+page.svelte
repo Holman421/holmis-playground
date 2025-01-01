@@ -25,18 +25,36 @@
 	});
 
 	let showAllProjects = $state(false);
+	let showNextTuesdayProjects = $state(false);
 
 	const filteredProjects = projects.filter((project) => project.shared);
+	const projectsForNextTuesday = projects.filter((project) => project.isForNextTuesday);
 	const allProjects = projects;
-	let currentProjects = $derived(() => (showAllProjects ? allProjects : filteredProjects));
+	let currentProjects = $derived(() => {
+		if (showNextTuesdayProjects) {
+			return projectsForNextTuesday;
+		} else if (showAllProjects) {
+			return allProjects;
+		} else {
+			return filteredProjects;
+		}
+	});
 </script>
 
-<div class="w-full flex justify-center mt-10">
+<div class="w-full flex justify-center mt-10 gap-5">
 	<button
 		class="border py-2 px-4"
 		onclick={() => {
 			showAllProjects = !showAllProjects;
+			showNextTuesdayProjects = false;
 		}}>{showAllProjects ? 'Show only representable projects' : 'Show all projects'}</button
+	>
+	<button
+		class="border py-2 px-4"
+		onclick={() => {
+			showNextTuesdayProjects = !showNextTuesdayProjects;
+			showAllProjects = false;
+		}}>{showNextTuesdayProjects ? 'Show representable projects' : 'Show new projects'}</button
 	>
 </div>
 <div class="text-black mx-auto mt-10 flex gap-8 flex-wrap w-full justify-center p-4">

@@ -495,6 +495,14 @@
 		let sword4Controller: Controller;
 
 		const switchToModel = (group: Sword) => {
+			// Reset camera first
+			if (activePointText !== null) {
+				points[activePointText].element.querySelector('.text')?.classList.remove('visible');
+				activePointText = null;
+			}
+			resetCamera();
+
+			// Then switch the model
 			guiObject.showSword1 = false;
 			guiObject.showSword2 = false;
 			guiObject.showSword3 = false;
