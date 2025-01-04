@@ -167,7 +167,7 @@
 					placeholder="Enter item color"
 					bind:value={newItemColor}
 					onkeydown={onKeyDown}
-					class="border px-2 py-2 rounded-md border-slate-700"
+					class="border px-2 py-2 rounded-md border-slate-700 text-black"
 				/>
 				{#if newItemColor.length > 0}
 					<div
@@ -177,6 +177,15 @@
 						id="item"
 					></div>
 				{/if}
+				<button
+					id="flip-button"
+					onclick={() => {
+						onKeyDown({ key: 'Enter' } as KeyboardEvent);
+					}}
+					class="ml-4 p-2 bg-gray-500 text-white rounded whitespace-nowrap"
+				>
+					Add new item
+				</button>
 			</div>
 		</div>
 		<div id="container" class="flex gap-3 items-center">
@@ -202,7 +211,7 @@
 			<button
 				id="flip-button"
 				onclick={toggleIsContainerOpen}
-				class="ml-4 p-2 bg-gray-500 text-white rounded"
+				class="ml-4 p-2 bg-gray-500 text-white rounded whitespace-nowrap"
 			>
 				{isContainerOpen ? 'Hide' : 'Show'} Items
 			</button>

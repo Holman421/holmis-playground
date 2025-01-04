@@ -58,7 +58,7 @@
 	>
 </div>
 <div class="text-black mx-auto mt-10 flex gap-8 flex-wrap w-full justify-center p-4">
-	{#each currentProjects() as { href, title, description, technologies }}
-		<ProjectCard {href} {title} {description} {technologies} />
+	{#each currentProjects() as { href, title, description, technologies, imgSrc }}
+		<ProjectCard {href} {title} {description} {technologies} {imgSrc} />
 	{/each}
 </div>

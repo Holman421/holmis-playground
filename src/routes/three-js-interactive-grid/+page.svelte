@@ -370,9 +370,7 @@
 		const mousePlane = new THREE.Mesh(
 			new THREE.PlaneGeometry(48, 48, 48, 48),
 			new THREE.MeshBasicMaterial({
-				transparent: true,
-				wireframe: true,
-				opacity: 0
+				visible: false
 			})
 		);
 

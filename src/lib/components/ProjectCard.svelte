@@ -4,11 +4,12 @@
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 
-	const { title, description, href, technologies } = $props<{
+	const { title, description, href, technologies, imgSrc } = $props<{
 		title: string;
 		description: string;
 		href: string;
 		technologies: string[];
+		imgSrc: string;
 	}>();
 
 	let cardElement: HTMLDivElement;
@@ -103,21 +104,28 @@
 	<a {href}>
 		<div id="cardBorderEffect-{uniqueId}">
 			<div id="cardGooEffect-{uniqueId}">
-				<div
-					id="projectCard"
-					class="px-5 pt-5 pb-6 w-[400px] min-h-[200px] flex flex-col justify-between relative"
-				>
-					<div>
+				<div id="projectCard" class="px-5 pt-5 pb-6 w-[400px] h-[200px] relative">
+					<div class="flex flex-col gap-4 h-full">
 						<h3 class="main-text font-audiowide">{title}</h3>
-						<p class="secondary-text mt-4 font-exo2">{description}</p>
+						<div class="flex justify-between">
+							<p class="secondary-text font-exo2 w-[60%]">{description}</p>
+							<div class="w-[38%] aspect-square translate-x-3 -translate-y-2">
+								<img
+									src={imgSrc}
+									alt="Project thumbnail"
+									class="object-cover w-full h-full"
+									style="mask-image: radial-gradient(ellipse at center, black 95%, transparent 70%);"
+								/>
+							</div>
+						</div>
 					</div>
-					<div class="flex gap-2 mt-4 flex-wrap">
+					<!-- <div class="flex gap-2 mt-4 flex-wrap">
 						{#each technologies as technology}
 							<div class="border rounded-full px-3 border-[#fafafa] secondary-text">
 								{technology}
 							</div>
 						{/each}
-					</div>
+					</div> -->
 				</div>
 			</div>
 		</div>
@@ -133,17 +141,22 @@
 			3.5rem 0,
 			6.5rem 0,
 			7rem 0.5rem,
-			calc(100% - 1rem) 0.5rem,
-			100% 1.5rem,
-			100% calc(100% - 5rem),
-			calc(100% - 0.5rem) calc(100% - 4.5rem),
-			calc(100% - 0.5rem) calc(100% - 2.5rem),
-			100% calc(100% - 2rem),
+			calc(100% - 5rem) 0.5rem,
+			calc(100% - 4.5rem) 1rem,
+			calc(100% - 4.5rem) 2.5rem,
+			calc(100% - 4rem) 3rem,
+			calc(100% - 0.5rem) 3rem,
+			100% 3.5rem,
 			100% calc(100% - 0.5rem),
-			3rem calc(100% - 0.5rem),
+			calc(100% - 0.5rem) 100%,
+			calc(100% - 9rem) calc(100% - 0rem),
+			calc(100% - 9.5rem) calc(100% - 0.5rem),
+			calc(100% - 13rem) calc(100% - 0.5rem),
+			calc(100% - 13.5rem) calc(100% - 0rem),
+			3rem calc(100% - 0rem),
 			2.5rem 100%,
-			0.5rem 100%,
-			0 calc(100% - 0.5rem)
+			1rem 100%,
+			0 calc(100% - 1rem)
 		);
 		background: black;
 	}

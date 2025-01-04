@@ -10,7 +10,7 @@ export const ANIMATION_CONFIG = {
 		downDelay: 0.5
 	},
 	accelerating: {
-		initialVelocity: 0.1,
+		initialVelocity: 0.3,
 		accelerationRate: 0.3,
 		totalDuration: 4,
 		fadeOutStart: 3.5,
