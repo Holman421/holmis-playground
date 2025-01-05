@@ -317,5 +317,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/honeycomb-transition.png'
+	},
+	{
+		href: '/three-js-shaders-gradient-glass',
+		title: 'Gradient glass effect',
+		description: 'Scene with smooth gradient background and glass effect round shape',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/gradient-glass.png'
 	}
 ];
