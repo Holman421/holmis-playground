@@ -1,6 +1,5 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import particlesVertexShader from './shaders/vertex.glsl';
 	import particlesFragmentShader from './shaders/fragment.glsl';
@@ -272,6 +271,7 @@
 		}
 
 		//Animate
+		let animationFrameId: number;
 		const tick = () => {
 			// controls.update();
 
@@ -316,10 +316,14 @@
 
 			renderer.render(scene, camera);
 
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		return () => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		};
 	});
 </script>
 

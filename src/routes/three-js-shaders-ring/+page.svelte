@@ -471,6 +471,7 @@
 		// Animate
 		const clock = new THREE.Clock();
 		const darkMaterial = new THREE.MeshBasicMaterial({ color: 'black' });
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 			(torus.material as CustomShaderMaterial).uniforms.uTime.value = elapsedTime;
@@ -487,10 +488,14 @@
 			finalComposer.render();
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		return () => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		};
 	});
 </script>
 

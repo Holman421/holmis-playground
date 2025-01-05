@@ -3,15 +3,9 @@
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import { gsap } from 'gsap';
-	import {
-		DRACOLoader,
-		EffectComposer,
-		GLTFLoader,
-		RenderPass,
-		RGBELoader,
-		UnrealBloomPass
-	} from 'three/examples/jsm/Addons.js';
+	import { EffectComposer, RenderPass, UnrealBloomPass } from 'three/examples/jsm/Addons.js';
 	import getLayer from './getLayer';
+	import { onDestroy } from 'svelte';
 
 	interface DebugObject {
 		numBoxes: number;
@@ -702,6 +696,7 @@
 		// Animate
 		const clock = new THREE.Clock();
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -744,10 +739,14 @@
 
 			controls.update();
 			composer.render();
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

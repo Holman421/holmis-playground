@@ -743,6 +743,7 @@
 
 		// Animation Loop
 		const clock = new THREE.Clock();
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -803,7 +804,7 @@
 
 			controls.update();
 			renderer.render(scene, camera);
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 		tick();
 
@@ -811,6 +812,8 @@
 		return () => {
 			window.removeEventListener('mousemove', onMouseMove);
 			window.removeEventListener('click', onClick);
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 		};
 	});
 </script>

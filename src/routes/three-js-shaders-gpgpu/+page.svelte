@@ -7,6 +7,7 @@
 	import gpgpuParticlesShader from './shaders/gpgpu/particles.glsl';
 	import { DRACOLoader, GLTFLoader, GPUComputationRenderer } from 'three/examples/jsm/Addons.js';
 	import gsap from 'gsap';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
 		const gui = new GUI({ width: 340 });
@@ -339,6 +340,7 @@
 		const clock = new THREE.Clock();
 		let previousTime = 0;
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 			const deltaTime = elapsedTime - previousTime;
@@ -359,10 +361,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

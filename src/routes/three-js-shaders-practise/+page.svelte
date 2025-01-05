@@ -6,21 +6,11 @@
 	import testFragmentShader from './shaders/fragment.glsl';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
-		const gui = new GUI();
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
 
 		// Scene
 		const scene = new THREE.Scene();
 
-		/**
-		 * Test mesh
-		 */
 		// Geometry
 		const geometry = new THREE.PlaneGeometry(1, 1, 32, 32);
 

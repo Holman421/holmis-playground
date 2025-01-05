@@ -1,14 +1,9 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { gsap } from 'gsap';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { GUI } from 'lil-gui';
-	import diamondOreTexture from '$lib/assets/textures/minecraft.png';
-	import dirtBlockImage from '$lib/assets/textures/dirtBlock.jpg';
-	import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
-	import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-	import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 	import { RectAreaLightHelper } from 'three/addons/helpers/RectAreaLightHelper.js';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
 		const gui = new GUI();
@@ -16,8 +11,6 @@
 		const canvas = document.querySelector('canvas.webgl')! as HTMLCanvasElement;
 
 		const scene = new THREE.Scene();
-
-		const textureLoader = new THREE.TextureLoader();
 
 		// Lights
 		const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
@@ -32,7 +25,7 @@
 		const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 0.2);
 		scene.add(directionalLightHelper);
 		const directionalLightFolder = gui.addFolder('Directional Light');
-		directionalLightFolder.add(directionalLight, 'visible').onChange((value) => {
+		directionalLightFolder.add(directionalLight, 'visible').onChange((value: any) => {
 			directionalLightHelper.visible = value;
 		});
 		directionalLightFolder.add(directionalLight, 'intensity', 0, 10, 0.01);
@@ -42,7 +35,7 @@
 		const hemisphereLightHelper = new THREE.HemisphereLightHelper(hemisphereLight, 0.2);
 		scene.add(hemisphereLightHelper);
 		const hemisphereLightFolder = gui.addFolder('Hemisphere Light');
-		hemisphereLightFolder.add(hemisphereLight, 'visible').onChange((value) => {
+		hemisphereLightFolder.add(hemisphereLight, 'visible').onChange((value: any) => {
 			hemisphereLightHelper.visible = value;
 		});
 		hemisphereLightFolder.add(hemisphereLight, 'intensity', 0, 1, 0.01);
@@ -53,7 +46,7 @@
 		const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.2);
 		scene.add(pointLightHelper);
 		const pointLightFolder = gui.addFolder('Point Light');
-		pointLightFolder.add(pointLight, 'visible').onChange((value) => {
+		pointLightFolder.add(pointLight, 'visible').onChange((value: any) => {
 			pointLightHelper.visible = value;
 		});
 		pointLightFolder.add(pointLight, 'intensity', 0, 10, 0.01);
@@ -64,7 +57,7 @@
 		const rectAreaLightHelper = new RectAreaLightHelper(rectAreaLight);
 		scene.add(rectAreaLight, rectAreaLightHelper);
 		const rectAreaLightFolder = gui.addFolder('Rect Area Light');
-		rectAreaLightFolder.add(rectAreaLight, 'visible').onChange((value) => {
+		rectAreaLightFolder.add(rectAreaLight, 'visible').onChange((value: any) => {
 			rectAreaLightHelper.visible = value;
 		});
 		rectAreaLightFolder.add(rectAreaLight, 'intensity', 0, 20, 0.01);
@@ -77,7 +70,7 @@
 		scene.add(spotLightHelper);
 
 		const spotLightFolder = gui.addFolder('Spot Light');
-		spotLightFolder.add(spotLight, 'visible').onChange((value) => {
+		spotLightFolder.add(spotLight, 'visible').onChange((value: any) => {
 			spotLightHelper.visible = value;
 		});
 		spotLightFolder.add(spotLight, 'intensity', 0, 10, 0.01);
@@ -153,6 +146,7 @@
 		 * Animate
 		 */
 		const clock = new THREE.Clock();
+		let animationFrameId: number;
 
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
@@ -169,10 +163,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

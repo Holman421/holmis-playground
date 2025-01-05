@@ -4,12 +4,9 @@
 	import GUI from 'lil-gui';
 	import testVertexShader from './shaders/vertex.glsl';
 	import testFragmentShader from './shaders/fragment.glsl';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
 		const gui = new GUI();
 
 		// Canvas
@@ -18,14 +15,6 @@
 		// Scene
 		const scene = new THREE.Scene();
 
-		/**
-		 * Textures
-		 */
-		const textureLoader = new THREE.TextureLoader();
-
-		/**
-		 * Test cube
-		 */
 		const parameters = {
 			count: 200000,
 			size: 0.001,
@@ -207,6 +196,7 @@
 
 		generateGalaxy();
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -223,10 +213,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 
 		// Fullscreen functionality
 		const toggleFullscreen = () => {

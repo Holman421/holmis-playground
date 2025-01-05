@@ -236,6 +236,15 @@ export const projects = [
 		imgSrc: '/projectThumbnails/can-brush.png'
 	},
 	{
+		href: '/three-js-shaders-model',
+		title: 'Model deformation',
+		description: 'Scene with 3D model with deformation effect',
+		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
+		shared: true,
+		isForNextTuesday: false,
+		imgSrc: '/projectThumbnails/model-deformation.png'
+	},
+	{
 		href: '/three-js-shaders-minecraft',
 		title: 'Minecraft terrain',
 		description: 'Bigger project with minecraft like procedurally generated terrain, animated',

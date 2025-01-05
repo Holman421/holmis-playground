@@ -4,21 +4,11 @@
 	import GUI from 'lil-gui';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
-		const gui = new GUI();
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl')! as HTMLCanvasElement;
 
 		// Scene
 		const scene = new THREE.Scene();
 
-		/**
-		 * Textures
-		 */
 		// Load textures
 		const textureLoader = new THREE.TextureLoader();
 		const particleTextureOne = textureLoader.load('/particles/one.jpg');

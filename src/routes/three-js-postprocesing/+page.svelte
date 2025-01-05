@@ -16,6 +16,7 @@
 	} from 'three/examples/jsm/Addons.js';
 	import Stats from 'stats.js';
 	import { gsap } from 'gsap';
+	import { onDestroy } from 'svelte';
 
 	let activePointText: number | null = null;
 	let activeGroup: 'helmet' | 'sword' | 'knot' = 'sword';
@@ -804,6 +805,7 @@
 		const clock = new THREE.Clock();
 		const radius = 6;
 
+		let animationFrameId: number;
 		const tick = () => {
 			stats.begin();
 			const elapsedTime = clock.getElapsedTime();
@@ -866,11 +868,16 @@
 			effectComposer.render();
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
+
 			stats.end();
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

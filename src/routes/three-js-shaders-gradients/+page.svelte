@@ -2,9 +2,9 @@
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
-	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
 	import VertexShader from './shaders/vertex.glsl';
 	import FragmentShader from './shaders/fragment.glsl';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
 		// Base
@@ -83,6 +83,8 @@
 				const color = new THREE.Color(Math.random(), Math.random(), Math.random());
 				debugObject[`color${i + 1}`] = '#' + color.getHexString();
 				plane.material.uniforms.uColors.value[i].set(color);
+				// Update the corresponding GUI controller
+				colorFolder.controllers[i].updateDisplay();
 			}
 		};
 
@@ -285,6 +287,7 @@
 		// Animate
 		const clock = new THREE.Clock();
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -298,10 +301,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

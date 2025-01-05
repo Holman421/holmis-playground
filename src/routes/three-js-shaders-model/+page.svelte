@@ -1,27 +1,15 @@
 <script lang="ts">
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
-	import testVertexShader from './shaders/vertex.glsl';
-	import testFragmentShader from './shaders/fragment.glsl';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
-		const gui = new GUI();
-
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
 
 		// Scene
 		const scene = new THREE.Scene();
 
-		/**
-		 * Loaders
-		 */
 		const textureLoader = new THREE.TextureLoader();
 		const gltfLoader = new GLTFLoader();
 		const cubeTextureLoader = new THREE.CubeTextureLoader();
@@ -145,7 +133,7 @@
 		 */
 		gltfLoader.load('/models/LeePerrySmith/LeePerrySmith.glb', (gltf) => {
 			// Model
-			const mesh = gltf.scene.children[0];
+			const mesh: any = gltf.scene.children[0];
 			mesh.rotation.y = Math.PI * 0.5;
 			mesh.material = material;
 			mesh.customDepthMaterial = depthMaterial;

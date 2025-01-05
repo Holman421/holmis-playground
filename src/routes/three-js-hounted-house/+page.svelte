@@ -1,14 +1,10 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { GUI } from 'lil-gui';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-	import { gsap } from 'gsap';
 	import { Timer } from 'three/addons/misc/Timer.js';
 	import { Sky } from 'three/addons/objects/Sky.js';
 
 	$effect(() => {
-		const gui = new GUI();
-
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl')! as HTMLCanvasElement;
 

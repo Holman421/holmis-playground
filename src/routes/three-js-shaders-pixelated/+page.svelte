@@ -10,12 +10,10 @@
 		RenderPixelatedPass,
 		RGBELoader
 	} from 'three/examples/jsm/Addons.js';
-	import { gsap } from 'gsap';
 
 	$effect(() => {
 		// Base
 		const gui = new GUI({ width: 325 });
-		const debugObject: any = {};
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -154,9 +152,8 @@
 		// Animate
 		const clock = new THREE.Clock();
 
+		let animationFrameId: number;
 		const tick = () => {
-			const elapsedTime = clock.getElapsedTime();
-
 			// Update controls
 			controls.update();
 
@@ -164,10 +161,14 @@
 			effectComposer.render();
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		return () => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		};
 	});
 </script>
 

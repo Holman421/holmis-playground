@@ -1,24 +1,12 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
 	import gsap from 'gsap';
 
 	$effect(() => {
-		const gui = new GUI();
-
 		const parameters = {
 			materialColor: '#ffeded'
 		};
 
-		gui.addColor(parameters, 'materialColor').onChange(() => {
-			material.color.set(parameters.materialColor);
-			particlesMaterial.color.set(parameters.materialColor);
-		});
-
-		/**
-		 * Base
-		 */
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl')! as HTMLCanvasElement;
 

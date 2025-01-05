@@ -3,18 +3,14 @@
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-	import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 	import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
-	import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
 		const gltfLoader = new GLTFLoader();
 		const rgbeLoader = new RGBELoader();
 		const textureLoader = new THREE.TextureLoader();
 
-		/**
-		 * Base
-		 */
 		// Debug
 		const gui = new GUI();
 
@@ -28,7 +24,7 @@
 		 * Update all materials
 		 */
 		const updateAllMaterials = () => {
-			scene.traverse((child) => {
+			scene.traverse((child: any) => {
 				if (child.isMesh) {
 					// ...
 
@@ -201,9 +197,7 @@
 			ACESFilmic: THREE.ACESFilmicToneMapping
 		});
 
-		/**
-		 * Animate
-		 */
+		let animationFrameId: number;
 		const tick = () => {
 			// Update controls
 			controls.update();
@@ -212,10 +206,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

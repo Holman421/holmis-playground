@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
 	import { projects } from '$lib/data/projects';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';

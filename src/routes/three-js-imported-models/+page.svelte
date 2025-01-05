@@ -1,18 +1,10 @@
 <script lang="ts">
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 	import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
-		const gui = new GUI();
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl')! as HTMLCanvasElement;
 
 		// Scene

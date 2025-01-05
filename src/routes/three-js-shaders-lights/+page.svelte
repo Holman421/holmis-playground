@@ -3,9 +3,9 @@
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-	import { gsap } from 'gsap';
 	import VertexShader from './shaders/shading/vertex.glsl';
 	import FragmentShader from './shaders/shading/fragment.glsl';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
 		const gui = new GUI();
@@ -141,6 +141,7 @@
 		 */
 		const clock = new THREE.Clock();
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -163,10 +164,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

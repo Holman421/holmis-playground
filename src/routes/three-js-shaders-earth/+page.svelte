@@ -6,6 +6,7 @@
 	import testFragmentShader from './shaders/fragment.glsl';
 	import atmosphereVertexShader from './atmosphere/vertex.glsl';
 	import atmosphereFragmentShader from './atmosphere/fragment.glsl';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
 		const gui = new GUI();
@@ -173,6 +174,7 @@
 		 */
 		const clock = new THREE.Clock();
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -184,11 +186,14 @@
 			// Render
 			renderer.render(scene, camera);
 
-			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

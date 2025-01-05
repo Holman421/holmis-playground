@@ -1,14 +1,10 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
 	import VertexShader from './shaders/firework/vertex.glsl';
 	import FragmentShader from './shaders/firework/fragment.glsl';
 	import { gsap } from 'gsap';
 
 	$effect(() => {
-		// Setup
-		const gui = new GUI({ width: 340 });
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
 		const scene = new THREE.Scene();
 		const textureLoader = new THREE.TextureLoader();

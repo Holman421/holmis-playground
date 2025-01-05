@@ -5,12 +5,9 @@
 	import gsap from 'gsap';
 	import CANNON, { Body } from 'cannon';
 	import { smootherstep } from 'three/src/math/MathUtils.js';
+	import { onDestroy } from 'svelte';
 
 	$effect(() => {
-		/**
-		 * Debug
-		 */
-
 		const gui = new GUI();
 		const debugObj: any = {};
 
@@ -258,6 +255,7 @@
 		const clock = new THREE.Clock();
 		let oldElapsedTime = 0;
 
+		let animationFrameId: number;
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
@@ -277,10 +275,14 @@
 			renderer.render(scene, camera);
 
 			// Call tick again on the next frame
-			window.requestAnimationFrame(tick);
+			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+		onDestroy(() => {
+			if (gui) gui.destroy();
+			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+		});
 	});
 </script>
 

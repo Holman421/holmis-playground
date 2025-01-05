@@ -1,20 +1,11 @@
 <script lang="ts">
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
 	import VertexShader from './shaders/firework/vertex.glsl';
 	import FragmentShader from './shaders/firework/fragment.glsl';
-	import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 	import { gsap } from 'gsap';
 
 	$effect(() => {
-		/**
-		 * Base
-		 */
-		// Debug
-		const gui = new GUI({ width: 340 });
-
-		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
 
 		// Scene
