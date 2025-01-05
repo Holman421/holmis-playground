@@ -335,5 +335,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/gradient-glass.png'
+	},
+	{
+		href: '/three-js-shaders-gradient-glass',
+		title: 'Holmis playground',
+		description: 'Place for my creativity',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/gradient-glass.png'
 	}
 ];
