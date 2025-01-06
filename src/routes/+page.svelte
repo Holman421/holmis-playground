@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
+	import Button from '$lib/components/ui/button.svelte';
 	import { projects } from '$lib/data/projects';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -54,22 +55,36 @@
 </script>
 
 <div class="w-full flex justify-center mt-10 gap-5">
-	<button
-		class="border py-2 px-4"
-		onclick={() => {
-			showAllProjects = !showAllProjects;
+	<Button
+		variant={showAllProjects ? 'active' : 'default'}
+		onClick={() => {
+			showAllProjects = true;
 			showNextTuesdayProjects = false;
-			updateURL(showAllProjects ? 'all' : null);
-		}}>{showAllProjects ? 'Show only representable projects' : 'Show all projects'}</button
+			updateURL('all');
+		}}
 	>
-	<button
-		class="border py-2 px-4"
-		onclick={() => {
-			showNextTuesdayProjects = !showNextTuesdayProjects;
+		All projects
+	</Button>
+	<Button
+		variant={!showAllProjects && !showNextTuesdayProjects ? 'active' : 'default'}
+		onClick={() => {
 			showAllProjects = false;
-			updateURL(showNextTuesdayProjects ? 'next' : null);
-		}}>{showNextTuesdayProjects ? 'Show representable projects' : 'Show new projects'}</button
+			showNextTuesdayProjects = false;
+			updateURL(null);
+		}}
 	>
+		Representable projects
+	</Button>
+	<Button
+		variant={showNextTuesdayProjects ? 'active' : 'default'}
+		onClick={() => {
+			showNextTuesdayProjects = true;
+			showAllProjects = false;
+			updateURL('next');
+		}}
+	>
+		New projects
+	</Button>
 </div>
 <div class="text-black mx-auto mt-10 flex gap-8 flex-wrap w-full justify-center p-4">
 	{#each currentProjects() as { href, title, description, technologies, imgSrc }}
