@@ -1,13 +1,20 @@
 <script lang="ts">
 	import * as THREE from 'three';
 	import { onDestroy } from 'svelte';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
-	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
+	import {
+		DRACOLoader,
+		EffectComposer,
+		GLTFLoader,
+		RenderPass,
+		RGBELoader,
+		ShaderPass
+	} from 'three/examples/jsm/Addons.js';
 	import bigSphereFragmentShader from './shaders/bigSphere/fragment.glsl';
 	import bigSpereVertexShader from './shaders/bigSphere/vertex.glsl';
 	import smallSphereFragmentShader from './shaders/smallSphere/fragment.glsl';
 	import smallSphereVertexShader from './shaders/smallSphere/vertex.glsl';
+	import { DotScreenShader } from './shaders/postprocessing/vertex';
 
 	$effect(() => {
 		// Base
@@ -40,35 +47,62 @@
 				side: THREE.DoubleSide
 			});
 
-			const geometry = new THREE.SphereGeometry(2, 32, 32, 32);
+			const geometry = new THREE.SphereGeometry(1, 32, 32, 32);
 			const mesh = new THREE.Mesh(geometry, material);
 			scene.add(mesh);
 
-			let geometry2 = new THREE.SphereGeometry(0.4, 32, 32, 32);
+			const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, {
+				format: THREE.RGBFormat,
+				generateMipmaps: true,
+				minFilter: THREE.LinearMipmapLinearFilter
+				// encoding: THREE.sRGBEncoding
+			});
+
+			const cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget);
+
+			let geometry2 = new THREE.SphereGeometry(0.4, 64, 64, 64);
 			let material2 = new THREE.ShaderMaterial({
 				vertexShader: smallSphereVertexShader,
 				fragmentShader: smallSphereFragmentShader,
 				uniforms: {
 					uTime: { value: 0 },
+					uCube: { value: 0 },
 					uResolution: { value: new THREE.Vector2() },
-					uMouse: { value: new THREE.Vector2() }
+					uMouse: { value: new THREE.Vector2() },
+					uRefractionRatio: { value: 1.02 },
+					uFresnelBias: { value: 0.1 },
+					uFresnelScale: { value: 4.0 },
+					uFresnelPower: { value: 2.0 }
 				},
 				side: THREE.DoubleSide
 			});
 			let mesh2 = new THREE.Mesh(geometry2, material2);
-			mesh2.position.set(0.38, 0.18, 0.16);
+			mesh2.position.set(0.3, 0.21, 0.16);
 			scene.add(mesh2);
 
-			return { material, mesh, material2, mesh2 };
+			return { material, mesh, material2, mesh2, cubeCamera, cubeRenderTarget };
 		};
 
-		const { material, mesh, material2, mesh2 } = addObjects();
+		const { material, mesh, material2, mesh2, cubeCamera, cubeRenderTarget } = addObjects();
 
 		// Add GUI controls for mesh2 position
 		const mesh2Position = gui.addFolder('Small Sphere Position');
 		mesh2Position.add(mesh2.position, 'x').min(-3).max(3).step(0.01).name('X Position');
 		mesh2Position.add(mesh2.position, 'y').min(-3).max(3).step(0.01).name('Y Position');
 		mesh2Position.add(mesh2.position, 'z').min(-3).max(3).step(0.01).name('Z Position');
+
+		// Add GUI controls for shader parameters
+		const shaderParams = gui.addFolder('Shader Parameters');
+		shaderParams
+			.add(material2.uniforms.uRefractionRatio, 'value', 0.5, 2.0, 0.01)
+			.name('Refraction Ratio');
+		shaderParams.add(material2.uniforms.uFresnelBias, 'value', 0.0, 1.0, 0.01).name('Fresnel Bias');
+		shaderParams
+			.add(material2.uniforms.uFresnelScale, 'value', 0.0, 10.0, 0.1)
+			.name('Fresnel Scale');
+		shaderParams
+			.add(material2.uniforms.uFresnelPower, 'value', 0.0, 5.0, 0.1)
+			.name('Fresnel Power');
 
 		// // Lights
 		// const directionalLight = new THREE.DirectionalLight('#ffffff', 4);
@@ -95,16 +129,29 @@
 			// Update renderer
 			renderer.setSize(sizes.width, sizes.height);
 			renderer.setPixelRatio(sizes.pixelRatio);
+
+			// Update composer
+			composer.setSize(sizes.width, sizes.height);
+		});
+
+		// Mouse movement
+		const mouse = {
+			x: 0,
+			y: 0,
+			targetX: 0,
+			targetY: 0
+		};
+
+		window.addEventListener('mousemove', (event) => {
+			// Convert mouse position to normalized coordinates (-1 to 1)
+			mouse.targetX = (event.clientX / sizes.width - 0.5) * 2;
+			mouse.targetY = (event.clientY / sizes.height - 0.5) * 2;
 		});
 
 		// Camera
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(-0, 0, 1);
+		camera.position.set(0, 0, 1);
 		scene.add(camera);
-
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
 
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
@@ -114,6 +161,14 @@
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
+		// Post processing
+		const composer = new EffectComposer(renderer);
+		composer.addPass(new RenderPass(scene, camera));
+
+		const effect1 = new ShaderPass(DotScreenShader);
+		effect1.uniforms['scale'].value = 4;
+		composer.addPass(effect1);
+
 		// Animate
 		const clock = new THREE.Clock();
 
@@ -121,24 +176,34 @@
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
+			// Smooth mouse movement
+			mouse.x += (mouse.targetX - mouse.x) * 0.05;
+			mouse.y += (mouse.targetY - mouse.y) * 0.05;
+			// Update camera position based on mouse
+			camera.position.x = mouse.x * 0.175;
+			camera.position.y = -mouse.y * 0.1;
+			camera.position.z = 1;
+			camera.lookAt(scene.position);
+
 			// Update material
 			material.uniforms.uTime.value = elapsedTime;
 			material2.uniforms.uTime.value = elapsedTime;
 
 			// Update controls
-			controls.update();
+			mesh2.visible = false;
+			cubeCamera.update(renderer, scene);
+			mesh2.visible = true;
+			material2.uniforms.uCube.value = cubeRenderTarget.texture;
 
 			// Render
-			renderer.render(scene, camera);
-			console.log('render');
-
-			// Call tick again on the next frame
+			composer.render();
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
 
 		onDestroy(() => {
+			window.removeEventListener('mousemove', () => {});
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 		});
@@ -147,4 +212,9 @@
 
 <div>
 	<canvas class="webgl"></canvas>
+	<h1
+		class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl opacity-0 animate-fade-in"
+	>
+		Wonder makers
+	</h1>
 </div>
