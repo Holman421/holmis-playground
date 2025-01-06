@@ -2,6 +2,7 @@
 	import * as THREE from 'three';
 	import { onDestroy } from 'svelte';
 	import GUI from 'lil-gui';
+	import gsap from 'gsap';
 	import {
 		DRACOLoader,
 		EffectComposer,
@@ -19,7 +20,25 @@
 	$effect(() => {
 		// Base
 		const gui = new GUI({ width: 325 });
-		const debugObject: any = {};
+		const debugObject: any = {
+			randomizeColors: () => {
+				// Generate random colors
+				const color1 = new THREE.Color(Math.random(), Math.random(), Math.random());
+				const color2 = new THREE.Color(Math.random(), Math.random(), Math.random());
+				const color3 = new THREE.Color(Math.random(), Math.random(), Math.random());
+
+				// Update uniforms
+				material.uniforms.uBaseFirstColor.value = color1;
+				material.uniforms.uBaseSecondColor.value = color2;
+				material.uniforms.uAccentColor.value = color3;
+
+				// Update GUI controllers
+				colorsFolder.controllers.forEach((controller) => {
+					controller.updateDisplay();
+				});
+			}
+		};
+		// gui.hide();
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -42,7 +61,15 @@
 				uniforms: {
 					uTime: { value: 0 },
 					uResolution: { value: new THREE.Vector2() },
-					uMouse: { value: new THREE.Vector2() }
+					uMouse: { value: new THREE.Vector2() },
+					uBaseFirstColor: { value: new THREE.Color(120 / 255, 158 / 255, 113 / 255) },
+					uBaseSecondColor: { value: new THREE.Color(224 / 255, 148 / 255, 66 / 255) },
+					uAccentColor: { value: new THREE.Color(0, 0, 0) },
+					uNoiseSpeed: { value: 0.4 },
+					uNoiseScale: { value: 1.0 },
+					uPatternFrequency: { value: 10.0 },
+					uFirstOffset: { value: 0.5 },
+					uSecondOffset: { value: 2.0 } // Changed initial value to 2.0
 				},
 				side: THREE.DoubleSide
 			});
@@ -85,6 +112,13 @@
 
 		const { material, mesh, material2, mesh2, cubeCamera, cubeRenderTarget } = addObjects();
 
+		// Add initial GSAP animation
+		gsap.to(material.uniforms.uSecondOffset, {
+			value: 0.1,
+			duration: 2,
+			ease: 'power2.out'
+		});
+
 		// Add GUI controls for mesh2 position
 		const mesh2Position = gui.addFolder('Small Sphere Position');
 		mesh2Position.add(mesh2.position, 'x').min(-3).max(3).step(0.01).name('X Position');
@@ -103,6 +137,27 @@
 		shaderParams
 			.add(material2.uniforms.uFresnelPower, 'value', 0.0, 5.0, 0.1)
 			.name('Fresnel Power');
+
+		// Add GUI controls for colors
+		const colorsFolder = gui.addFolder('Colors');
+		colorsFolder.addColor(material.uniforms.uBaseFirstColor, 'value').name('Base First Color');
+		colorsFolder.addColor(material.uniforms.uBaseSecondColor, 'value').name('Base Second Color');
+		colorsFolder.addColor(material.uniforms.uAccentColor, 'value').name('Accent Color');
+		colorsFolder.add(debugObject, 'randomizeColors').name('Random Colors');
+
+		// Add GUI controls for pattern parameters
+		const patternFolder = gui.addFolder('Pattern Controls');
+		patternFolder.add(material.uniforms.uNoiseSpeed, 'value', 0.1, 2.0, 0.1).name('Noise Speed');
+		patternFolder.add(material.uniforms.uNoiseScale, 'value', 0.1, 5.0, 0.1).name('Noise Scale');
+		patternFolder
+			.add(material.uniforms.uPatternFrequency, 'value', 1.0, 20.0, 0.5)
+			.name('Pattern Frequency');
+		patternFolder
+			.add(material.uniforms.uFirstOffset, 'value', 0.0, 2.0, 0.1)
+			.name('First Pattern Offset');
+		patternFolder
+			.add(material.uniforms.uSecondOffset, 'value', 0.0, 2.0, 0.1)
+			.name('Second Pattern Offset');
 
 		// // Lights
 		// const directionalLight = new THREE.DirectionalLight('#ffffff', 4);

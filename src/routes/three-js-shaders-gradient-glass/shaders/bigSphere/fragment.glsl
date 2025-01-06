@@ -1,4 +1,12 @@
 uniform float uTime;
+uniform vec3 uBaseFirstColor;
+uniform vec3 uBaseSecondColor;
+uniform vec3 uAccentColor;
+uniform float uNoiseSpeed;
+uniform float uNoiseScale;
+uniform float uPatternFrequency;
+uniform float uFirstOffset;
+uniform float uSecondOffset;
 varying vec2 vUv;
 varying vec3 vPosition;
 float mod289(float x) {
@@ -33,7 +41,7 @@ float noise(vec3 p) {
 }
 
 float line(vec2 uv, float offset) {
-    return smoothstep(0.0, 0.5 + offset * 0.5, abs(0.5 * (sin(uv.x * 10.0) + offset * 2.0)));
+    return smoothstep(0.0, 0.5 + offset * 0.5, abs(0.5 * (sin(uv.x * uPatternFrequency) + offset * 2.0)));
 }
 
 mat2 rotate2D(float angle) {
@@ -41,14 +49,14 @@ mat2 rotate2D(float angle) {
 }
 
 void main() {
-    float n = noise(vPosition + uTime * 0.4);
-    vec3 baseFirst = vec3(120. / 255., 158. / 255., 113. / 255.);
-    vec3 accent = vec3(0., 0., 0.);
-    vec3 baseSecond = vec3(224. / 255., 148. / 255., 66. / 255.);
+    float n = noise(vPosition * uNoiseScale + uTime * uNoiseSpeed);
+    vec3 baseFirst = uBaseFirstColor;
+    vec3 accent = uAccentColor;
+    vec3 baseSecond = uBaseSecondColor;
 
-    vec2 baseUV = rotate2D(n * 1.25) * vPosition.xy * 0.6;
-    float basePattern = line(baseUV, 0.5);
-    float secondPattern = line(baseUV, 0.1);
+    vec2 baseUV = rotate2D(n * 1.75) * vPosition.xy * 0.6;
+    float basePattern = line(baseUV, uFirstOffset);
+    float secondPattern = line(baseUV, uSecondOffset);
 
     vec3 baseColor = mix(baseFirst, baseSecond, basePattern);
     vec3 secondBaseColor = mix(baseColor, accent, secondPattern);

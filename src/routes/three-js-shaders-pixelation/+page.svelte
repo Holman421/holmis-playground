@@ -3,6 +3,8 @@
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
+	import vertexShader from './shaders/vertex.glsl';
+	import fragmentShader from './shaders/fragment.glsl';
 
 	$effect(() => {
 		// Base
@@ -15,12 +17,33 @@
 		// Scene
 		const scene = new THREE.Scene();
 
-		// Plane
-		const plane = new THREE.Mesh(
-			new THREE.PlaneGeometry(2, 2, 2),
-			new THREE.MeshStandardMaterial({ color: '#aaaaaa' })
-		);
-		scene.add(plane);
+		// Loaders
+		const rgbeLoader = new RGBELoader();
+		const dracoLoader = new DRACOLoader();
+		dracoLoader.setDecoderPath('./draco/');
+		const gltfLoader = new GLTFLoader();
+		gltfLoader.setDRACOLoader(dracoLoader);
+
+		const addObjects = () => {
+			const material = new THREE.ShaderMaterial({
+				side: THREE.DoubleSide,
+				vertexShader: vertexShader,
+				fragmentShader: fragmentShader,
+				uniforms: {
+					uTime: { value: 0 },
+					uResolution: { value: new THREE.Vector2() },
+					uTexture: {
+						value: new THREE.TextureLoader().load('/pictures/plane-img.jpg')
+					}
+				}
+			});
+			const geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
+			const mesh = new THREE.Mesh(geometry, material);
+			scene.add(mesh);
+			return { material, mesh };
+		};
+
+		const { material, mesh } = addObjects();
 
 		// Lights
 		const directionalLight = new THREE.DirectionalLight('#ffffff', 4);
@@ -73,6 +96,8 @@
 			const elapsedTime = clock.getElapsedTime();
 
 			controls.update();
+
+			material.uniforms.uTime.value = elapsedTime;
 
 			renderer.render(scene, camera);
 
