@@ -41,6 +41,7 @@
 		// Create all uniforms at the same scope level
 		const uTransition = uniform(float(debugObject.uTransition));
 		const uTime = uniform(float(0.0));
+		const resolution: any = uniform(vec4(0, 0, 0, 0));
 		// Remove uAspect uniform as we won't need it anymore
 		// Create animation function
 		let isAnimating = false;
@@ -56,10 +57,20 @@
 			const textureLoader = new THREE.TextureLoader();
 			Promise.all([
 				new Promise<THREE.Texture>((resolve) =>
-					textureLoader.load('/pictures/galaxy-img.jpg', resolve)
+					textureLoader.load('/pictures/galaxy-img.jpg', (texture) => {
+						texture.colorSpace = THREE.SRGBColorSpace;
+						texture.minFilter = THREE.LinearFilter;
+						texture.magFilter = THREE.LinearFilter;
+						resolve(texture);
+					})
 				),
 				new Promise<THREE.Texture>((resolve) =>
-					textureLoader.load('/pictures/planet-img.jpg', resolve)
+					textureLoader.load('/pictures/planet-img.jpg', (texture) => {
+						texture.colorSpace = THREE.SRGBColorSpace;
+						texture.minFilter = THREE.LinearFilter;
+						texture.magFilter = THREE.LinearFilter;
+						resolve(texture);
+					})
 				)
 			]).then(([texture1, texture2]) => {
 				const material = new THREE.NodeMaterial();
@@ -100,11 +111,17 @@
 					return uv.toVar().sub(vec2(0.5)).mul(scale).add(vec2(0.5));
 				});
 
-				material.colorNode = Fn(() => {
-					// Remove aspect ratio correction
-					const distUV = scaleUV(uv(), vec2(float(1).add(length(uv().sub(0.5).mul(1)))));
+				// Add new cover function before material.colorNode
+				const coverUV = Fn(([uv]: any) => {
+					return uv.toVar().sub(vec2(0.5)).mul(resolution.zw).add(vec2(0.5));
+				});
 
-					const hexUV = distUV.mul(20);
+				material.colorNode = Fn(() => {
+					// Get texture aspect ratios
+					const tex1Ratio = float(texture1.image.width).div(texture1.image.height);
+					const tex2Ratio = float(texture2.image.width).div(texture2.image.height);
+
+					const hexUV = uv().mul(20);
 					const hexCoords = hexCoordinates([hexUV]);
 
 					const hexDist = hexDistance([hexCoords.xy]).add(0.03);
@@ -139,9 +156,9 @@
 							.mul(0.025)
 					);
 
-					// Instead of using assign, calculate the scaled UVs directly
-					const fromUV = scaleUV(textureUV, vec2(float(1).add(z.mul(0.2).mul(merge))));
-					const toUV = scaleUV(textureUV, vec2(float(1).add(z.mul(0.2).mul(blendCut))));
+					// Apply aspect ratio correction to UVs - simplified
+					const fromUV = coverUV(textureUV);
+					const toUV = coverUV(textureUV);
 
 					const colorBlend = merge.mul(border).mul(bounceTransition);
 
@@ -156,12 +173,17 @@
 					return final.add(vec4(1.0, 0.4, 0.0).mul(colorBlend).mul(1.0));
 				})();
 
-				// Create a fixed size plane
-				const planeWidth = 2; // Fixed width in world units
-				const geometry = new THREE.PlaneGeometry(planeWidth, planeWidth, 1, 1);
+				// Create a plane that fills the viewport exactly
+				const geometry = new THREE.PlaneGeometry(2, 2, 1, 1);
 				const mesh = new THREE.Mesh(geometry, material);
 				scene.add(mesh);
 			});
+
+			// Update resolution uniform initial values
+			resolution.value.x = sizes.width;
+			resolution.value.y = sizes.height;
+			resolution.value.z = 1;
+			resolution.value.w = sizes.height / sizes.width;
 		};
 		addObjects();
 
@@ -178,12 +200,11 @@
 			sizes.height = window.innerHeight - 56;
 			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
-			// Update camera with new aspect ratio while maintaining fixed size
-			const aspect = sizes.width / sizes.height;
-			camera.left = (frustumSize * aspect) / -2;
-			camera.right = (frustumSize * aspect) / 2;
-			camera.top = frustumSize / 2;
-			camera.bottom = frustumSize / -2;
+			// Update camera
+			camera.left = -1;
+			camera.right = 1;
+			camera.top = 1;
+			camera.bottom = -1;
 			camera.updateProjectionMatrix();
 
 			// Update renderer
@@ -197,22 +218,17 @@
 			// Recalculate current scroll position ratio
 			targetScroll = Math.min(maxScroll, targetScroll);
 			currentScroll = Math.min(maxScroll, currentScroll);
+
+			// Update resolution uniform
+			resolution.value.x = sizes.width;
+			resolution.value.y = sizes.height;
+			resolution.value.z = 1;
+			resolution.value.w = sizes.height / sizes.width;
 		});
 
-		// Camera
-		const targetPlaneWidth = 2; // This should match the plane width
-		const aspect = sizes.width / sizes.height;
-		const frustumSize = targetPlaneWidth;
-
-		const camera = new THREE.OrthographicCamera(
-			(frustumSize * aspect) / -2,
-			(frustumSize * aspect) / 2,
-			frustumSize / 2,
-			frustumSize / -2,
-			-1000,
-			1000
-		);
-		camera.position.set(0, 0, 3);
+		// Camera - orthographic setup for exact viewport fitting
+		const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10);
+		camera.position.z = 1;
 		scene.add(camera);
 
 		// Remove controls setup and replace with scroll handling
@@ -265,6 +281,8 @@
 			canvas: canvas,
 			antialias: true
 		});
+		renderer.toneMappingExposure = 1.0;
+		renderer.toneMapping = THREE.NoToneMapping;
 		renderer.setClearColor(new THREE.Color('#000000'), 1);
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);

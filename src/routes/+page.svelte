@@ -54,7 +54,7 @@
 	});
 </script>
 
-<div class="w-full flex justify-center mt-10 gap-5">
+<div class="w-full flex justify-center mt-10 gap-5 flex-wrap">
 	<Button
 		variant={showAllProjects ? 'active' : 'default'}
 		onClick={() => {

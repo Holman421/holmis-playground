@@ -335,5 +335,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/gradient-glass.png'
+	},
+	{
+		href: '/three-js-shaders-pixelation',
+		title: 'Onhover pixelation effect',
+		description: 'Image pixelation effect on hover',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/pixelation-onhover.png'
 	}
 ];
