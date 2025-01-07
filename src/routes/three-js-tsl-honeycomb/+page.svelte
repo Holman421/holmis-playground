@@ -121,7 +121,12 @@
 					const tex1Ratio = float(texture1.image.width).div(texture1.image.height);
 					const tex2Ratio = float(texture2.image.width).div(texture2.image.height);
 
-					const hexUV = uv().mul(20);
+					// Add aspect ratio correction for hexagons
+					const aspectRatio = resolution.x.div(resolution.y);
+					const correctedUV = uv().mul(vec2(aspectRatio, 1.0));
+					const hexUV = correctedUV.mul(20); // Now using correctedUV instead of raw uv
+
+					// Rest of the shader code remains the same
 					const hexCoords = hexCoordinates([hexUV]);
 
 					const hexDist = hexDistance([hexCoords.xy]).add(0.03);
@@ -270,8 +275,44 @@
 			});
 		};
 
+		let touchStartY = 0;
+		let lastTouchY = 0;
+
+		// Add these handlers after the handleScroll function
+		const handleTouchStart = (event: TouchEvent) => {
+			touchStartY = event.touches[0].clientY;
+			lastTouchY = touchStartY;
+		};
+
+		const handleTouchMove = (event: TouchEvent) => {
+			event.preventDefault();
+			const currentTouchY = event.touches[0].clientY;
+			const deltaY = (lastTouchY - currentTouchY) * 2; // Multiply by 2 to make it more sensitive
+
+			targetScroll = Math.max(0, Math.min(maxScroll, targetScroll + deltaY));
+
+			const tweenObj = { current: currentScroll };
+
+			gsap.to(tweenObj, {
+				current: targetScroll,
+				duration: 1,
+				ease: 'power2.out',
+				onUpdate: () => {
+					currentScroll = tweenObj.current;
+					const progress = currentScroll / maxScroll;
+					updateTransition(progress);
+				}
+			});
+
+			lastTouchY = currentTouchY;
+		};
+
 		// Add smooth scroll event listener
 		canvas.addEventListener('wheel', handleScroll, { passive: false });
+
+		// Add touch event listeners after the wheel event listener
+		canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+		canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
 
 		// Remove previous button and slider from GUI
 		gui.destroy();
@@ -308,6 +349,8 @@
 		// Cleanup function
 		return () => {
 			canvas.removeEventListener('wheel', handleScroll);
+			canvas.removeEventListener('touchstart', handleTouchStart);
+			canvas.removeEventListener('touchmove', handleTouchMove);
 			gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 		};
@@ -321,9 +364,13 @@
 <style>
 	div {
 		overflow: hidden; /* Prevent page scrolling */
+		overscroll-behavior: none; /* Add this line to prevent pull-to-refresh */
 	}
 
 	.webgl {
 		touch-action: none; /* Prevent default touch behaviors */
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
 	}
 </style>

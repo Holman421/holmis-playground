@@ -735,7 +735,7 @@
 
 <div class="fixed inset-0 mt-[56px]">
 	<div class="loading-bar"></div>
-	<div class="border-2 relative w-fit m-auto rounded-md flex mt-6">
+	<div class="border-2 relative w-fit m-auto rounded-md flex mt-6 md:flex-row flex-col">
 		<div class="flex flex-col gap-4 p-8 border-r">
 			<button
 				class="model-switch-btn border py-2 px-4 rounded-md hover:bg-white hover:text-black transition-all"

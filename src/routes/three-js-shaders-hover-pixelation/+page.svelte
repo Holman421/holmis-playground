@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+	// Remove OrbitControls import
 	import GUI from 'lil-gui';
 	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
 	import vertexShader from './shaders/vertex.glsl';
@@ -241,10 +241,6 @@
 		material.uniforms.resolution.value.z = 1;
 		material.uniforms.resolution.value.w = sizes.height / sizes.width;
 
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
-
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
@@ -296,7 +292,8 @@
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
-			controls.update();
+			// Remove controls update
+			// controls.update();
 
 			material.uniforms.uTime.value = elapsedTime;
 			updateDataTexture();

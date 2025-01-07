@@ -203,21 +203,33 @@
 		effect2.uniforms['opacity'].value = debugObject.noiseOpacity;
 		composer.addPass(effect2);
 
-		// Controls
+		// Controls - Disable orbit controls
 		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
+		controls.enabled = false; // Disable controls
+		controls.enableZoom = false;
+		controls.enableRotate = false;
+		controls.enablePan = false;
+
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
 		gsap.to(camera.position, {
 			z: debugObject.cameraEndZ,
-			duration: 2,
+			duration: 1,
 			delay: 0,
 			ease: 'power2.inOut',
 			onUpdate: () => {
 				debugObject.currentCameraZ = camera.position.z;
 			}
 		});
+
+		// Handle click events
+		const handleClick = () => {
+			debugObject.animateProgress();
+		};
+
+		// Add click event listener
+		canvas.parentElement?.addEventListener('click', handleClick);
 
 		// Gui
 		guiControllers.progress = gui
@@ -277,10 +289,16 @@
 		return () => {
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+			canvas.parentElement?.removeEventListener('click', handleClick);
 		};
 	});
 </script>
 
-<div>
+<div style="cursor: pointer;">
 	<canvas class="webgl"></canvas>
+	<h1
+		class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl opacity-0 animate-fade-in"
+	>
+		Wonder makers
+	</h1>
 </div>
