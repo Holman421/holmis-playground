@@ -339,7 +339,7 @@ export const projects = [
 	{
 		href: '/three-js-shaders-hover-pixelation',
 		title: 'Onhover pixelation effect',
-		description: 'Image pixelation effect on hover',
+		description: 'Image pixelation distortion onhover effect',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
@@ -350,8 +350,8 @@ export const projects = [
 		title: 'Water trail cursor effect',
 		description: 'ON hover water trail cursor effect',
 		technologies: ['THREE.js'],
-		shared: true,
-		isForNextTuesday: true,
+		shared: false,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/water-cursor.png'
 	},
 	{

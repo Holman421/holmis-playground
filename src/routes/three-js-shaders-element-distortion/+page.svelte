@@ -3,7 +3,7 @@
 	import gsap from 'gsap'; // Add this import
 	import { Vector3 } from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import GUI from 'lil-gui';
+	import GUI, { Controller } from 'lil-gui';
 	import {
 		DotScreenPass,
 		DRACOLoader,
@@ -15,14 +15,66 @@
 	} from 'three/examples/jsm/Addons.js';
 	import vertexShader from './shaders/vertext.glsl';
 	import fragmentShader from './shaders/fragment.glsl';
-	import { CustomPass } from './CustomPass';
 	import { DotScreenShader } from './vertex';
+	import { CustomPass } from './CustomPass';
+
+	// Add TypeScript interfaces
+	interface GuiControllers {
+		progress: Controller | null;
+		yOffset: Controller | null;
+		currentCameraZ: Controller | null;
+	}
+
+	interface DebugObject {
+		yOffset: number;
+		uProgress: number;
+		uScale: number;
+		uTimeSpeed: number;
+		planesGap: number;
+		cameraInitialZ: number;
+		cameraStartZ: number;
+		cameraEndZ: number;
+		currentCameraZ: number;
+		noiseOpacity: number;
+		animateProgress: () => void;
+	}
 
 	$effect(() => {
 		// Base
 		const gui = new GUI({ width: 325 });
 
-		const debugObject = {
+		// Store GUI controllers for updating
+		const guiControllers: GuiControllers = {
+			progress: null,
+			yOffset: null,
+			currentCameraZ: null
+		};
+
+		// Create a shared update function
+		const updateScene = (progress: number) => {
+			effect1.uniforms['uProgress'].value = progress;
+			effect2.uniforms['opacity'].value = progress;
+			debugObject.uProgress = progress;
+			debugObject.yOffset = progress;
+			updatePlanePositions(progress);
+
+			// Update GUI displays
+			guiControllers.progress?.updateDisplay();
+			guiControllers.yOffset?.updateDisplay();
+
+			if (!gsap.isTweening(camera.position)) {
+				const newZ = THREE.MathUtils.lerp(
+					debugObject.cameraStartZ,
+					debugObject.cameraEndZ,
+					progress
+				);
+				camera.position.setZ(newZ);
+				debugObject.currentCameraZ = newZ;
+				guiControllers.currentCameraZ?.updateDisplay();
+			}
+		};
+
+		const debugObject: DebugObject = {
 			yOffset: 1.0, // Changed from 0.0 to 1.0
 			uProgress: 1, // Changed from 0 to 1
 			uScale: 1.4,
@@ -40,20 +92,7 @@
 					duration: 2,
 					ease: 'power2.inOut',
 					onUpdate: () => {
-						effect1.uniforms['uProgress'].value = debugObject.uProgress;
-						effect2.uniforms['opacity'].value = debugObject.uProgress;
-						debugObject.yOffset = debugObject.uProgress;
-						updatePlanePositions(debugObject.yOffset);
-
-						if (!gsap.isTweening(camera.position)) {
-							const newZ = THREE.MathUtils.lerp(
-								debugObject.cameraStartZ,
-								debugObject.cameraEndZ,
-								debugObject.uProgress
-							);
-							camera.position.setZ(newZ);
-							debugObject.currentCameraZ = newZ;
-						}
+						updateScene(debugObject.uProgress);
 					}
 				});
 			}
@@ -181,32 +220,18 @@
 		});
 
 		// Gui
-		gui
+		guiControllers.progress = gui
 			.add(debugObject, 'uProgress')
 			.min(0)
 			.max(1)
 			.step(0.01)
 			.name('progress')
-			.onChange(() => {
-				effect1.uniforms['uProgress'].value = debugObject.uProgress;
-				effect2.uniforms['opacity'].value = debugObject.uProgress;
-				debugObject.yOffset = debugObject.uProgress;
-				updatePlanePositions(debugObject.yOffset);
-
-				// Interpolate camera position
-				if (!gsap.isTweening(camera.position)) {
-					const newZ = THREE.MathUtils.lerp(
-						debugObject.cameraStartZ,
-						debugObject.cameraEndZ,
-						debugObject.uProgress
-					);
-					camera.position.setZ(newZ);
-					debugObject.currentCameraZ = newZ; // Add this line
-				}
+			.onChange((value: number) => {
+				updateScene(value);
 			});
 		gui.add(effect1.uniforms['uScale'], 'value').min(0).max(5).step(0.1).name('scale');
 		gui.add(effect1.uniforms['uTimeSpeed'], 'value').min(0).max(1).step(0.01).name('timeSpeed');
-		gui
+		guiControllers.yOffset = gui
 			.add(debugObject, 'yOffset')
 			.min(-1.0)
 			.max(1.0)
@@ -218,7 +243,7 @@
 
 		// Add camera zoom controls to GUI if needed
 		gui.add(debugObject, 'cameraEndZ').min(1).max(5).step(0.1).name('Camera End Z');
-		gui
+		guiControllers.currentCameraZ = gui
 			.add(debugObject, 'currentCameraZ')
 			.min(1)
 			.max(6)
