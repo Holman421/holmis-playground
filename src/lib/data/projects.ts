@@ -337,12 +337,31 @@ export const projects = [
 		imgSrc: '/projectThumbnails/gradient-glass.png'
 	},
 	{
-		href: '/three-js-shaders-pixelation',
+		href: '/three-js-shaders-hover-pixelation',
 		title: 'Onhover pixelation effect',
 		description: 'Image pixelation effect on hover',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/pixelation-onhover.png'
+	},
+	{
+		href: '/three-js-shaders-water-cursor',
+		title: 'Water trail cursor effect',
+		description: 'ON hover water trail cursor effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/water-cursor.png'
+	},
+	{
+		href: '/three-js-shaders-element-distortion',
+		title: 'Element distortion',
+		description:
+			'Effect where regular images are distorted to the point they act as a abstract background',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/element-distortion.png'
 	}
 ];

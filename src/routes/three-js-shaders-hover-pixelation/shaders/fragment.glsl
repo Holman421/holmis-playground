@@ -12,5 +12,10 @@ void main() {
     vec2 newUV = (vUv - vec2(0.5)) * resolution.zw + vec2(0.5);
     vec4 offset = texture2D(uDataTexture, vUv);
 
-    gl_FragColor = texture2D(uTexture, newUV - offset.rg);
+    vec4 finalColor = texture2D(uTexture, newUV - offset.rg);
+
+    // float redColor = abs(offset.r + offset.g);
+    // finalColor.r += abs(offset.r + offset.g);
+
+    gl_FragColor = finalColor;
 }

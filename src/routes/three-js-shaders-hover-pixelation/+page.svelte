@@ -5,16 +5,16 @@
 	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
 	import vertexShader from './shaders/vertex.glsl';
 	import fragmentShader from './shaders/fragment.glsl';
-	import gsap from 'gsap';
 
 	$effect(() => {
 		// Base
 		const gui = new GUI({ width: 325 });
-		const debugObject: any = {
+		type ImageOptionKeys = keyof typeof imageOptions;
+		const debugObject = {
 			pixelSize: 32, // Base pixel size
 			maxDistance: 8,
 			decaySpeed: 0.95,
-			selectedImage: 'planet', // Add default image selection
+			selectedImage: 'planet' as ImageOptionKeys, // Add default image selection
 			distortionStrength: 15 // Add new parameter
 		};
 
@@ -171,9 +171,9 @@
 			// Add distortion strength to GUI
 			gui
 				.add(debugObject, 'distortionStrength')
-				.min(1)
+				.min(0.1)
 				.max(30)
-				.step(0.5)
+				.step(0.1)
 				.name('Distortion Strength');
 
 			// Add animation button
@@ -276,7 +276,7 @@
 					if (distance < maxDist) {
 						let index = 2 * (x + width * y);
 						let power = Math.max(0, 1 - distance / maxDist);
-						power = power;
+						// power = Math.pow(power, 2);
 
 						data[index] += mouse.vX * debugObject.distortionStrength * power;
 						data[index + 1] -= mouse.vY * debugObject.distortionStrength * power;

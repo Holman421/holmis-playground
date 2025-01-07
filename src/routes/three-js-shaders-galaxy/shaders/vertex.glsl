@@ -14,14 +14,14 @@ void main() {
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
 
     // Spin
-    float angle = atan(modelPosition.x, modelPosition.z);
+    float angle = atan(modelPosition.x, modelPosition.y);
     float distanceToCenter = length(modelPosition.xy);
     float angleOffset = (1.0 / distanceToCenter) * uTime * 0.2;
     angle += angleOffset;
-    modelPosition.x = cos(angle);
-    modelPosition.z = sin(angle);
+    modelPosition.x = cos(angle) * distanceToCenter;
+    modelPosition.z = sin(angle) * distanceToCenter;
 
-    modelPosition.y = 1.0 - abs(modelPosition.y);
+    // modelPosition.y = 1.0 - modelPosition.y;
 
     // Randomness 
     modelPosition.xyz += aRandomness;
