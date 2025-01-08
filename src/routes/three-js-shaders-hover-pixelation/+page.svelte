@@ -15,7 +15,7 @@
 			maxDistance: 8,
 			decaySpeed: 0.95,
 			selectedImage: 'planet' as ImageOptionKeys, // Add default image selection
-			distortionStrength: 15 // Add new parameter
+			distortionStrength: 8 // Add new parameter
 		};
 
 		// Add image options

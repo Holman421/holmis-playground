@@ -363,5 +363,15 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/element-distortion.png'
+	},
+	{
+		href: '/three-js-instanced-mesh',
+		title: 'Instanced Mesh',
+		description:
+			'Scene with many animated cubes with instanced mesh technique, with custom shader material',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/instanced-mesh.png'
 	}
 ];
