@@ -37,7 +37,7 @@ void main() {
     float distanceToCenter = length(mixedPosition);
     // float distanceScale = 1.1 - smoothstep(0.5, 3.0, distanceToCenter);
     gl_PointSize = uSize * uResolution.y * finalRandomSize * 1.0;
-    gl_PointSize *= (1.0 / -viewPosition.z);
+    gl_PointSize *= (1.5 / -viewPosition.z);
 
     // Varyings
     vColor = mix(uColorA, uColorB, noise);

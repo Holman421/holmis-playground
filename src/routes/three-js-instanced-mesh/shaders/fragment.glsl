@@ -19,7 +19,7 @@ void main() {
     float outerCircle = 1.0 - smoothstep((outer_progress - 0.1) * radius, outer_progress * radius, dist);
 
     // Add user location highlight
-    float userLocationDist = distance(vUv, uUserLocation);
+    float userLocationDist = distance(vUv, uUserLocation + vec2(0.0, -0.095));
     // Adjust the glow radius and intensity
     float userLocationGlow = uHasUserLocation * (1.0 - smoothstep(0.0, 0.05, userLocationDist)) * 2.0;
 

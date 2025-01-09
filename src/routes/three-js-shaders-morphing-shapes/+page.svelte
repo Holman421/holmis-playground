@@ -62,14 +62,26 @@
 		camera.position.set(0, 0, 15);
 		scene.add(camera);
 
+		// Controls
+		const controls = new OrbitControls(camera, canvas);
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.05;
+		controls.enableZoom = true;
+
 		//Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
-			antialias: true
+			antialias: true,
+			powerPreference: 'high-performance',
+			stencil: false,
+			depth: true
 		});
 
 		renderer.setSize(sizes.width, sizes.height);
-		renderer.setPixelRatio(sizes.pixelRatio);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		renderer.outputColorSpace = THREE.SRGBColorSpace;
+		renderer.toneMapping = THREE.ACESFilmicToneMapping;
+		renderer.toneMappingExposure = 1.0;
 
 		debugObject.clearColor = '#160920';
 		gui.addColor(debugObject, 'clearColor').onChange(() => {
@@ -244,6 +256,10 @@
 						particles.material.uniforms.uColorB.value.set(particles.colorB);
 					});
 
+					// Add these settings to the GUI
+					gui.add(renderer, 'toneMappingExposure', 0, 2, 0.001).name('exposure');
+					gui.add(particles.material.uniforms.uSize, 'value', 0.1, 1, 0.001).name('particle size');
+
 					// Points
 					particles.points = new THREE.Points(particles.geometry, particles.material);
 					particles.points.frustumCulled = false;
@@ -269,7 +285,7 @@
 		 */
 		const tick = () => {
 			// Update controls
-			// controls.update();
+			controls.update();
 
 			// Render normal scene
 			renderer.render(scene, camera);
