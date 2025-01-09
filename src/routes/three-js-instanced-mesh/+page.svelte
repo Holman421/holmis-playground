@@ -109,7 +109,7 @@ float cnoise(vec3 P){
 			cameraZoom: number; // Replace cameraDistance with cameraZoom
 			logLightSettings: () => void;
 			showHelper: boolean; // Add this line
-			userLocation: { lat: number; lon: number } | null; // Add this line
+			userLocation: { lat: number; lon: number }; // Changed from nullable type
 		} = {
 			progress: 0,
 			isAnimating: false,
@@ -219,7 +219,7 @@ spotLight.intensity = ${spotLight.intensity.toFixed(2)};`;
 				console.log(settings);
 			},
 			showHelper: false, // Add this line
-			userLocation: null // Add this line
+			userLocation: { lat: 49.8155, lon: 14.4378 } // Hardcoded Prague coordinates
 		};
 
 		// Add this function to convert coordinates
@@ -237,38 +237,32 @@ spotLight.intensity = ${spotLight.intensity.toFixed(2)};`;
 			return { u, v };
 		}
 
-		// Add this function to get user location
-		function getUserLocation() {
-			if ('geolocation' in navigator) {
-				navigator.geolocation.getCurrentPosition(
-					(position) => {
-						const { latitude, longitude } = position.coords;
-						debugObject.userLocation = { lat: latitude, lon: longitude };
+		// Replace the getUserLocation function with this simplified version
+		function updateUserLocation() {
+			const { latitude, longitude } = {
+				latitude: debugObject.userLocation.lat,
+				longitude: debugObject.userLocation.lon
+			};
+			console.log(`Using coordinates:`, latitude, longitude);
+			const uvCoords = convertToUV(latitude, longitude);
 
-						console.log(`Raw coordinates:`, latitude, longitude);
-						const uvCoords = convertToUV(latitude, longitude);
-
-						// Add debug folder to GUI if not exists
-						let locationFolder = gui.folders.find((f) => f.name === 'Location Debug');
-						if (!locationFolder) {
-							locationFolder = gui.addFolder('Location Debug');
-							locationFolder.add(uvCoords, 'u', 0, 1).name('U coord').listen();
-							locationFolder.add(uvCoords, 'v', 0, 1).name('V coord').listen();
-						}
-
-						// Update the shader uniform when location is received
-						if (fboMaterial) {
-							const uvCoords = convertToUV(latitude, longitude);
-							fboMaterial.uniforms.uUserLocation.value.set(uvCoords.u, uvCoords.v);
-							fboMaterial.uniforms.uHasUserLocation.value = 1.0;
-						}
-					},
-					(error) => {
-						console.error('Error getting location:', error);
-					}
-				);
+			// Update the shader uniform
+			if (fboMaterial) {
+				fboMaterial.uniforms.uUserLocation.value.set(uvCoords.u, uvCoords.v);
+				fboMaterial.uniforms.uHasUserLocation.value = 1.0;
 			}
 		}
+
+		// Move GUI creation for location outside of updateUserLocation
+		const locationFolder = gui.addFolder('Location Debug');
+		locationFolder
+			.add(debugObject.userLocation, 'lat', CZ_BOUNDS.south, CZ_BOUNDS.north)
+			.name('Latitude')
+			.onChange(updateUserLocation);
+		locationFolder
+			.add(debugObject.userLocation, 'lon', CZ_BOUNDS.west, CZ_BOUNDS.east)
+			.name('Longitude')
+			.onChange(updateUserLocation);
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -657,8 +651,8 @@ spotLight.intensity = ${spotLight.intensity.toFixed(2)};`;
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
-		// Call getUserLocation after setting up the scene
-		getUserLocation();
+		// Replace getUserLocation() call with updateUserLocation()
+		updateUserLocation();
 
 		// Animate
 		const clock = new THREE.Clock();

@@ -373,5 +373,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/instanced-mesh.png'
+	},
+	{
+		href: '/raymarching-shapes',
+		title: 'Raymarching shapes',
+		description: 'Simple 2D html animated shapes that merge into themselfs',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/raymarching-shapes.png'
 	}
 ];

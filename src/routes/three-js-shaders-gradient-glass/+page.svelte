@@ -36,6 +36,26 @@
 				colorsFolder.controllers.forEach((controller) => {
 					controller.updateDisplay();
 				});
+			},
+			isAnimated: false,
+			triggerAnimation: () => {
+				// Toggle animation state
+				debugObject.isAnimated = !debugObject.isAnimated;
+
+				// Animate to new or initial position based on state
+				gsap.to(material.uniforms.uPatternFrequency, {
+					value: debugObject.isAnimated ? 1 : 10.0,
+					duration: 2,
+					ease: 'power2.out'
+				});
+
+				gsap.to(mesh2.position, {
+					x: debugObject.isAnimated ? -0.74 : 0.3,
+					y: debugObject.isAnimated ? -0.06 : 0.21,
+					z: debugObject.isAnimated ? -0.84 : 0.16,
+					duration: 2,
+					ease: 'power2.out'
+				});
 			}
 		};
 		// gui.hide();
@@ -115,9 +135,11 @@
 		// Add initial GSAP animation
 		gsap.to(material.uniforms.uSecondOffset, {
 			value: 0.1,
-			duration: 2,
-			ease: 'power2.out'
+			duration: 2
 		});
+
+		// Add animation control to GUI
+		gui.add(debugObject, 'triggerAnimation').name('Trigger Animation');
 
 		// Add GUI controls for mesh2 position
 		const mesh2Position = gui.addFolder('Small Sphere Position');
