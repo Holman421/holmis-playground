@@ -382,5 +382,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/raymarching-shapes.png'
+	},
+	{
+		href: '/three-js-text-mobius',
+		title: 'Mobius text',
+		description: 'Text with mobius strip effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/text-mobius.png'
 	}
 ];

@@ -143,12 +143,14 @@
 
 		// Add GUI controls for mesh2 position
 		const mesh2Position = gui.addFolder('Small Sphere Position');
+		mesh2Position.close();
 		mesh2Position.add(mesh2.position, 'x').min(-3).max(3).step(0.01).name('X Position');
 		mesh2Position.add(mesh2.position, 'y').min(-3).max(3).step(0.01).name('Y Position');
 		mesh2Position.add(mesh2.position, 'z').min(-3).max(3).step(0.01).name('Z Position');
 
 		// Add GUI controls for shader parameters
 		const shaderParams = gui.addFolder('Shader Parameters');
+		shaderParams.close();
 		shaderParams
 			.add(material2.uniforms.uRefractionRatio, 'value', 0.5, 2.0, 0.01)
 			.name('Refraction Ratio');
@@ -169,6 +171,7 @@
 
 		// Add GUI controls for pattern parameters
 		const patternFolder = gui.addFolder('Pattern Controls');
+		patternFolder.close();
 		patternFolder.add(material.uniforms.uNoiseSpeed, 'value', 0.1, 2.0, 0.1).name('Noise Speed');
 		patternFolder.add(material.uniforms.uNoiseScale, 'value', 0.1, 5.0, 0.1).name('Noise Scale');
 		patternFolder
@@ -289,9 +292,9 @@
 
 <div>
 	<canvas class="webgl"></canvas>
-	<h1
+	<!-- <h1
 		class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl opacity-0 animate-fade-in"
 	>
 		Wonder makers
-	</h1>
+	</h1> -->
 </div>

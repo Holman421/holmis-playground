@@ -296,9 +296,9 @@
 
 <div style="cursor: pointer;">
 	<canvas class="webgl"></canvas>
-	<h1
+	<!-- <h1
 		class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl opacity-0 animate-fade-in"
 	>
 		Wonder makers
-	</h1>
+	</h1> -->
 </div>
