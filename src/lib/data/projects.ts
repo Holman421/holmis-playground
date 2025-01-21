@@ -92,7 +92,7 @@ export const projects = [
 		title: 'Optimal clamp calculator',
 		description: 'Handy tool for calculating optimal clamp',
 		technologies: ['JS'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/clamp-calculator.png'
 	},
 	{
@@ -241,7 +241,6 @@ export const projects = [
 		description: 'Scene with 3D model with deformation effect',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: true,
-		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/model-deformation.png'
 	},
 	{
@@ -250,7 +249,6 @@ export const projects = [
 		description: 'Bigger project with minecraft like procedurally generated terrain, animated',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/minecraft.png'
 	},
 	{
@@ -259,7 +257,6 @@ export const projects = [
 		description: 'Various post procesing effects on 3D models together with html tags',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/postprocessing-helmet.png'
 	},
 	{
@@ -268,7 +265,6 @@ export const projects = [
 		description: 'Applying descriptive html tags to 3D scenes',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/tags-sword.png'
 	},
 	{
@@ -278,7 +274,6 @@ export const projects = [
 			'Scene with random moving cubes with cool animation and transition to normal 2D page layout',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/random-blocks.png'
 	},
 	{
@@ -287,7 +282,6 @@ export const projects = [
 		description: 'Background scene with interactive grid of colorfull cubes, has 2 modes',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/interactive-grid.png'
 	},
 	{
@@ -296,7 +290,6 @@ export const projects = [
 		description: 'Simple Image load pixelated effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/pixelation-effect.png'
 	},
 	{
@@ -306,7 +299,6 @@ export const projects = [
 			'Scene with ring shape with noice generated alumination distortion effect, and text transition animation',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/ring-shader.png'
 	},
 	{
@@ -315,7 +307,6 @@ export const projects = [
 		description: 'Cards with fragment and vertex Lava lamp like gradient shaders',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/laval-lamp.png'
 	},
 	{
@@ -324,7 +315,6 @@ export const projects = [
 		description: 'Scene with honeycomb like transition effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/honeycomb-transition.png'
 	},
 	{
@@ -333,7 +323,6 @@ export const projects = [
 		description: 'Scene with smooth gradient background and glass effect round shape',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/gradient-glass.png'
 	},
 	{
@@ -342,7 +331,6 @@ export const projects = [
 		description: 'Image pixelation distortion onhover effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/pixelation-onhover.png'
 	},
 	{
@@ -351,7 +339,6 @@ export const projects = [
 		description: 'ON hover water trail cursor effect',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/water-cursor.png'
 	},
 	{
@@ -361,7 +348,6 @@ export const projects = [
 			'Effect where regular images are distorted to the point they act as a abstract background',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/element-distortion.png'
 	},
 	{
@@ -371,7 +357,6 @@ export const projects = [
 			'Scene with many animated cubes with instanced mesh technique, with custom shader material',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/instanced-mesh.png'
 	},
 	{
@@ -380,7 +365,6 @@ export const projects = [
 		description: 'Simple 2D html animated shapes that merge into themselfs',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/raymarching-shapes.png'
 	},
 	{
@@ -389,7 +373,33 @@ export const projects = [
 		description: 'Text with mobius strip effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/text-mobius.png'
+	},
+	{
+		href: '/boxed-image-relevation',
+		title: 'Grid image relevation',
+		description: 'Cool image relevation effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/boxed-image-relevation.png'
+	},
+	{
+		href: '/button-hover',
+		title: 'Button hover effect',
+		description: 'Cool button hover effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/button-hover.png'
+	},
+	{
+		href: '/three-js-rome-column',
+		title: 'Rome column 3D scene',
+		description: 'Rotating scene around Rome column',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/button-hover.png'
 	}
 ];
