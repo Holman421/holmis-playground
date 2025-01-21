@@ -1,11 +1,36 @@
 <script lang="ts">
 	import '../app.css';
 	import { getCounterState, setCounterState } from '../stores/store.svelte';
+	import Lenis from '@studio-freight/lenis';
+	import { lenisStore } from '$lib/stores/lenis';
+	import { onMount } from 'svelte';
 
 	setCounterState();
 
 	$effect(() => {
 		getCounterState().restoreFromLocalStorage();
+	});
+
+	onMount(() => {
+		const lenis = new Lenis({
+			duration: 1.2,
+			easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+			touchMultiplier: 2
+		});
+
+		lenisStore.set(lenis);
+
+		function raf(time: number) {
+			lenis.raf(time);
+			requestAnimationFrame(raf);
+		}
+
+		requestAnimationFrame(raf);
+
+		return () => {
+			lenis.destroy();
+			lenisStore.set(null);
+		};
 	});
 </script>
 
