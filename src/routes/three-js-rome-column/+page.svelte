@@ -2,7 +2,7 @@
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
-	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
+	import { GLTFLoader } from 'three/examples/jsm/Addons.js';
 	import { setupCameraGUI } from '$lib/utils/cameraGUI';
 	import { setupObjectGUI } from '$lib/utils/objectGUI';
 	import gsap from 'gsap';
@@ -22,10 +22,13 @@
 	let romanColumnModel: THREE.Group | undefined;
 	let planeMaterials: THREE.MeshStandardMaterial[] = [];
 
-	// Shared variables for camera movement
-	const cameraY = 6.15;
+	const cameraY = 6;
 	const minCameraY = -6;
-	const radius = 15;
+	const baseRadius = 15;
+	const radiusVariation = 2;
+	const zoomedRadius = 8; // Add this new constant for zoomed state
+	let currentRadius = baseRadius;
+	let targetRadius = baseRadius;
 	let currentAngle = Math.PI / 2;
 	let currentCameraY = cameraY;
 	let camera: THREE.PerspectiveCamera;
@@ -34,27 +37,146 @@
 	// Add these variables for smooth movement
 	let targetCameraY = cameraY;
 	let targetAngle = Math.PI / 2;
+	let lerpFactor = 0.05; // Add this near other state variables
+
+	// Add these constants near the top
+	const DEFAULT_ANGLE = Math.PI / 2;
+	const DEFAULT_Y = 6;
+	const PLANE_ANGLE_STEP = Math.PI / 3;
 
 	// Lerp helper function
 	const lerp = (start: number, end: number, factor: number) => {
 		return start + (end - start) * factor;
 	};
 
-	// Update the scroll handler to set target values
+	// Replace the handleScroll function
 	const handleScroll = (deltaY: number) => {
 		if (!camera || !cameraFolder) return;
 
-		// if camera is at 6.15 or more, allow only scroll down
-		if (targetCameraY >= 6.15 && deltaY < 0) return;
-		if (targetCameraY <= minCameraY && deltaY > 0) return;
+		// Calculate next target Y position
+		const nextTargetY = targetCameraY - deltaY * 0.5 * 0.01;
+
+		// Check if we would exceed bounds
+		if (nextTargetY > DEFAULT_Y) {
+			// Snap to top position
+			targetCameraY = DEFAULT_Y;
+			targetAngle = DEFAULT_ANGLE;
+			return;
+		}
+		if (nextTargetY < minCameraY) return;
 
 		const scrollSpeed = 0.5;
-		const rotationSpeed = 0.5;
+		const rotationSpeed = 0.525;
 		const delta = deltaY * scrollSpeed * 0.01;
 
-		// Update target values instead of direct position
-		targetCameraY = Math.max(minCameraY, Math.min(cameraY, targetCameraY - delta));
+		// Update target values
+		targetCameraY = nextTargetY;
 		targetAngle -= delta * rotationSpeed;
+
+		// Gradually return to base radius if we're zoomed in
+		if (targetRadius !== baseRadius) {
+			targetRadius = baseRadius;
+			// Lerp opacity back to 0.5 for all planes
+			planeMaterials.forEach((material) => {
+				if (material.opacity > 0.5) {
+					// Only lerp if opacity is above 0.5
+					gsap.to(material, {
+						opacity: 0.5,
+						duration: 1,
+						ease: 'power2.inOut'
+					});
+				}
+			});
+		}
+
+		// Add radius oscillation based on rotation
+		targetRadius = baseRadius + Math.sin(targetAngle * 2) * radiusVariation;
+	};
+
+	// Add these variables after the existing declarations
+	let mouse = new THREE.Vector2();
+	let raycaster = new THREE.Raycaster();
+	let planes: THREE.Mesh[] = [];
+	let hitboxPlanes: THREE.Mesh[] = []; // Add this new array
+	let hoveredPlane: THREE.Mesh | null = null;
+
+	// Add mouse move handler after the handleScroll function
+	const handleMouseMove = (event: MouseEvent) => {
+		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+		mouse.y = -((event.clientY / window.innerHeight) * 2 - 1);
+	};
+
+	// Update the handleClick function
+	const handleClick = (event: MouseEvent) => {
+		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+		mouse.y = -((event.clientY / window.innerHeight) * 2 - 1);
+
+		raycaster.setFromCamera(mouse, camera);
+		const intersects = raycaster.intersectObjects(hitboxPlanes);
+
+		if (intersects.length > 0) {
+			const hitboxPlane = intersects[0].object as THREE.Mesh;
+			const visiblePlane = (hitboxPlane as any).visiblePair as THREE.Mesh;
+
+			const planeIndex = parseInt(visiblePlane.name);
+
+			// Set exact rotation angle
+			targetAngle = DEFAULT_ANGLE - planeIndex * PLANE_ANGLE_STEP;
+
+			// Set exact camera Y position
+			targetCameraY = DEFAULT_Y - planeIndex * 2;
+
+			targetRadius = zoomedRadius;
+
+			// Only animate the clicked plane's opacity
+			gsap.to(planeMaterials[planeIndex], {
+				opacity: 1.0,
+				duration: 1,
+				ease: 'power2.inOut'
+			});
+
+			// Start with a moderate lerp factor
+			lerpFactor = 0.15;
+
+			// Gradually reduce lerp factor back to normal over a longer duration
+			gsap.to(
+				{ value: lerpFactor },
+				{
+					value: 0.05,
+					duration: 2,
+					ease: 'power2.out',
+					onUpdate: function () {
+						lerpFactor = this.targets()[0].value;
+					}
+				}
+			);
+		}
+	};
+
+	// Add these variables after other state declarations
+	let lastTouchY: number | null = null;
+	const TOUCH_SENSITIVITY = 2.5; // Adjust this value to match scroll sensitivity
+
+	// Add these touch handler functions before the effect
+	const handleTouchStart = (event: TouchEvent) => {
+		lastTouchY = event.touches[0].clientY;
+	};
+
+	const handleTouchMove = (event: TouchEvent) => {
+		event.preventDefault(); // Prevent default scrolling
+
+		if (lastTouchY === null) return;
+
+		const currentTouchY = event.touches[0].clientY;
+		const deltaY = (lastTouchY - currentTouchY) * TOUCH_SENSITIVITY;
+
+		handleScroll(deltaY);
+
+		lastTouchY = currentTouchY;
+	};
+
+	const handleTouchEnd = () => {
+		lastTouchY = null;
 	};
 
 	$effect(() => {
@@ -63,7 +185,7 @@
 		const debugObject: DebugObject = {
 			directionalLightColor: '#860909e',
 			romanColumn: {
-				scale: 0.05,
+				scale: 0.45,
 				rotation: {
 					x: -0.81,
 					y: 2.76,
@@ -77,12 +199,13 @@
 
 		const loadModel = (): Promise<THREE.Group> => {
 			return new Promise((resolve) => {
-				gltfLoader.load('/models/rome-column/roman_column.glb', (gltf) => {
+				gltfLoader.load('/models/rome-column/ionic_column.glb', (gltf) => {
 					const scale = debugObject.romanColumn.scale;
 					gltf.scene.scale.set(scale, scale, scale);
 					gltf.scene.rotation.x = debugObject.romanColumn.rotation.x;
 					gltf.scene.rotation.y = debugObject.romanColumn.rotation.y;
 					gltf.scene.rotation.z = debugObject.romanColumn.rotation.z;
+					gltf.scene.position.y = -15.25;
 					scene.add(gltf.scene);
 
 					romanColumnModel = gltf.scene;
@@ -91,11 +214,11 @@
 			});
 		};
 
-		loadModel(); // Call loadModel without assigning its return value
+		loadModel();
 
 		// Create Plane
-		const addPlane = ({ height, angle }: { height: number; angle: number }) => {
-			const radius = 5; // Fixed distance from center
+		const addPlane = ({ height, angle, name }: { height: number; angle: number; name: string }) => {
+			const radius = 5;
 			// Convert angle to radians
 			const angleRad = (-(angle - 90) * Math.PI) / 180;
 
@@ -103,47 +226,87 @@
 			const posX = radius * Math.cos(angleRad);
 			const posZ = radius * Math.sin(angleRad);
 
+			// Create visible plane with updated material properties
 			const material = new THREE.MeshStandardMaterial({
 				color: '#ffffff',
 				side: THREE.DoubleSide,
 				transparent: true,
-				opacity: 0.0
+				opacity: 0.0,
+				depthWrite: true,
+				alphaTest: 0.1
 			});
 			planeMaterials.push(material);
+			const visiblePlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 3, 1, 1), material);
+			visiblePlane.renderOrder = 1;
 
-			const plane = new THREE.Mesh(new THREE.PlaneGeometry(5, 3, 1, 1), material);
+			// Create invisible hitbox plane with updated material
+			const hitboxMaterial = new THREE.MeshBasicMaterial({
+				transparent: true,
+				opacity: 0,
+				side: THREE.DoubleSide,
+				depthWrite: false,
+				depthTest: true
+			});
+			const hitboxPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 3, 1, 1), hitboxMaterial);
+			hitboxPlane.renderOrder = 0;
 
-			// Set position and automatically calculate rotation to face center
-			plane.position.set(posX, height, posZ);
-			plane.lookAt(0, height, 0); // Make plane face the center
+			// Position and rotate both planes
+			visiblePlane.position.set(posX, height, posZ);
+			hitboxPlane.position.set(posX, height, posZ);
+			visiblePlane.lookAt(0, height, 0);
+			hitboxPlane.lookAt(0, height, 0);
 
-			scene.add(plane);
-			return plane;
+			// Store original position for both
+			const originalPosition = {
+				x: posX,
+				y: height,
+				z: posZ,
+				angle: angleRad
+			};
+
+			(visiblePlane as any).originalPosition = originalPosition;
+			(hitboxPlane as any).originalPosition = originalPosition;
+			(hitboxPlane as any).visiblePair = visiblePlane;
+
+			visiblePlane.name = name;
+
+			scene.add(visiblePlane);
+			scene.add(hitboxPlane);
+			planes.push(visiblePlane);
+			hitboxPlanes.push(hitboxPlane);
+
+			return visiblePlane;
 		};
 
 		const plane1 = addPlane({
 			height: 6,
-			angle: 0
+			angle: 0,
+			name: '0'
 		});
 		const plane2 = addPlane({
 			height: 4,
-			angle: 60
+			angle: 60,
+			name: '1'
 		});
 		const plane3 = addPlane({
 			height: 2,
-			angle: 120
+			angle: 120,
+			name: '2'
 		});
 		const plane4 = addPlane({
 			height: 0,
-			angle: 180
+			angle: 180,
+			name: '3'
 		});
 		const plane5 = addPlane({
 			height: -2,
-			angle: 240
+			angle: 240,
+			name: '4'
 		});
 		const plane6 = addPlane({
 			height: -4,
-			angle: 300
+			angle: 300,
+			name: '5'
 		});
 
 		setupObjectGUI(plane1, gui, 'Plane 1');
@@ -181,17 +344,27 @@
 		});
 
 		// Camera setup
-		const initialPosX = radius * Math.cos(currentAngle);
-		const initialPosZ = radius * Math.sin(currentAngle);
+		const initialPosX = baseRadius * Math.cos(DEFAULT_ANGLE) * 0.75;
+		const initialPosZ = baseRadius * Math.sin(DEFAULT_ANGLE) * 0.75;
 		camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 2000);
-		camera.position.set(initialPosX, cameraY, initialPosZ);
-		camera.lookAt(0, cameraY, 0);
+		camera.position.set(initialPosX, DEFAULT_Y, initialPosZ);
+		camera.lookAt(0, DEFAULT_Y, 0);
 
 		// Add camera GUI controls
 		cameraFolder = setupCameraGUI(camera, gui);
 
-		// Fallback to wheel events if Lenis is not available
 		window.addEventListener('wheel', (event: WheelEvent) => handleScroll(event.deltaY));
+
+		// Add mouse move event listener
+		window.addEventListener('mousemove', handleMouseMove);
+
+		// Add click event listener after other event listeners
+		window.addEventListener('click', handleClick);
+
+		// Add touch event listeners after other event listeners
+		window.addEventListener('touchstart', handleTouchStart, { passive: false });
+		window.addEventListener('touchmove', handleTouchMove, { passive: false });
+		window.addEventListener('touchend', handleTouchEnd);
 
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
@@ -219,11 +392,11 @@
 			}).to(
 				planeMaterials.map((material) => material),
 				{
-					opacity: 0.75,
+					opacity: 0.5,
 					duration: 1,
 					stagger: 0.2
 				},
-				'-=0.7' // Start 0.5 seconds before the previous animation ends
+				'-=0.9'
 			);
 		};
 
@@ -237,16 +410,66 @@
 			const elapsedTime = clock.getElapsedTime();
 
 			// Smooth camera movement using lerp
-			const lerpFactor = 0.05; // Adjust this value to control smoothness (0-1)
 			currentCameraY = lerp(currentCameraY, targetCameraY, lerpFactor);
 			currentAngle = lerp(currentAngle, targetAngle, lerpFactor);
+			currentRadius = lerp(currentRadius, targetRadius, lerpFactor);
+
+			const currentAngleDegree = (currentAngle - Math.PI / 2) * (180 / Math.PI);
 
 			// Calculate new camera position
-			const posX = radius * Math.cos(currentAngle);
-			const posZ = radius * Math.sin(currentAngle);
+			const posX = currentRadius * Math.cos(currentAngle);
+			const posZ = currentRadius * Math.sin(currentAngle);
 
 			camera.position.set(posX, currentCameraY, posZ);
 			camera.lookAt(0, currentCameraY, 0);
+
+			// Update raycaster to only check hitbox planes
+			raycaster.setFromCamera(mouse, camera);
+			const intersects = raycaster.intersectObjects(hitboxPlanes);
+
+			// Handle hover effects with UV-based edge detection
+			if (intersects.length > 0) {
+				const hitboxPlane = intersects[0].object as THREE.Mesh;
+				const visiblePlane = (hitboxPlane as any).visiblePair as THREE.Mesh;
+
+				if (hoveredPlane !== visiblePlane) {
+					// Reset previous hovered plane
+					if (hoveredPlane) {
+						const originalPos = (hoveredPlane as any).originalPosition;
+						gsap.to(hoveredPlane.position, {
+							x: originalPos.x,
+							y: originalPos.y,
+							z: originalPos.z,
+							duration: 0.5
+						});
+					}
+
+					// Move visible plane outward
+					const orig = (visiblePlane as any).originalPosition;
+					const moveDistance = 0.5;
+					const newX = orig.x * (1 + moveDistance / 5);
+					const newZ = orig.z * (1 + moveDistance / 5);
+
+					gsap.to(visiblePlane.position, {
+						x: newX,
+						y: orig.y,
+						z: newZ,
+						duration: 0.5
+					});
+
+					hoveredPlane = visiblePlane;
+				}
+			} else if (hoveredPlane) {
+				// Reset hover state when no intersection
+				const originalPos = (hoveredPlane as any).originalPosition;
+				gsap.to(hoveredPlane.position, {
+					x: originalPos.x,
+					y: originalPos.y,
+					z: originalPos.z,
+					duration: 0.5
+				});
+				hoveredPlane = null;
+			}
 
 			// Update GUI if values changed significantly
 			if (Math.abs(currentCameraY - targetCameraY) > 0.001) {
@@ -262,12 +485,17 @@
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 			window.removeEventListener('wheel', (event: WheelEvent) => handleScroll(event.deltaY));
+			window.removeEventListener('mousemove', handleMouseMove);
+			window.removeEventListener('click', handleClick); // Don't forget to remove the listener
+			window.removeEventListener('touchstart', handleTouchStart);
+			window.removeEventListener('touchmove', handleTouchMove);
+			window.removeEventListener('touchend', handleTouchEnd);
 		};
 	});
 </script>
 
 <div>
-	<canvas class="webgl"></canvas>
+	<canvas class="webgl" style="touch-action: none;"></canvas>
 </div>
 
 <!-- <style>
