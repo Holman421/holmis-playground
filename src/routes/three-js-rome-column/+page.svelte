@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
@@ -24,11 +25,21 @@
 
 	const cameraY = 6;
 	const minCameraY = -6;
-	const baseRadius = 15;
+	let isMobile: boolean;
+	let baseRadius: number;
 	const radiusVariation = 2;
-	const zoomedRadius = 8; // Add this new constant for zoomed state
-	let currentRadius = baseRadius;
-	let targetRadius = baseRadius;
+	const zoomedRadius = 8;
+
+	onMount(() => {
+		isMobile = window.innerWidth <= 768;
+		baseRadius = isMobile ? 22.5 : 15;
+		currentRadius = baseRadius;
+		targetRadius = baseRadius;
+	});
+
+	// Initialize with default values (will be updated in onMount)
+	let currentRadius: number;
+	let targetRadius: number;
 	let currentAngle = Math.PI / 2;
 	let currentCameraY = cameraY;
 	let camera: THREE.PerspectiveCamera;
@@ -49,9 +60,17 @@
 		return start + (end - start) * factor;
 	};
 
+	let isAnimating = false;
+	let hasInitialAnimationPlayed = false;
+
 	// Replace the handleScroll function
 	const handleScroll = (deltaY: number) => {
-		if (!camera || !cameraFolder) return;
+		if (!camera || !cameraFolder || isAnimating) return;
+
+		if (!hasInitialAnimationPlayed) {
+			handleInitialAnimation();
+			return;
+		}
 
 		// Calculate next target Y position
 		const nextTargetY = targetCameraY - deltaY * 0.5 * 0.01;
@@ -93,6 +112,38 @@
 		targetRadius = baseRadius + Math.sin(targetAngle * 2) * radiusVariation;
 	};
 
+	// Add handleInitialAnimation function
+	const handleInitialAnimation = () => {
+		if (!romanColumnModel || hasInitialAnimationPlayed) return;
+
+		isAnimating = true;
+		const tl = gsap.timeline({
+			defaults: {
+				duration: 2,
+				ease: 'power2.inOut'
+			},
+			onComplete: () => {
+				isAnimating = false;
+				hasInitialAnimationPlayed = true;
+				targetRadius = baseRadius; // Ensure we end at correct radius
+			}
+		});
+
+		tl.to(romanColumnModel.rotation, {
+			x: 0,
+			y: 1.2,
+			z: 0
+		}).to(
+			planeMaterials.map((material) => material),
+			{
+				opacity: 0.5,
+				duration: 1,
+				stagger: 0.2
+			},
+			'-=0.9'
+		);
+	};
+
 	// Add these variables after the existing declarations
 	let mouse = new THREE.Vector2();
 	let raycaster = new THREE.Raycaster();
@@ -131,19 +182,19 @@
 			// Only animate the clicked plane's opacity
 			gsap.to(planeMaterials[planeIndex], {
 				opacity: 1.0,
-				duration: 1,
+				duration: 1.5, // Increased from 1
 				ease: 'power2.inOut'
 			});
 
-			// Start with a moderate lerp factor
-			lerpFactor = 0.15;
+			// Start with a slower lerp factor
+			lerpFactor = 0.05; // Reduced from 0.15
 
 			// Gradually reduce lerp factor back to normal over a longer duration
 			gsap.to(
 				{ value: lerpFactor },
 				{
 					value: 0.05,
-					duration: 2,
+					duration: 3, // Increased from 2
 					ease: 'power2.out',
 					onUpdate: function () {
 						lerpFactor = this.targets()[0].value;
@@ -180,6 +231,8 @@
 	};
 
 	$effect(() => {
+		if (typeof window === 'undefined') return; // Guard against server-side execution
+
 		// Base
 		const gui = new GUI({ width: 325 });
 		const debugObject: DebugObject = {
@@ -399,9 +452,6 @@
 				'-=0.9'
 			);
 		};
-
-		// add that animation to gui as a button
-		gui.add({ animate: handleAnimation }, 'animate').name('Animate');
 
 		// Animate
 		const clock = new THREE.Clock();
