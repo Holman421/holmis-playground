@@ -400,6 +400,6 @@ export const projects = [
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
-		imgSrc: '/projectThumbnails/button-hover.png'
+		imgSrc: '/projectThumbnails/roman-column.png'
 	}
 ];

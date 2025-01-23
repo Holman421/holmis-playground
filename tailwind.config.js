@@ -18,7 +18,8 @@ const config = {
 			borderRadius: {},
 			fontFamily: {
 				sans: [...fontFamily.sans],
-				audiowide: ['Audiowide', 'sans-serif']
+				audiowide: ['Audiowide', 'cursive'],
+				cinzel: ['Cinzel', 'serif']
 			},
 			animation: {
 				'fade-in': 'fadeIn 2s ease-in forwards 1s'

@@ -9,14 +9,11 @@
 
 		// Scene
 		const scene = new THREE.Scene();
-
 		const textureLoader = new THREE.TextureLoader();
 		const gltfLoader = new GLTFLoader();
 		const cubeTextureLoader = new THREE.CubeTextureLoader();
 
-		/**
-		 * Update all materials
-		 */
+		// Update all materials
 		const updateAllMaterials = () => {
 			scene.traverse((child) => {
 				if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
@@ -28,9 +25,7 @@
 			});
 		};
 
-		/**
-		 * Environment map
-		 */
+		// Environment map
 		const environmentMap = cubeTextureLoader.load([
 			'/textures/environmentMaps/0/px.png',
 			'/textures/environmentMaps/0/nx.png',
@@ -42,10 +37,6 @@
 
 		scene.background = environmentMap;
 		scene.environment = environmentMap;
-
-		/**
-		 * Material
-		 */
 
 		// Textures
 		const mapTexture = textureLoader.load('/models/LeePerrySmith/color.jpg');
