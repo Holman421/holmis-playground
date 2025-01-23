@@ -67,6 +67,7 @@
 	const DEFAULT_ANGLE = Math.PI / 2;
 	const DEFAULT_Y = 6;
 	const PLANE_ANGLE_STEP = Math.PI / 3;
+	const INITIAL_CHAIN_SCROLL = 2; // Final value of chain scroll after first animation
 
 	// Lerp helper function
 	const lerp = (start: number, end: number, factor: number) => {
@@ -75,10 +76,23 @@
 
 	let isAnimating = false;
 	let hasInitialAnimationPlayed = false;
+	let isReverseAnimating = false; // Add this with other state variables
+
+	// Add these near other state variables at the top
+	let initialColumnState = {
+		rotation: { x: 0, y: 0, z: 0 },
+		position: { x: 0, y: 0, z: 0 }
+	};
+
+	// Add this state variable with other state variables
+	let disableDynamicOpacity = false;
+
+	// Add this state variable near other state variables
+	let isFirstChainAnimation = false;
 
 	// Replace the handleScroll function
 	const handleScroll = (deltaY: number) => {
-		if (!camera || !cameraFolder || isAnimating) return;
+		if (!camera || !cameraFolder || isAnimating || isReverseAnimating) return;
 
 		if (!hasInitialAnimationPlayed) {
 			handleInitialAnimation();
@@ -87,6 +101,12 @@
 
 		// Calculate next target Y position
 		const nextTargetY = targetCameraY - deltaY * 0.5 * 0.01;
+
+		// Check if we're at the top and scrolling up
+		if (Math.abs(currentCameraY - DEFAULT_Y) < 0.1 && deltaY < 0) {
+			handleReverseAnimation();
+			return;
+		}
 
 		// Check if we would exceed bounds
 		if (nextTargetY > DEFAULT_Y) {
@@ -150,7 +170,9 @@
 		// Calculate initial opacities for texts
 		const initialOpacities = calculateInitialElementOpacities(css3dElements.length);
 
+		isFirstChainAnimation = true;
 		isAnimating = true;
+
 		const tl = gsap.timeline({
 			defaults: {
 				duration: 2,
@@ -160,8 +182,19 @@
 				isAnimating = false;
 				hasInitialAnimationPlayed = true;
 				targetRadius = baseRadius;
+				isFirstChainAnimation = false;
 			}
 		});
+
+		// Starting position for chain
+		if (chainModel) {
+			chainModel.position.y = DEFAULT_Y + 2; // Start above
+			chainModel.traverse((child) => {
+				if (child instanceof THREE.Mesh && (child as any).customUniforms) {
+					(child as any).customUniforms.uScroll.value = -1; // Start with negative scroll value
+				}
+			});
+		}
 
 		tl.to(romanColumnModel.rotation, {
 			x: 0,
@@ -188,6 +221,43 @@
 				'-=1.75'
 			)
 			.to(
+				chainModel?.position || {},
+				{
+					y: currentCameraY - 2,
+					duration: 1.5,
+					ease: 'power4.out'
+				},
+				'-=1'
+			)
+			.to(
+				chainMaterials.map((material) => material),
+				{
+					opacity: 1,
+					duration: 1.5,
+					stagger: 0.1,
+					ease: 'power2.inOut'
+				},
+				'-=2'
+			)
+			// Add chain scroll animation
+			.to(
+				{},
+				{
+					duration: 1.5,
+					onUpdate: function () {
+						const progress = this.progress();
+						chainModel?.traverse((child) => {
+							if (child instanceof THREE.Mesh && (child as any).customUniforms) {
+								(child as any).customUniforms.uScroll.value =
+									-1 + progress * (1 + INITIAL_CHAIN_SCROLL); // Animate from -5 to INITIAL_CHAIN_SCROLL
+							}
+						});
+					}
+				},
+				'-=1.5'
+			)
+			// ... rest of your animations
+			.to(
 				[...planeMaterials],
 				{
 					opacity: 0.5,
@@ -206,16 +276,6 @@
 				'-=1.9'
 			)
 			.to(
-				chainMaterials.map((material) => material),
-				{
-					opacity: 1,
-					duration: 1.5,
-					stagger: 0.1,
-					ease: 'power2.inOut'
-				},
-				'-=2'
-			)
-			.to(
 				css3dElements.map((element) => element.element),
 				{
 					opacity: (i) => initialOpacities[i],
@@ -224,6 +284,108 @@
 					ease: 'power2.inOut'
 				},
 				'-=1.5'
+			);
+	};
+
+	// Replace the handleReverseAnimation function
+	const handleReverseAnimation = () => {
+		if (!romanColumnModel || !chainModel || !heroHeading || !heroSubheading) return;
+
+		isReverseAnimating = true;
+		disableDynamicOpacity = true; // Disable dynamic opacity updates
+
+		const tl = gsap.timeline({
+			defaults: {
+				duration: 2,
+				ease: 'power2.inOut'
+			},
+			onComplete: () => {
+				isReverseAnimating = false;
+				hasInitialAnimationPlayed = false;
+				disableDynamicOpacity = false; // Re-enable dynamic opacity updates
+
+				// Force reset all material opacities at the end
+				planeMaterials.forEach((material) => (material.opacity = 0));
+				boardMaterials.forEach((material) => (material.opacity = 0));
+				chainMaterials.forEach((material) => (material.opacity = 0));
+			}
+		});
+
+		// Reset camera position
+		targetRadius = baseRadius;
+		targetAngle = DEFAULT_ANGLE;
+		targetCameraY = DEFAULT_Y;
+
+		// First animate all grouped elements with stagger
+		planes.forEach((_, index) => {
+			// Create a proxy object for the CSS3D element opacity
+			const opacityProxy = { value: parseFloat(css3dElements[index].element.style.opacity) || 0 };
+
+			// Animate plane and board materials
+			tl.to(
+				[planeMaterials[index], boardMaterials[index]],
+				{
+					opacity: 0,
+					duration: 0.75,
+					ease: 'power2.inOut'
+				},
+				index * 0.15
+			);
+
+			// Animate the proxy object and update the CSS3D element opacity
+			tl.to(
+				opacityProxy,
+				{
+					value: 0,
+					duration: 0.75,
+					ease: 'power2.inOut',
+					onUpdate: () => {
+						css3dElements[index].element.style.opacity = opacityProxy.value.toString();
+					}
+				},
+				index * 0.15 // Same timing as materials
+			);
+		});
+
+		// Rest of the animation remains the same
+		tl.to(
+			chainMaterials,
+			{
+				opacity: 0,
+				duration: 0.5,
+				stagger: 0.1,
+				ease: 'power2.inOut'
+			},
+			'-=0.75'
+		)
+			.to(
+				romanColumnModel.rotation,
+				{
+					x: initialColumnState.rotation.x,
+					y: initialColumnState.rotation.y,
+					z: initialColumnState.rotation.z,
+					duration: 1.25
+				},
+				'-=0.5'
+			)
+			.to(
+				romanColumnModel.position,
+				{
+					x: initialColumnState.position.x,
+					y: initialColumnState.position.y,
+					z: initialColumnState.position.z,
+					duration: 1.25
+				},
+				'-=1.25'
+			)
+			.to(
+				[heroHeading, heroSubheading],
+				{
+					opacity: 1,
+					duration: 0.75,
+					stagger: 0.2
+				},
+				'-=1'
 			);
 	};
 
@@ -394,14 +556,27 @@
 				gltfLoader.load('/models/rome-column/ionic_column.glb', (gltf) => {
 					const scale = debugObject.romanColumn.scale;
 					gltf.scene.scale.set(scale, scale, scale);
-					gltf.scene.rotation.x = debugObject.romanColumn.rotation.x;
-					gltf.scene.rotation.y = debugObject.romanColumn.rotation.y;
-					gltf.scene.rotation.z = debugObject.romanColumn.rotation.z;
-					gltf.scene.position.x = debugObject.romanColumn.position.x;
-					gltf.scene.position.y = debugObject.romanColumn.position.y;
-					gltf.scene.position.z = debugObject.romanColumn.position.z;
-					scene.add(gltf.scene);
 
+					// Store initial values
+					initialColumnState.rotation = {
+						x: debugObject.romanColumn.rotation.x,
+						y: debugObject.romanColumn.rotation.y,
+						z: debugObject.romanColumn.rotation.z
+					};
+					initialColumnState.position = {
+						x: debugObject.romanColumn.position.x,
+						y: debugObject.romanColumn.position.y,
+						z: debugObject.romanColumn.position.z
+					};
+
+					gltf.scene.rotation.x = initialColumnState.rotation.x;
+					gltf.scene.rotation.y = initialColumnState.rotation.y;
+					gltf.scene.rotation.z = initialColumnState.rotation.z;
+					gltf.scene.position.x = initialColumnState.position.x;
+					gltf.scene.position.y = initialColumnState.position.y;
+					gltf.scene.position.z = initialColumnState.position.z;
+
+					scene.add(gltf.scene);
 					romanColumnModel = gltf.scene;
 					resolve(gltf.scene);
 				});
@@ -507,9 +682,9 @@
 									`
 									#include <begin_vertex>
 									float scrollInfluence = uScroll * 5.75; // Increased influence
-									float wrapAngle = (position.y - scrollInfluence + 5.0) * 0.1;
+									float wrapAngle = (position.y - scrollInfluence + 10.0) * 0.1;
 									float heightFactor = (position.y + 7.0) / 14.0; // Normalize y position to 0-1 range
-									float chainRadius = 7.0 + (heightFactor * 3.0); // Add 0-3 based on height
+									float chainRadius = 6.5 + (heightFactor * 4.0); // Add 0-3 based on height
 									transformed.x += cos(wrapAngle) * chainRadius;
 									transformed.z += sin(wrapAngle) * chainRadius;
 									`
@@ -893,14 +1068,18 @@
 
 			// Update only chain position and shader uniforms
 			if (chainModel) {
-				chainModel.position.y = currentCameraY - 2 - (DEFAULT_Y - currentCameraY) * 0.4;
+				if (!isFirstChainAnimation) {
+					chainModel.position.y = currentCameraY - 2 - (DEFAULT_Y - currentCameraY) * 0.4;
 
-				chainModel.traverse((child) => {
-					if (child instanceof THREE.Mesh && (child as any).customUniforms) {
-						(child as any).customUniforms.uTime.value = elapsedTime;
-						(child as any).customUniforms.uScroll.value = (DEFAULT_Y - currentCameraY) * 2;
-					}
-				});
+					chainModel.traverse((child) => {
+						if (child instanceof THREE.Mesh && (child as any).customUniforms) {
+							(child as any).customUniforms.uTime.value = elapsedTime;
+							// Start from INITIAL_CHAIN_SCROLL and add the scroll influence
+							const scrollValue = INITIAL_CHAIN_SCROLL + (DEFAULT_Y - currentCameraY) * 2;
+							(child as any).customUniforms.uScroll.value = scrollValue;
+						}
+					});
+				}
 			}
 
 			// Update CSS3D element positions and opacity
@@ -911,8 +1090,8 @@
 					element.lookAt(0, plane.position.y, 0);
 					element.rotateY(Math.PI);
 
-					// Only apply dynamic opacity after initial animation
-					if (hasInitialAnimationPlayed) {
+					// Only apply dynamic opacity during normal operation
+					if (hasInitialAnimationPlayed && !isReverseAnimating && !disableDynamicOpacity) {
 						const targetOpacity = calculateElementOpacity(index, currentAngle);
 						const currentOpacity = parseFloat(element.element.style.opacity) || 0;
 						const newOpacity = lerp(currentOpacity, targetOpacity, 0.1);
