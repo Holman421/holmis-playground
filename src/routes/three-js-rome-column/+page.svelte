@@ -45,7 +45,7 @@
 
 	onMount(() => {
 		isMobile = window.innerWidth <= 768;
-		baseRadius = isMobile ? 22.5 : 15;
+		baseRadius = isMobile ? 27.5 : 15;
 		currentRadius = baseRadius;
 		targetRadius = baseRadius;
 	});
@@ -111,7 +111,7 @@
 			// Lerp opacity back to 0.5 for all planes and boards
 			planeMaterials.forEach((material, index) => {
 				if (material.opacity > 0.5) {
-					gsap.to([material, boardMaterials[index]], {
+					gsap.to([material], {
 						opacity: 0.5,
 						duration: 1,
 						ease: 'power2.inOut'
@@ -188,7 +188,7 @@
 				'-=1.75'
 			)
 			.to(
-				[...planeMaterials], // Add board materials to the animation
+				[...planeMaterials],
 				{
 					opacity: 0.5,
 					duration: 1,
@@ -197,7 +197,7 @@
 				'-=0.9'
 			)
 			.to(
-				[...boardMaterials], // Add board materials to the animation
+				[...boardMaterials],
 				{
 					opacity: 1,
 					duration: 1,
@@ -264,7 +264,7 @@
 			targetRadius = zoomedRadius;
 
 			// Only animate the clicked plane's opacity
-			gsap.to([planeMaterials[planeIndex], boardMaterials[planeIndex]], {
+			gsap.to(planeMaterials[planeIndex], {
 				opacity: 1.0,
 				duration: 1.5, // Increased from 1
 				ease: 'power2.inOut'
@@ -290,7 +290,7 @@
 
 	// Add these variables after other state declarations
 	let lastTouchY: number | null = null;
-	const TOUCH_SENSITIVITY = 2.5; // Adjust this value to match scroll sensitivity
+	const TOUCH_SENSITIVITY = 2.5;
 
 	// Add these touch handler functions before the effect
 	const handleTouchStart = (event: TouchEvent) => {
@@ -298,7 +298,7 @@
 	};
 
 	const handleTouchMove = (event: TouchEvent) => {
-		event.preventDefault(); // Prevent default scrolling
+		event.preventDefault();
 
 		if (lastTouchY === null) return;
 
@@ -323,23 +323,22 @@
 
 	// Add content data
 	const planeContents = [
-		{ title: 'Innovation', subtitle: 'Pushing boundaries' },
-		{ title: 'Excellence', subtitle: 'In everything we do' },
-		{ title: 'Integrity', subtitle: 'Trust and honesty' },
-		{ title: 'Community', subtitle: 'Building together' },
-		{ title: 'Passion', subtitle: 'Driving force' },
-		{ title: 'Vision', subtitle: 'Looking forward' },
-		{ title: 'Legacy', subtitle: 'Lasting impact' }
+		{ title: 'Innovation' },
+		{ title: 'Excellence' },
+		{ title: 'Integrity' },
+		{ title: 'Community' },
+		{ title: 'Passion' },
+		{ title: 'Vision' },
+		{ title: 'Legacy' }
 	];
 
 	// Add this function before the $effect
-	const createCSS3DElement = (content: { title: string; subtitle: string }) => {
+	const createCSS3DElement = (content: { title: string }) => {
 		const element = document.createElement('div');
 		element.className = 'css3d-content';
-		element.style.opacity = '0'; // Start invisible
+		element.style.opacity = '0';
 		element.innerHTML = `
-			<h2 class="text-4xl font-cinzel font-semibold text-white">${content.title}</h2>
-			<p class="text-lg font-cinzel text-zinc-300 mt-1">${content.subtitle}</p>
+			<h2 class="text-5xl font-cinzel font-semibold text-white">${content.title}</h2>
 		`;
 		const css3dObject = new CSS3DObject(element);
 		// Add a smaller scale to match regular DOM sizes
@@ -353,8 +352,8 @@
 		const angleDiff = Math.abs(((currentAngle - elementAngle + Math.PI) % (2 * Math.PI)) - Math.PI);
 
 		// Define visibility range (in radians)
-		const fullVisibleRange = Math.PI / 6; // 30 degrees
-		const fadeRange = Math.PI / 3; // 60 degrees
+		const fullVisibleRange = Math.PI / 6;
+		const fadeRange = Math.PI / 3;
 
 		if (angleDiff < fullVisibleRange) {
 			return 1;
@@ -377,8 +376,8 @@
 					z: 0.19
 				},
 				position: {
-					x: 5,
-					y: -10,
+					x: isMobile ? 1 : 5,
+					y: isMobile ? -7 : -10,
 					z: 4
 				}
 			}
@@ -448,7 +447,7 @@
 				gltfLoader.load('/models/chain/chain.glb', (gltf) => {
 					const scale = debugObject.romanColumn.scale;
 					gltf.scene.scale.set(scale, scale, scale);
-					gltf.scene.position.y = currentCameraY; // Start at current camera Y
+					gltf.scene.position.y = currentCameraY;
 
 					// Add custom uniforms for the shader
 					const customUniforms = {
@@ -782,32 +781,6 @@
 		css3dRenderer.domElement.style.pointerEvents = 'none';
 		document.querySelector('.webgl-container')?.appendChild(css3dRenderer.domElement);
 
-		// Main animation
-		const handleAnimation = () => {
-			if (!romanColumnModel) return;
-
-			const tl = gsap.timeline({
-				defaults: {
-					duration: 2,
-					ease: 'power2.inOut'
-				}
-			});
-
-			tl.to(romanColumnModel.rotation, {
-				x: 0,
-				y: 1.2,
-				z: 0
-			}).to(
-				planeMaterials.map((material) => material),
-				{
-					opacity: 0.5,
-					duration: 1,
-					stagger: 0.2
-				},
-				'-=0.9'
-			);
-		};
-
 		// Animate
 		const clock = new THREE.Clock();
 		let animationFrameId: number;
@@ -841,6 +814,9 @@
 
 				if (hoveredPlane !== visiblePlane && board) {
 					// Reset previous hover state
+					if (hasInitialAnimationPlayed) {
+						document.getElementsByTagName('body')[0].style.cursor = 'pointer';
+					}
 					if (hoveredPlane) {
 						const prevBoard = (hoveredPlane as any).linkedBoard;
 						const originalPlanePose = (hoveredPlane as any).originalPosition;
@@ -889,6 +865,7 @@
 				const board = (hoveredPlane as any).linkedBoard;
 				const originalPlanePose = (hoveredPlane as any).originalPosition;
 				const originalBoardPose = (board as any).originalPosition;
+				document.getElementsByTagName('body')[0].style.cursor = 'default';
 
 				gsap.to(hoveredPlane.position, {
 					x: originalPlanePose.x,
@@ -969,9 +946,11 @@
 
 <div class="webgl-container relative">
 	<canvas class="webgl" style="touch-action: none;"></canvas>
-	<div class="absolute left-20 top-[40%]">
-		<h1 id="hero-heading" class="text-9xl font-cinzel font-semibold text-zinc-100">Cosimo</h1>
-		<h3 id="hero-subheading" class="text-3xl font-cinzel font-semibold text-zinc-100">
+	<div class="absolute left-6 md:left-20 top-[40%]">
+		<h1 id="hero-heading" class="text-5xl md:text-9xl font-cinzel font-semibold text-zinc-100">
+			Cosimo
+		</h1>
+		<h3 id="hero-subheading" class="text-xl md:text-3xl font-cinzel font-semibold text-zinc-100">
 			Our values
 		</h3>
 	</div>
@@ -994,26 +973,39 @@
 		text-align: center;
 		transform: translate(-50%, -50%);
 		pointer-events: none;
-		/* Add these properties for sharper text */
+		/* Improved text rendering */
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
 		backface-visibility: hidden;
 		transform-style: preserve-3d;
-		/* Add this to ensure proper scaling */
 		transform-origin: center center;
+		/* Force GPU acceleration */
+		will-change: transform;
+		filter: blur(0);
 	}
 
 	.css3d-content h2 {
+		margin: 0;
+		padding: 0;
 		text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-		/* Add these properties */
 		will-change: transform;
 		transform: translateZ(0);
+		/* Add subpixel positioning */
+		perspective: 1000px;
+		/* Prevent text from becoming pixelated during transforms */
+		filter: blur(0);
 	}
 
 	.css3d-content p {
+		margin: 0;
+		padding: 0;
 		text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-		/* Add these properties */
 		will-change: transform;
 		transform: translateZ(0);
+		/* Add subpixel positioning */
+		perspective: 1000px;
+		/* Prevent text from becoming pixelated during transforms */
+		filter: blur(0);
 	}
 </style>

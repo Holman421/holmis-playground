@@ -401,5 +401,23 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/roman-column.png'
+	},
+	{
+		href: '/three-js-portal-gateway',
+		title: 'Portal gateway',
+		description: 'Scene with detailed gateway and animated portal effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/portal-gateway.png'
+	},
+	{
+		href: '/three-js-checkerboard-text',
+		title: 'Checkerboard text reveal',
+		description: 'Cool text reveal effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/portal-gateway.png'
 	}
 ];
