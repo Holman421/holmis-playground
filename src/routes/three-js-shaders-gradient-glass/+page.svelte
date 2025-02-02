@@ -16,6 +16,7 @@
 	import smallSphereFragmentShader from './shaders/smallSphere/fragment.glsl';
 	import smallSphereVertexShader from './shaders/smallSphere/vertex.glsl';
 	import { DotScreenShader } from './shaders/postprocessing/vertex';
+	import { setupCameraMovement } from '$lib/utils/cameraMovementSetUp';
 
 	$effect(() => {
 		// Base
@@ -233,6 +234,19 @@
 		camera.position.set(0, 0, 1);
 		scene.add(camera);
 
+		// Setup camera movement
+		const cameraMovement = setupCameraMovement(
+			camera,
+			scene.position,
+			{
+				smoothFactor: 0.05,
+				xSensitivity: 0.175,
+				ySensitivity: 0.1,
+				basePosition: { x: 0, y: 0, z: 1 }
+			},
+			true
+		);
+
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
@@ -256,14 +270,8 @@
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
-			// Smooth mouse movement
-			mouse.x += (mouse.targetX - mouse.x) * 0.05;
-			mouse.y += (mouse.targetY - mouse.y) * 0.05;
-			// Update camera position based on mouse
-			camera.position.x = mouse.x * 0.175;
-			camera.position.y = -mouse.y * 0.1;
-			camera.position.z = 1;
-			camera.lookAt(scene.position);
+			// Update camera position
+			cameraMovement.updateCamera();
 
 			// Update material
 			material.uniforms.uTime.value = elapsedTime;
@@ -283,6 +291,7 @@
 		tick();
 
 		onDestroy(() => {
+			cameraMovement.cleanup();
 			window.removeEventListener('mousemove', () => {});
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);

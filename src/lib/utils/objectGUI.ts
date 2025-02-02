@@ -6,9 +6,9 @@ export const setupObjectGUI = (object: Object3D, gui: GUI, name: string) => {
 
 	// Position controls
 	const positionFolder = objectFolder.addFolder('Position');
-	positionFolder.add(object.position, 'x').min(-10).max(10).step(0.01).listen();
-	positionFolder.add(object.position, 'y').min(-10).max(10).step(0.01).listen();
-	positionFolder.add(object.position, 'z').min(-10).max(10).step(0.01).listen();
+	positionFolder.add(object.position, 'x').min(-50).max(50).step(0.01).listen();
+	positionFolder.add(object.position, 'y').min(-50).max(50).step(0.01).listen();
+	positionFolder.add(object.position, 'z').min(-50).max(50).step(0.01).listen();
 
 	// Rotation controls
 	const rotationFolder = objectFolder.addFolder('Rotation');
@@ -18,9 +18,9 @@ export const setupObjectGUI = (object: Object3D, gui: GUI, name: string) => {
 
 	// Scale controls
 	const scaleFolder = objectFolder.addFolder('Scale');
-	scaleFolder.add(object.scale, 'x').min(0.1).max(10).step(0.01).listen();
-	scaleFolder.add(object.scale, 'y').min(0.1).max(10).step(0.01).listen();
-	scaleFolder.add(object.scale, 'z').min(0.1).max(10).step(0.01).listen();
+	scaleFolder.add(object.scale, 'x').min(0.1).max(50).step(0.01).listen();
+	scaleFolder.add(object.scale, 'y').min(0.1).max(50).step(0.01).listen();
+	scaleFolder.add(object.scale, 'z').min(0.1).max(50).step(0.01).listen();
 
 	return objectFolder;
 };
