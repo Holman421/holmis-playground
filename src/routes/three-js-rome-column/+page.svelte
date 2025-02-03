@@ -35,6 +35,7 @@
 	let heroHeading: HTMLElement | undefined;
 	let heroSubheading: HTMLElement | undefined;
 	let boards: THREE.Mesh[] = []; // Add this with other array declarations
+	let boardTemplate: THREE.Mesh | undefined; // Add this variable near the top with other model declarations
 
 	const cameraY = 6;
 	const minCameraY = -6;
@@ -90,6 +91,9 @@
 	// Add this state variable near other state variables
 	let isFirstChainAnimation = false;
 
+	// Add this near other state variables
+	let zoomedPlaneIndex: number | null = null;
+
 	// Replace the handleScroll function
 	const handleScroll = (deltaY: number) => {
 		if (!camera || !cameraFolder || isAnimating || isReverseAnimating) return;
@@ -128,6 +132,33 @@
 		// Gradually return to base radius if we're zoomed in
 		if (targetRadius !== baseRadius) {
 			targetRadius = baseRadius;
+
+			// Hide all h2s when zooming out
+			for (let i = 1; i <= 7; i++) {
+				const div = document.getElementById(i.toString());
+				if (div) {
+					const h2 = div.querySelector('h2');
+					if (h2) {
+						gsap.to(h2, {
+							opacity: 0,
+							duration: 0.5,
+							ease: 'power2.inOut'
+						});
+					}
+				}
+			}
+
+			// Reset zoomed plane index and animate text opacity back
+			if (zoomedPlaneIndex !== null) {
+				const elementToFade = css3dElements[zoomedPlaneIndex].element;
+				gsap.to(elementToFade, {
+					opacity: 1, // Start transition back to 1
+					duration: 1,
+					ease: 'power2.inOut'
+				});
+				zoomedPlaneIndex = null;
+			}
+
 			// Lerp opacity back to 0.5 for all planes and boards
 			planeMaterials.forEach((material, index) => {
 				if (material.opacity > 0.5) {
@@ -387,6 +418,21 @@
 				},
 				'-=1'
 			);
+
+		// Hide all divs and h2s
+		for (let i = 1; i <= 7; i++) {
+			const div = document.getElementById(i.toString());
+			if (div) {
+				const h2 = div.querySelector('h2');
+				if (h2) {
+					gsap.to(h2, {
+						opacity: 0,
+						duration: 0.5,
+						ease: 'power2.inOut'
+					});
+				}
+			}
+		}
 	};
 
 	// Add these variables after the existing declarations
@@ -402,7 +448,7 @@
 		mouse.y = -((event.clientY / window.innerHeight) * 2 - 1);
 	};
 
-	// Update the handleClick function
+	// Replace the handleClick function
 	const handleClick = (event: MouseEvent) => {
 		if (!hasInitialAnimationPlayed) return;
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -411,31 +457,61 @@
 		raycaster.setFromCamera(mouse, camera);
 		const intersects = raycaster.intersectObjects(hitboxPlanes);
 
+		// First, hide all h2s
+		for (let i = 1; i <= 7; i++) {
+			const div = document.getElementById(i.toString());
+			if (div) {
+				const h2 = div.querySelector('h2');
+				if (h2) {
+					gsap.to(h2, {
+						opacity: 0,
+						duration: 0.5,
+						ease: 'power2.inOut'
+					});
+				}
+			}
+		}
+
 		if (intersects.length > 0) {
 			const hitboxPlane = intersects[0].object as THREE.Mesh;
 			const visiblePlane = (hitboxPlane as any).visiblePair as THREE.Mesh;
-
 			const planeIndex = parseInt(visiblePlane.name);
 
-			// Set exact rotation angle
+			// Show the corresponding h2
+			const div = document.getElementById((planeIndex + 1).toString());
+			if (div) {
+				const h2 = div.querySelector('h2');
+				if (h2) {
+					gsap.to(h2, {
+						opacity: 1,
+						duration: 1,
+						ease: 'power2.inOut',
+						delay: 1.0
+					});
+				}
+			}
+
+			// Rest of the click handler...
+			zoomedPlaneIndex = planeIndex;
 			targetAngle = DEFAULT_ANGLE - planeIndex * PLANE_ANGLE_STEP;
-
-			// Set exact camera Y position
 			targetCameraY = DEFAULT_Y - planeIndex * 2;
-
 			targetRadius = zoomedRadius;
 
-			// Only animate the clicked plane's opacity
 			gsap.to(planeMaterials[planeIndex], {
 				opacity: 1.0,
-				duration: 1.5, // Increased from 1
+				duration: 1.5,
 				ease: 'power2.inOut'
 			});
 
-			// Start with a slower lerp factor
+			const elementToFade = css3dElements[planeIndex].element;
+			gsap.to(elementToFade, {
+				opacity: 0,
+				duration: 1,
+				ease: 'power2.inOut'
+			});
+
 			lerpFactor = 0.05;
 
-			// Gradually reduce lerp factor back to normal over a longer duration
 			gsap.to(
 				{ value: lerpFactor },
 				{
@@ -483,15 +559,15 @@
 	let css3dRenderer: CSS3DRenderer;
 	let css3dElements: CSS3DObject[] = [];
 
-	// Add content data
+	// Update planeContents to match HTML order
 	const planeContents = [
-		{ title: 'Innovation' },
-		{ title: 'Excellence' },
-		{ title: 'Integrity' },
 		{ title: 'Community' },
+		{ title: 'Innovation' },
 		{ title: 'Passion' },
+		{ title: 'Excellence' },
 		{ title: 'Vision' },
-		{ title: 'Legacy' }
+		{ title: 'Legacy' },
+		{ title: 'Integrity' }
 	];
 
 	// Add this function before the $effect
@@ -510,6 +586,11 @@
 
 	// Add this helper function after other utility functions
 	const calculateElementOpacity = (elementIndex: number, currentAngle: number) => {
+		// If this element is zoomed in, return 0 regardless of angle
+		if (elementIndex === zoomedPlaneIndex) {
+			return 0;
+		}
+
 		const elementAngle = DEFAULT_ANGLE - elementIndex * PLANE_ANGLE_STEP;
 		const angleDiff = Math.abs(((currentAngle - elementAngle + Math.PI) % (2 * Math.PI)) - Math.PI);
 
@@ -585,35 +666,60 @@
 
 		const loadBoardModel = (): Promise<THREE.Mesh> => {
 			return new Promise((resolve) => {
-				gltfLoader.load('/models/board/board.glb', (gltf) => {
-					const scale = 0.0075;
-					const actualItem = gltf.scene.children[0].children[0].children[0]
-						.children[1] as THREE.Mesh;
-
-					// Center the board's geometry
-					const box = new THREE.Box3().setFromObject(actualItem);
-					const center = box.getCenter(new THREE.Vector3());
-					actualItem.position.sub(center);
-
-					// Apply transparent material to both the board and its children
-					actualItem.traverse((child) => {
+				if (boardTemplate) {
+					// If we already have a template, clone it and its materials
+					const clone = boardTemplate.clone();
+					// Create new materials for each submesh
+					clone.traverse((child) => {
 						if (child instanceof THREE.Mesh) {
-							const material = new THREE.MeshStandardMaterial({
-								map: (child.material as THREE.MeshStandardMaterial).map,
-								metalness: (child.material as THREE.MeshStandardMaterial).metalness,
-								roughness: (child.material as THREE.MeshStandardMaterial).roughness,
+							const originalMaterial = child.material as THREE.MeshStandardMaterial;
+							const newMaterial = new THREE.MeshStandardMaterial({
+								map: originalMaterial.map,
+								metalness: originalMaterial.metalness,
+								roughness: originalMaterial.roughness,
 								transparent: true,
 								opacity: 0,
 								depthWrite: true
 							});
-							child.material = material;
-							boardMaterials.push(material);
+							child.material = newMaterial;
+							boardMaterials.push(newMaterial);
 						}
 					});
+					resolve(clone);
+				} else {
+					// Load the model for the first time
+					gltfLoader.load('/models/board/board.glb', (gltf) => {
+						const scale = 0.0075;
+						const actualItem = gltf.scene.children[0].children[0].children[0]
+							.children[1] as THREE.Mesh;
 
-					actualItem.scale.set(scale, scale, scale);
-					resolve(actualItem);
-				});
+						// Center the board's geometry
+						const box = new THREE.Box3().setFromObject(actualItem);
+						const center = box.getCenter(new THREE.Vector3());
+						actualItem.position.sub(center);
+
+						// Create and apply materials for each submesh
+						actualItem.traverse((child) => {
+							if (child instanceof THREE.Mesh) {
+								const originalMaterial = child.material as THREE.MeshStandardMaterial;
+								const material = new THREE.MeshStandardMaterial({
+									map: originalMaterial.map,
+									metalness: originalMaterial.metalness,
+									roughness: originalMaterial.roughness,
+									transparent: true,
+									opacity: 0,
+									depthWrite: true
+								});
+								child.material = material;
+								boardMaterials.push(material);
+							}
+						});
+
+						actualItem.scale.set(scale, scale, scale);
+						boardTemplate = actualItem; // Save as template
+						resolve(actualItem);
+					});
+				}
 			});
 		};
 
@@ -704,10 +810,6 @@
 				});
 			});
 		};
-
-		loadColumnModel();
-		loadBoardModel();
-		loadChainModel();
 
 		// Add controls toggle to GUI right after creating it
 		gui
@@ -833,41 +935,48 @@
 			return visiblePlane;
 		};
 
-		const plane1 = addPlane({
-			height: 6,
-			angle: 0,
-			name: '0'
-		});
-		const plane2 = addPlane({
-			height: 4,
-			angle: 60,
-			name: '1'
-		});
-		const plane3 = addPlane({
-			height: 2,
-			angle: 120,
-			name: '2'
-		});
-		const plane4 = addPlane({
-			height: 0,
-			angle: 180,
-			name: '3'
-		});
-		const plane5 = addPlane({
-			height: -2,
-			angle: 240,
-			name: '4'
-		});
-		const plane6 = addPlane({
-			height: -4,
-			angle: 300,
-			name: '5'
-		});
-		const plane7 = addPlane({
-			height: -6,
-			angle: 360,
-			name: '6'
-		});
+		// Replace the createPlanesSequentially function with this:
+		const createPlanesSequentially = async () => {
+			// First, ensure board template is loaded
+			if (!boardTemplate) {
+				await loadBoardModel();
+			}
+
+			const planeConfigs = [
+				{ height: 6, angle: 0, name: '0' },
+				{ height: 4, angle: 60, name: '1' },
+				{ height: 2, angle: 120, name: '2' },
+				{ height: 0, angle: 180, name: '3' },
+				{ height: -2, angle: 240, name: '4' },
+				{ height: -4, angle: 300, name: '5' },
+				{ height: -6, angle: 360, name: '6' }
+			];
+
+			// Create planes one at a time in sequence
+			for (const config of planeConfigs) {
+				await addPlane(config);
+			}
+		};
+
+		// Add initialization function
+		const initScene = async () => {
+			await loadColumnModel();
+			await loadChainModel();
+			// Load board template first
+			if (!boardTemplate) {
+				await loadBoardModel();
+			}
+			await createPlanesSequentially();
+			// Start the animation loop only after everything is loaded
+			tick();
+		};
+
+		// Replace the direct calls with initScene
+		// loadColumnModel();
+		// loadBoardModel();
+		// loadChainModel();
+		// createPlanesSequentially();
+		initScene();
 
 		// Lights
 		const addLights = () => {
@@ -1113,7 +1222,7 @@
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 			window.removeEventListener('wheel', (event: WheelEvent) => handleScroll(event.deltaY));
 			window.removeEventListener('mousemove', handleMouseMove);
-			window.removeEventListener('click', handleClick); // Don't forget to remove the listener
+			window.removeEventListener('click', handleClick);
 			window.removeEventListener('touchstart', handleTouchStart);
 			window.removeEventListener('touchmove', handleTouchMove);
 			window.removeEventListener('touchend', handleTouchEnd);
@@ -1132,6 +1241,27 @@
 		<h3 id="hero-subheading" class="text-xl md:text-3xl font-cinzel font-semibold text-zinc-100">
 			Our values
 		</h3>
+	</div>
+	<div id="1" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Community</h2>
+	</div>
+	<div id="2" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Inovation</h2>
+	</div>
+	<div id="3" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Passion</h2>
+	</div>
+	<div id="4" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Excellence</h2>
+	</div>
+	<div id="5" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Vision</h2>
+	</div>
+	<div id="6" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Legacy</h2>
+	</div>
+	<div id="7" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2">
+		<h2 class="text-black text-6xl font-bold opacity-0">Integrity</h2>
 	</div>
 </div>
 

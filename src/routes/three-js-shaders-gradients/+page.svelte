@@ -107,8 +107,8 @@
 
 		// Sizes
 		const sizes = {
-			width: 400,
-			height: 400,
+			width: 450,
+			height: 350,
 			pixelRatio: Math.min(window.devicePixelRatio, 2)
 		};
 
@@ -313,5 +313,12 @@
 </script>
 
 <div>
-	<canvas class="webgl"></canvas>
+	<div class="w-fit overflow-hidden rounded-lg mx-auto mt-20 relative">
+		<canvas class="webgl"></canvas>
+		<h1
+			class="absolute text-black top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-bold whitespace-nowrap"
+		>
+			Wonder Makers
+		</h1>
+	</div>
 </div>

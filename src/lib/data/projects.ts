@@ -419,5 +419,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/portal-gateway.png'
+	},
+	{
+		href: '/inverted-border',
+		title: 'Css inverted border',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/inverted-border.png'
 	}
 ];

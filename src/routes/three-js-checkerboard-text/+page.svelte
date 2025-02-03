@@ -87,7 +87,6 @@
 	});
 </script>
 
-git ad
 <div>
 	<canvas class="webgl"></canvas>
 </div>
