@@ -416,8 +416,8 @@ export const projects = [
 		title: 'Checkerboard text reveal',
 		description: 'Cool text reveal effect',
 		technologies: ['THREE.js'],
-		shared: true,
-		isForNextTuesday: true,
+		shared: false,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/portal-gateway.png'
 	},
 	{
@@ -428,5 +428,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/inverted-border.png'
+	},
+	{
+		href: '/three-js-postprocesing-scroll',
+		title: 'Warped gallery',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/galery-warp.png'
 	}
 ];

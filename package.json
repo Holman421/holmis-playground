@@ -44,6 +44,7 @@
 		"cannon": "^0.6.2",
 		"clsx": "^2.1.1",
 		"gsap": "^3.12.5",
+		"html2canvas": "^1.4.1",
 		"lenis": "^1.1.20",
 		"lil-gui": "^0.19.2",
 		"shadcn-svelte": "^0.13.0",
