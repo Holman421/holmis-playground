@@ -72,44 +72,52 @@
 		const ZOOM_DURATION = 1;
 
 		const handleWheel = (e: WheelEvent) => {
-			if (isZoomed) return; // Disable scrolling while zoomed
+			if (isZoomed || isTransitioning) {
+				e.preventDefault();
+				return;
+			}
+
 			e.preventDefault();
 			velocity += e.deltaY * 0.0001 * SCROLL_SPEED; // Reduced multiplier
 			velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocity));
 		};
 
 		const handleTouchStart = (e: TouchEvent) => {
+			if (isTransitioning) return; // Prevent touch handling during transitions
+
 			e.preventDefault();
 			lastTouchY = e.touches[0].clientY;
 
-			// Handle touch click/tap
-			const touch = e.touches[0];
-			const touchX = (touch.clientX / sizes.width) * 2 - 1;
-			const touchY = -(touch.clientY / sizes.height) * 2 + 1;
+			// Only handle tap/click interaction if not currently zoomed
+			if (!isZoomed) {
+				const touch = e.touches[0];
+				const touchX = (touch.clientX / sizes.width) * 2 - 1;
+				const touchY = -(touch.clientY / sizes.height) * 2 + 1;
 
-			// Update mouse position for raycaster
-			mouse.x = touchX;
-			mouse.y = touchY;
+				mouse.x = touchX;
+				mouse.y = touchY;
 
-			// Handle tap/click interaction
-			if (!effectActive) {
 				raycaster.setFromCamera(mouse, camera);
 				const intersects = raycaster.intersectObjects(allPlanes);
-
-				if (isZoomed) {
-					resetCamera();
-					return;
-				}
 
 				if (intersects.length > 0) {
 					const clickedPlane = intersects[0].object as THREE.Mesh;
 					zoomToPlane(clickedPlane);
 				}
+			} else {
+				// If zoomed, any tap should reset the camera
+				resetCamera();
 			}
 		};
 
 		let lastTouchY = 0;
 		const handleTouchMove = (e: TouchEvent) => {
+			// Prevent scroll handling if zoomed or transitioning
+			if (isZoomed || isTransitioning) {
+				e.preventDefault();
+				return;
+			}
+
 			e.preventDefault();
 			const touchY = e.touches[0].clientY;
 			const deltaY = lastTouchY - touchY;
@@ -691,9 +699,12 @@
 		};
 
 		const zoomToPlane = (plane: THREE.Mesh) => {
+			if (isTransitioning) return; // Prevent multiple zoom attempts
+
 			isTransitioning = true; // Start transition
 			isZoomed = true;
 			zoomedPlane = plane;
+			velocity = 0; // Reset velocity when zooming
 
 			const targetPosition = plane.position.clone();
 
@@ -766,13 +777,16 @@
 		};
 
 		const resetCamera = () => {
-			if (!isZoomed || !zoomedPlane) return;
+			if (!isZoomed || isTransitioning) return;
 
 			isTransitioning = true; // Start transition
 			isZoomed = false;
+			velocity = 0; // Reset velocity when resetting camera
 
 			// Reset vertical neighbors first
-			resetVerticalNeighbors(zoomedPlane);
+			if (zoomedPlane) {
+				resetVerticalNeighbors(zoomedPlane);
+			}
 
 			// Reset camera
 			gsap.to(camera.position, {
