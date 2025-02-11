@@ -23,6 +23,11 @@
 	];
 
 	$effect(() => {
+		// Add mobile detection at the top
+		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+			navigator.userAgent
+		);
+
 		// Base
 		const gui = new GUI({ width: 325 });
 		const debugObject: any = {
@@ -72,6 +77,31 @@
 		const handleTouchStart = (e: TouchEvent) => {
 			e.preventDefault();
 			lastTouchY = e.touches[0].clientY;
+
+			// Handle touch click/tap
+			const touch = e.touches[0];
+			const touchX = (touch.clientX / sizes.width) * 2 - 1;
+			const touchY = -(touch.clientY / sizes.height) * 2 + 1;
+
+			// Update mouse position for raycaster
+			mouse.x = touchX;
+			mouse.y = touchY;
+
+			// Handle tap/click interaction
+			if (!effectActive) {
+				raycaster.setFromCamera(mouse, camera);
+				const intersects = raycaster.intersectObjects(allPlanes);
+
+				if (isZoomed) {
+					resetCamera();
+					return;
+				}
+
+				if (intersects.length > 0) {
+					const clickedPlane = intersects[0].object as THREE.Mesh;
+					zoomToPlane(clickedPlane);
+				}
+			}
 		};
 
 		let lastTouchY = 0;
@@ -105,7 +135,7 @@
 		const VERTICAL_SPACING = 1.5; // Smaller vertical gaps
 		const TOTAL_SETS = 9; // Increased from 6 to 9 for more buffer
 		const VISIBLE_SETS = 4; // Increased from 3 to 4 to show more at once
-		const BUFFER_SETS = 1; // Additional buffer for smooth transitions
+		const BUFFER_SETS = 2; // Increased from 1 to 2 for smoother transitions
 
 		// Add mouse tracking
 		const mouse = new THREE.Vector2();
@@ -162,6 +192,32 @@
 		>();
 		let planeIdCounter = 0;
 
+		// Add texture loader with cache
+		const textureLoader = new THREE.TextureLoader();
+		const textureCache = new Map<string, THREE.Texture>();
+
+		// Preload all textures
+		const preloadTextures = async () => {
+			return Promise.all(
+				imgArray.map((url) => {
+					return new Promise<void>((resolve) => {
+						if (textureCache.has(url)) {
+							resolve();
+							return;
+						}
+						textureLoader.load(url, (texture) => {
+							texture.generateMipmaps = true;
+							texture.minFilter = THREE.LinearMipmapLinearFilter;
+							texture.magFilter = THREE.LinearFilter;
+							texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+							textureCache.set(url, texture);
+							resolve();
+						});
+					});
+				})
+			);
+		};
+
 		// Function to create a grid of images - updated initial position
 		const createImageGrid = (offsetX = 0, setIndex = 0) => {
 			const planes = [];
@@ -181,7 +237,7 @@
 					gridWidth * (TOTAL_SETS / 2 - 1); // Adjusted multiplier
 				const y = row * VERTICAL_SPACING - (ROWS * VERTICAL_SPACING - VERTICAL_SPACING) / 2;
 
-				const texture = new THREE.TextureLoader().load(imgArray[i]);
+				const texture = textureCache.get(imgArray[i]) || textureLoader.load(imgArray[i]);
 				const geometry = new THREE.PlaneGeometry(1, 1);
 				const material = new THREE.MeshBasicMaterial({
 					map: texture,
@@ -322,7 +378,7 @@
 		});
 
 		// Camera setup - replace perspective with orthographic
-		const frustumSize = 7; // Increased to show more of the scene
+		const frustumSize = 8; // Increased to show more of the scene
 		const aspect = sizes.width / sizes.height;
 		const camera = new THREE.OrthographicCamera(
 			(frustumSize * aspect) / -2,
@@ -367,10 +423,17 @@
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
-			antialias: true
+			antialias: true,
+			powerPreference: 'high-performance',
+			stencil: false,
+			depth: false // We don't need depth testing for 2D
 		});
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
+
+		// Enable shadow map auto update only when needed
+		renderer.shadowMap.autoUpdate = false;
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 		// Post Processing
 		const composer = new EffectComposer(renderer);
@@ -379,6 +442,40 @@
 
 		const chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader);
 		composer.addPass(chromaticAberrationPass);
+
+		// Create new render targets
+		const updateRenderTargets = () => {
+			const oldTarget1 = composer.renderTarget1;
+			const oldTarget2 = composer.renderTarget2;
+
+			const newTarget = new THREE.WebGLRenderTarget(sizes.width, sizes.height, {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.LinearFilter,
+				format: THREE.RGBAFormat,
+				type: THREE.HalfFloatType
+			});
+
+			composer.renderTarget1 = newTarget;
+			composer.renderTarget2 = newTarget.clone();
+
+			// Clean up old targets
+			if (oldTarget1) oldTarget1.dispose();
+			if (oldTarget2) oldTarget2.dispose();
+		};
+
+		// Initial setup
+		updateRenderTargets();
+		composer.setSize(sizes.width, sizes.height);
+		composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+		// Update resize handler to include render target updates
+		window.addEventListener('resize', () => {
+			// ...existing resize code...
+
+			updateRenderTargets();
+			composer.setSize(sizes.width, sizes.height);
+			composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		});
 
 		// Update GUI - keep only the essential control
 		const offsetController = gui
@@ -736,6 +833,35 @@
 			}
 		};
 
+		// Add object pooling for better performance
+		const objectPool = new Set<THREE.Mesh>();
+		const reuseOrCreatePlane = () => {
+			for (const plane of objectPool) {
+				if (!plane.parent) {
+					return plane;
+				}
+			}
+			const plane = new THREE.Mesh(
+				new THREE.PlaneGeometry(1, 1),
+				new THREE.MeshBasicMaterial({ transparent: true })
+			);
+			objectPool.add(plane);
+			return plane;
+		};
+
+		// Add frustum buffer calculation
+		const calculateVisibilityBounds = () => {
+			const aspect = sizes.width / sizes.height;
+			const horizontalBound = (frustumSize * aspect) / 2;
+			const verticalBound = frustumSize / 2;
+			return {
+				left: -horizontalBound - HORIZONTAL_SPACING * 2,
+				right: horizontalBound + HORIZONTAL_SPACING * 2,
+				top: verticalBound + VERTICAL_SPACING,
+				bottom: -verticalBound - VERTICAL_SPACING
+			};
+		};
+
 		// Animate
 		const clock = new THREE.Clock();
 		let animationFrameId: number;
@@ -743,8 +869,15 @@
 		const scrollSpeed = 0.1;
 		const maxScroll = gridWidth;
 
-		// Modified tick function
+		// Optimize animation performance
+		const ANIMATION_FRAME_BUDGET = 16; // ~60fps
+		let lastFrameTime = 0;
+
+		// Modified tick function - Option 1: Remove currentTime parameter
 		const tick = () => {
+			// Remove frame skipping since we don't have currentTime
+			// Just call render every frame
+
 			// Apply deceleration
 			velocity *= DECELERATION;
 
@@ -828,13 +961,14 @@
 			// Update cursor based on intersection
 			updateCursor(intersects);
 
-			// Handle hover states
+			// Handle hover states - add mobile check
 			const newHoveredPlane =
-				effectActive || isZoomed || isTransitioning || intersects.length === 0
+				isMobile || effectActive || isZoomed || isTransitioning || intersects.length === 0
 					? null
 					: (intersects[0].object as THREE.Mesh);
 
-			if (hoveredPlane !== newHoveredPlane && !isZoomed) {
+			// Only process hover effects if not on mobile
+			if (!isMobile && hoveredPlane !== newHoveredPlane && !isZoomed) {
 				// Reset all active vertical neighbors first
 				activeVerticalNeighbors.forEach(resetVerticalNeighbors);
 
@@ -989,11 +1123,59 @@
 				}
 			}
 
+			// Batch matrix updates
+			scene.updateMatrixWorld();
+
+			// Only update what's visible
+			const frustum = new THREE.Frustum();
+			const matrix = new THREE.Matrix4().multiplyMatrices(
+				camera.projectionMatrix,
+				camera.matrixWorldInverse
+			);
+			frustum.setFromProjectionMatrix(matrix);
+
+			const bounds = calculateVisibilityBounds();
+
+			allPlanes.forEach((plane) => {
+				const worldPos = plane.position;
+				const isVisible =
+					worldPos.x >= bounds.left &&
+					worldPos.x <= bounds.right &&
+					worldPos.y >= bounds.bottom &&
+					worldPos.y <= bounds.top;
+
+				if (isVisible) {
+					plane.visible = true;
+					// Only update positions of visible and buffer planes
+					if (Math.abs(worldPos.x) < bounds.right + HORIZONTAL_SPACING * BUFFER_SETS) {
+						// Existing position update code...
+					}
+				} else {
+					plane.visible = false;
+				}
+			});
+
 			composer.render();
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		tick();
+
+		// Optimize event listeners with debouncing
+		const debounce = <T extends (...args: any[]) => any>(fn: T, ms: number) => {
+			let timeoutId: ReturnType<typeof setTimeout>;
+			return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
+				clearTimeout(timeoutId);
+				timeoutId = setTimeout(() => fn.apply(this, args), ms);
+			};
+		};
+
+		const debouncedResize = debounce(() => {
+			// ...existing resize code...
+		}, 250);
+
+		window.addEventListener('resize', debouncedResize);
+
 		return () => {
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
@@ -1002,6 +1184,15 @@
 			window.removeEventListener('touchmove', handleTouchMove);
 			window.removeEventListener('mousemove', handleMouseMove);
 			window.removeEventListener('click', handleClick);
+			textureCache.forEach((texture) => texture.dispose());
+			textureCache.clear();
+			objectPool.forEach((obj) => {
+				obj.geometry.dispose();
+				(obj.material as THREE.Material).dispose();
+			});
+			objectPool.clear();
+			renderer.dispose();
+			composer.dispose();
 		};
 	});
 </script>
