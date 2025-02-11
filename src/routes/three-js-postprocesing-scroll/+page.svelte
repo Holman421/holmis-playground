@@ -28,6 +28,10 @@
 			navigator.userAgent
 		);
 
+		// Add texture loader and cache at the top, before using them
+		const textureCache = new Map<string, THREE.Texture>();
+		const textureLoader = new THREE.TextureLoader(); // Simplified loader
+
 		// Base
 		const gui = new GUI({ width: 325 });
 		const debugObject: any = {
@@ -191,10 +195,6 @@
 			}
 		>();
 		let planeIdCounter = 0;
-
-		// Add texture loader with cache
-		const textureLoader = new THREE.TextureLoader();
-		const textureCache = new Map<string, THREE.Texture>();
 
 		// Preload all textures
 		const preloadTextures = async () => {
@@ -378,7 +378,7 @@
 		});
 
 		// Camera setup - replace perspective with orthographic
-		const frustumSize = 8; // Increased to show more of the scene
+		const frustumSize = 6; // Increased to show more of the scene
 		const aspect = sizes.width / sizes.height;
 		const camera = new THREE.OrthographicCamera(
 			(frustumSize * aspect) / -2,
@@ -388,7 +388,7 @@
 			0.1,
 			100
 		);
-		camera.position.set(0, -0.4, 4);
+		camera.position.set(0, 0, 4);
 		scene.add(camera);
 
 		// Update resize handler
@@ -485,6 +485,8 @@
 			.step(0.001)
 			.name('uOffset')
 			.listen();
+
+		gui.hide();
 
 		// Add easing function
 		const easeOutCubic = (x: number): number => {
@@ -1205,5 +1207,7 @@
 	canvas.webgl {
 		cursor: default;
 		transition: cursor 0.1s ease-out;
+		position: relative;
+		z-index: 0; /* Ensure canvas is below loading elements */
 	}
 </style>
