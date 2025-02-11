@@ -5,6 +5,7 @@
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 	import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+	import { gsap } from 'gsap';
 
 	const imgArray = [
 		'/pictures/planet-img.jpg',
@@ -43,7 +44,26 @@
 		let currentEffect = 0;
 		const EFFECT_LERP = 0.08; // Smooth effect transition
 
+		// Add zoom state tracking
+		let isZoomed = false;
+		let zoomedPlane: THREE.Mesh | null = null;
+		let effectActive = false; // Add this line here
+		const INITIAL_FRUSTUM_SIZE = 6;
+		const ZOOMED_FRUSTUM_SIZE = 2; // Smaller value = more zoomed in
+		let currentFrustumSize = INITIAL_FRUSTUM_SIZE;
+
+		// Add transition state tracking
+		let isTransitioning = false;
+
+		// Use a single scale constant for both hover and zoom
+		const PLANE_SCALE = 2;
+		const HOVER_SCALE = PLANE_SCALE;
+		const ZOOM_SCALE = PLANE_SCALE;
+		const HOVER_DURATION = 0.3;
+		const ZOOM_DURATION = 1;
+
 		const handleWheel = (e: WheelEvent) => {
+			if (isZoomed) return; // Disable scrolling while zoomed
 			e.preventDefault();
 			velocity += e.deltaY * 0.0001 * SCROLL_SPEED; // Reduced multiplier
 			velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocity));
@@ -83,10 +103,67 @@
 		const COLUMNS = 3;
 		const HORIZONTAL_SPACING = 1.5; // Wider horizontal gaps
 		const VERTICAL_SPACING = 1.5; // Smaller vertical gaps
-		const TOTAL_SETS = 8; // Increased number of sets for smoother wrapping
+		const TOTAL_SETS = 9; // Increased from 6 to 9 for more buffer
+		const VISIBLE_SETS = 4; // Increased from 3 to 4 to show more at once
+		const BUFFER_SETS = 1; // Additional buffer for smooth transitions
+
+		// Add mouse tracking
+		const mouse = new THREE.Vector2();
+		const raycaster = new THREE.Raycaster();
+
+		const handleMouseMove = (event: MouseEvent) => {
+			mouse.x = (event.clientX / sizes.width) * 2 - 1;
+			mouse.y = -(event.clientY / sizes.height) * 2 + 1;
+		};
+
+		window.addEventListener('mousemove', handleMouseMove);
+
+		// Track currently hovered plane and its original scale
+		let hoveredPlane: THREE.Mesh | null = null;
+		const originalScales = new Map<THREE.Mesh, THREE.Vector3>();
+		const originalPositions = new Map<THREE.Mesh, THREE.Vector3>();
+
+		// Modify the constants for neighbor detection
+		const NEIGHBOR_SCALE = 0.7;
+		const GRID_X_THRESHOLD = 2.0; // Horizontal threshold
+		const GRID_Y_THRESHOLD = 2.0; // Vertical threshold
+
+		// Update the neighbor finding function to include corners
+		const findNeighboringPlanes = (plane: THREE.Mesh) => {
+			const planeMeta = planeMetadata.get(plane);
+			if (!planeMeta) return [];
+
+			return allPlanes.filter((p) => {
+				if (p === plane) return false;
+				const neighborMeta = planeMetadata.get(p);
+				if (!neighborMeta) return false;
+
+				// Calculate distance based on wrapped positions
+				const dx = Math.abs(plane.position.x - p.position.x);
+				const dy = Math.abs(plane.position.y - p.position.y);
+				const gridTotalWidth = gridWidth * (TOTAL_SETS - 3);
+
+				// Check both normal and wrapped distances
+				const wrappedDx = Math.min(dx, Math.abs(dx - gridTotalWidth));
+
+				return wrappedDx <= GRID_X_THRESHOLD && dy <= GRID_Y_THRESHOLD;
+			});
+		};
+
+		// Add position tracking for transform origin simulation
+		const planeMetadata = new Map<
+			THREE.Mesh,
+			{
+				row: number;
+				col: number;
+				setIndex: number;
+				id: string;
+			}
+		>();
+		let planeIdCounter = 0;
 
 		// Function to create a grid of images - updated initial position
-		const createImageGrid = (offsetX = 0) => {
+		const createImageGrid = (offsetX = 0, setIndex = 0) => {
 			const planes = [];
 			const itemsPerSet = imgArray.length;
 			const gridWidth = COLUMNS * HORIZONTAL_SPACING;
@@ -112,10 +189,38 @@
 				});
 				const plane = new THREE.Mesh(geometry, material);
 				plane.position.set(x, y, 0);
+				originalScales.set(plane, new THREE.Vector3(1, 1, 1));
+				originalPositions.set(plane, new THREE.Vector3(x, y, 0));
+				const planeId = `plane_${i}_${setIndex}_${planeIdCounter++}`;
+				planeMetadata.set(plane, {
+					row,
+					col,
+					setIndex,
+					id: planeId
+				});
 				scene.add(plane);
 				planes.push(plane);
 			}
 			return planes;
+		};
+
+		// Add function to calculate position offset based on row
+		const calculateScaleOffset = (plane: THREE.Mesh, targetScale: number) => {
+			const metadata = planeMetadata.get(plane);
+			if (!metadata) return { x: 0, y: 0 };
+
+			const isTopRow = metadata.row === 0;
+			const isBottomRow = metadata.row === ROWS - 1;
+			const scaleDelta = targetScale - 1;
+
+			let yOffset = 0;
+			if (isTopRow) {
+				yOffset = scaleDelta * 0.5; // Move up when scaling from top
+			} else if (isBottomRow) {
+				yOffset = -(scaleDelta * 0.5); // Move down when scaling from bottom
+			}
+
+			return { x: 0, y: yOffset };
 		};
 
 		// Create multiple sets of images for seamless looping
@@ -123,9 +228,24 @@
 		const gridWidth = COLUMNS * HORIZONTAL_SPACING;
 
 		for (let i = 0; i < TOTAL_SETS; i++) {
-			const planes = createImageGrid(i * gridWidth);
+			const planes = createImageGrid(i * gridWidth, i);
 			allPlanes = [...allPlanes, ...planes];
 		}
+
+		// Add function to find duplicate planes at the same visual position
+		const findDuplicatePlanes = (plane: THREE.Mesh) => {
+			const planeMeta = planeMetadata.get(plane);
+			if (!planeMeta) return [];
+
+			return allPlanes.filter((p) => {
+				if (p === plane) return false;
+				const pMeta = planeMetadata.get(p);
+				if (!pMeta) return false;
+
+				// Check if they're in the same visual column and row
+				return pMeta.row === planeMeta.row && Math.abs(p.position.x - plane.position.x) < 0.1;
+			});
+		};
 
 		// Updated Chromatic Aberration Shader
 		const ChromaticAberrationShader = {
@@ -202,7 +322,7 @@
 		});
 
 		// Camera setup - replace perspective with orthographic
-		const frustumSize = 6; // Increased to show more of the scene
+		const frustumSize = 7; // Increased to show more of the scene
 		const aspect = sizes.width / sizes.height;
 		const camera = new THREE.OrthographicCamera(
 			(frustumSize * aspect) / -2,
@@ -212,7 +332,7 @@
 			0.1,
 			100
 		);
-		camera.position.set(0, 0, 4);
+		camera.position.set(0, -0.4, 4);
 		scene.add(camera);
 
 		// Update resize handler
@@ -231,6 +351,13 @@
 
 			renderer.setSize(sizes.width, sizes.height);
 			renderer.setPixelRatio(sizes.pixelRatio);
+
+			// Update zoom if currently zoomed in
+			if (isZoomed && zoomedPlane) {
+				const zoomedSize = calculateZoomFrustumSize();
+				currentFrustumSize = zoomedSize;
+				updateCameraFrustum(currentFrustumSize);
+			}
 		});
 
 		// Controls
@@ -267,6 +394,348 @@
 			return 1 - Math.pow(1 - x, 3);
 		};
 
+		// Add constants for vertical overlap handling
+		const VERTICAL_OVERLAP_OFFSET = 0.5; // How far to move vertical neighbors
+
+		// Improved findVerticalNeighbors function
+		const findVerticalNeighbors = (plane: THREE.Mesh) => {
+			const metadata = planeMetadata.get(plane);
+			if (!metadata) return { above: null, below: null };
+
+			const isTopRow = metadata.row === 0;
+			const isBottomRow = metadata.row === ROWS - 1;
+
+			// Early return if not on top or bottom row
+			if (!isTopRow && !isBottomRow) return { above: null, below: null };
+
+			const findNeighborInColumn = (targetRow: number) => {
+				// Get all planes in the target row that match the column position
+				const possibleNeighbors = allPlanes.filter((p) => {
+					const neighborMeta = planeMetadata.get(p);
+					if (!neighborMeta || neighborMeta.row !== targetRow) return false;
+
+					// Calculate wrapped distance for x position
+					const dx = Math.abs(plane.position.x - p.position.x);
+					const gridTotalWidth = gridWidth * (TOTAL_SETS - 3);
+					const wrappedDx = Math.min(dx, Math.abs(dx - gridTotalWidth));
+
+					// Use a very small threshold for more precise matching
+					return wrappedDx < 0.05;
+				});
+
+				// Return the closest neighbor if multiple are found
+				return (
+					possibleNeighbors.sort((a, b) => {
+						const dxA = Math.abs(plane.position.x - a.position.x);
+						const dxB = Math.abs(plane.position.x - b.position.x);
+						return dxA - dxB;
+					})[0] || null
+				);
+			};
+
+			// For top row, always look for below neighbor
+			if (isTopRow) {
+				const below = findNeighborInColumn(metadata.row + 1);
+				return { above: null, below };
+			}
+
+			// For bottom row, always look for above neighbor
+			if (isBottomRow) {
+				const above = findNeighborInColumn(metadata.row - 1);
+				return { above, below: null };
+			}
+
+			return { above: null, below: null };
+		};
+
+		// Add tracking for active vertical neighbors
+		const activeVerticalNeighbors = new Set<THREE.Mesh>();
+
+		// Add tracking for vertical neighbor states
+		const verticalNeighborStates = new Map<
+			THREE.Mesh,
+			{
+				isMoving: boolean;
+				targetY: number;
+				originalY: number;
+			}
+		>();
+
+		// Add a new Map to track active vertical neighbor relationships
+		const activeVerticalRelationships = new Map<THREE.Mesh, THREE.Mesh[]>();
+
+		// Keep only this version of moveVerticalNeighbor
+		const moveVerticalNeighbor = (
+			neighbor: THREE.Mesh,
+			direction: 'up' | 'down',
+			mainPlane: THREE.Mesh
+		) => {
+			const originalPos = originalPositions.get(neighbor);
+			if (!originalPos) return;
+
+			// Kill any existing animations
+			gsap.killTweensOf(neighbor.position);
+			gsap.killTweensOf(neighbor.scale);
+
+			const targetY =
+				originalPos.y + (direction === 'up' ? -VERTICAL_OVERLAP_OFFSET : VERTICAL_OVERLAP_OFFSET);
+
+			// Track the relationship
+			if (!activeVerticalRelationships.has(mainPlane)) {
+				activeVerticalRelationships.set(mainPlane, []);
+			}
+			const currentNeighbors = activeVerticalRelationships.get(mainPlane) || [];
+			if (!currentNeighbors.includes(neighbor)) {
+				currentNeighbors.push(neighbor);
+				activeVerticalRelationships.set(mainPlane, currentNeighbors);
+			}
+
+			// Ensure neighbor is at the correct scale
+			gsap.to(neighbor.scale, {
+				x: NEIGHBOR_SCALE,
+				y: NEIGHBOR_SCALE,
+				duration: HOVER_DURATION,
+				ease: 'power2.out'
+			});
+
+			// Move to target position
+			gsap.to(neighbor.position, {
+				y: targetY,
+				duration: HOVER_DURATION,
+				ease: 'power2.out',
+				onComplete: () => {
+					if (verticalNeighborStates.has(neighbor)) {
+						verticalNeighborStates.get(neighbor)!.isMoving = false;
+					}
+				}
+			});
+
+			activeVerticalNeighbors.add(neighbor);
+		};
+
+		// Update resetVerticalNeighbors to handle all cases
+		const resetVerticalNeighbors = (mainPlane: THREE.Mesh) => {
+			// Reset all neighbors associated with this plane
+			const neighbors = activeVerticalRelationships.get(mainPlane) || [];
+			neighbors.forEach((neighbor) => {
+				const originalPos = originalPositions.get(neighbor);
+				if (originalPos) {
+					gsap.killTweensOf(neighbor.position);
+					gsap.to(neighbor.position, {
+						y: originalPos.y,
+						duration: HOVER_DURATION * 0.5,
+						ease: 'power2.out',
+						onComplete: () => {
+							activeVerticalNeighbors.delete(neighbor);
+							verticalNeighborStates.delete(neighbor);
+						}
+					});
+				}
+			});
+			activeVerticalRelationships.delete(mainPlane);
+		};
+
+		// Add click handler
+		const handleClick = (event: MouseEvent) => {
+			if (effectActive) return;
+
+			raycaster.setFromCamera(mouse, camera);
+			const intersects = raycaster.intersectObjects(allPlanes);
+
+			if (isZoomed) {
+				// Always reset when clicking anywhere while zoomed
+				resetCamera();
+				return; // Exit early to prevent new zoom
+			}
+
+			if (intersects.length > 0) {
+				const clickedPlane = intersects[0].object as THREE.Mesh;
+				// Reset any existing hover states before zooming
+				if (hoveredPlane) {
+					const originalPos = originalPositions.get(hoveredPlane);
+					if (originalPos) {
+						gsap.to(hoveredPlane.scale, {
+							x: 1,
+							y: 1,
+							duration: HOVER_DURATION / 2,
+							ease: 'power2.out'
+						});
+					}
+				}
+				hoveredPlane = null;
+				zoomToPlane(clickedPlane);
+			}
+		};
+
+		// Add event listener for click (place it right after the handleClick function)
+		window.addEventListener('click', handleClick);
+
+		// Add camera animation functions
+		const updateCameraFrustum = (size: number) => {
+			const aspect = sizes.width / sizes.height;
+			camera.left = (size * aspect) / -2;
+			camera.right = (size * aspect) / 2;
+			camera.top = size / 2;
+			camera.bottom = size / -2;
+			camera.updateProjectionMatrix();
+		};
+
+		// Add helper function to calculate zoom frustum size based on aspect ratio
+		const calculateZoomFrustumSize = () => {
+			const aspect = sizes.width / sizes.height;
+			if (aspect < 1) {
+				// Portrait mode - fit to width
+				return ZOOMED_FRUSTUM_SIZE * (1 / aspect);
+			}
+			// Landscape mode - fit to height
+			return ZOOMED_FRUSTUM_SIZE;
+		};
+
+		const zoomToPlane = (plane: THREE.Mesh) => {
+			isTransitioning = true; // Start transition
+			isZoomed = true;
+			zoomedPlane = plane;
+
+			const targetPosition = plane.position.clone();
+
+			// Always scale up the clicked plane to HOVER_SCALE
+			gsap.to(plane.scale, {
+				x: HOVER_SCALE,
+				y: HOVER_SCALE,
+				duration: ZOOM_DURATION,
+				ease: 'power2.inOut'
+			});
+
+			// Apply position offset for the main plane
+			const offset = calculateScaleOffset(plane, HOVER_SCALE);
+			const originalPos = originalPositions.get(plane);
+			if (originalPos) {
+				gsap.to(plane.position, {
+					y: originalPos.y + offset.y,
+					duration: ZOOM_DURATION,
+					ease: 'power2.inOut'
+				});
+			}
+
+			// Camera animations
+			gsap.to(camera.position, {
+				x: targetPosition.x,
+				y: targetPosition.y,
+				z: 4,
+				duration: ZOOM_DURATION,
+				ease: 'power2.inOut',
+				onComplete: () => {
+					isTransitioning = false; // End transition
+				}
+			});
+
+			// Calculate appropriate frustum size based on aspect ratio
+			const zoomedSize = calculateZoomFrustumSize();
+
+			gsap.to(
+				{ value: currentFrustumSize },
+				{
+					value: zoomedSize,
+					duration: ZOOM_DURATION,
+					ease: 'power2.inOut',
+					onUpdate: function () {
+						currentFrustumSize = this.targets()[0].value;
+						updateCameraFrustum(currentFrustumSize);
+					}
+				}
+			);
+
+			// Keep neighbors scaled down
+			const neighbors = findNeighboringPlanes(plane);
+			neighbors.forEach((neighbor) => {
+				gsap.to(neighbor.scale, {
+					x: NEIGHBOR_SCALE,
+					y: NEIGHBOR_SCALE,
+					duration: ZOOM_DURATION,
+					ease: 'power2.inOut'
+				});
+			});
+
+			// Handle vertical neighbors
+			const verticalNeighbors = findVerticalNeighbors(plane);
+			if (verticalNeighbors.above) {
+				moveVerticalNeighbor(verticalNeighbors.above, 'up', plane);
+			}
+			if (verticalNeighbors.below) {
+				moveVerticalNeighbor(verticalNeighbors.below, 'down', plane);
+			}
+		};
+
+		const resetCamera = () => {
+			if (!isZoomed || !zoomedPlane) return;
+
+			isTransitioning = true; // Start transition
+			isZoomed = false;
+
+			// Reset vertical neighbors first
+			resetVerticalNeighbors(zoomedPlane);
+
+			// Reset camera
+			gsap.to(camera.position, {
+				x: 0,
+				y: 0,
+				z: 4,
+				duration: ZOOM_DURATION,
+				ease: 'power2.inOut'
+			});
+
+			gsap.to(
+				{ value: currentFrustumSize },
+				{
+					value: INITIAL_FRUSTUM_SIZE,
+					duration: ZOOM_DURATION,
+					ease: 'power2.inOut',
+					onUpdate: function () {
+						currentFrustumSize = this.targets()[0].value;
+						updateCameraFrustum(currentFrustumSize);
+					},
+					onComplete: () => {
+						isTransitioning = false; // End transition
+						// Ensure complete reset of all planes after zoom animation
+						allPlanes.forEach((plane) => {
+							const originalPos = originalPositions.get(plane);
+							if (originalPos) {
+								gsap.killTweensOf(plane.scale);
+								gsap.killTweensOf(plane.position);
+								gsap.to(plane.scale, {
+									x: 1,
+									y: 1,
+									duration: HOVER_DURATION,
+									ease: 'power2.out'
+								});
+								gsap.to(plane.position, {
+									y: originalPos.y,
+									duration: HOVER_DURATION,
+									ease: 'power2.out'
+								});
+							}
+						});
+					}
+				}
+			);
+
+			zoomedPlane = null;
+		};
+
+		// Add helper function to manage cursor
+		const updateCursor = (intersects: THREE.Intersection[]) => {
+			if (effectActive || isTransitioning) {
+				canvas.style.cursor = 'default';
+				return;
+			}
+
+			if (intersects.length > 0) {
+				canvas.style.cursor = 'pointer';
+			} else {
+				canvas.style.cursor = 'default';
+			}
+		};
+
 		// Animate
 		const clock = new THREE.Clock();
 		let animationFrameId: number;
@@ -290,19 +759,49 @@
 			// Smooth movement
 			currentScroll += (velocity - currentScroll) * LERP_FACTOR;
 
-			// Update planes positions
+			// Update planes positions with improved wrapping logic
 			allPlanes.forEach((plane) => {
 				const originalX = plane.position.x;
 				plane.position.x -= currentScroll;
 
-				// Simple wrapping
-				const totalWidth = gridWidth * (TOTAL_SETS - 3);
-				const halfWidth = totalWidth / 2;
+				const setWidth = gridWidth; // Width of one complete set of 12 images
+				const totalWidth = setWidth * TOTAL_SETS;
+				const activeWidth = setWidth * (VISIBLE_SETS + BUFFER_SETS * 2); // Add buffer to visible width
+				const halfActiveWidth = activeWidth / 2;
 
-				if (plane.position.x < -halfWidth) {
+				// Improved wrapping logic
+				if (plane.position.x < -halfActiveWidth) {
+					// When wrapping to right side
 					plane.position.x += totalWidth;
-				} else if (plane.position.x > halfWidth) {
+
+					// Reset any active states
+					if (plane === hoveredPlane) {
+						hoveredPlane = null;
+					}
+					gsap.killTweensOf(plane.scale);
+					gsap.killTweensOf(plane.position);
+					plane.scale.set(1, 1, 1);
+
+					const originalPos = originalPositions.get(plane);
+					if (originalPos) {
+						plane.position.y = originalPos.y;
+					}
+				} else if (plane.position.x > halfActiveWidth) {
+					// When wrapping to left side
 					plane.position.x -= totalWidth;
+
+					// Reset any active states
+					if (plane === hoveredPlane) {
+						hoveredPlane = null;
+					}
+					gsap.killTweensOf(plane.scale);
+					gsap.killTweensOf(plane.position);
+					plane.scale.set(1, 1, 1);
+
+					const originalPos = originalPositions.get(plane);
+					if (originalPos) {
+						plane.position.y = originalPos.y;
+					}
 				}
 			});
 
@@ -316,6 +815,180 @@
 			// Apply the effect with direction
 			chromaticAberrationPass.uniforms.uOffset.value = currentEffect * Math.sign(velocity);
 
+			// Update effectActive state before using it
+			effectActive = chromaticAberrationPass.uniforms.uOffset.value > 0;
+
+			// Apply the effect with direction
+			chromaticAberrationPass.uniforms.uOffset.value = currentEffect * Math.sign(velocity);
+
+			// Update raycaster
+			raycaster.setFromCamera(mouse, camera);
+			const intersects = raycaster.intersectObjects(allPlanes);
+
+			// Update cursor based on intersection
+			updateCursor(intersects);
+
+			// Handle hover states
+			const newHoveredPlane =
+				effectActive || isZoomed || isTransitioning || intersects.length === 0
+					? null
+					: (intersects[0].object as THREE.Mesh);
+
+			if (hoveredPlane !== newHoveredPlane && !isZoomed) {
+				// Reset all active vertical neighbors first
+				activeVerticalNeighbors.forEach(resetVerticalNeighbors);
+
+				// If effect becomes active, reset any current hover state
+				if (effectActive && hoveredPlane) {
+					const originalScale = originalScales.get(hoveredPlane);
+					const originalPos = originalPositions.get(hoveredPlane);
+					if (originalScale && originalPos) {
+						gsap.to(hoveredPlane.scale, {
+							x: originalScale.x,
+							y: originalScale.y,
+							duration: HOVER_DURATION * 0.5, // Faster reset during scroll
+							ease: 'power2.out'
+						});
+						gsap.to(hoveredPlane.position, {
+							y: originalPos.y,
+							duration: HOVER_DURATION * 0.5,
+							ease: 'power2.out'
+						});
+
+						// Reset all affected neighbors quickly
+						findNeighboringPlanes(hoveredPlane).forEach((neighbor) => {
+							const neighborOriginalScale = originalScales.get(neighbor);
+							const neighborOriginalPos = originalPositions.get(neighbor);
+							if (neighborOriginalScale && neighborOriginalPos) {
+								gsap.to(neighbor.scale, {
+									x: 1,
+									y: 1,
+									duration: HOVER_DURATION * 0.5,
+									ease: 'power2.out'
+								});
+								gsap.to(neighbor.position, {
+									y: neighborOriginalPos.y,
+									duration: HOVER_DURATION * 0.5,
+									ease: 'power2.out'
+								});
+							}
+						});
+					}
+					hoveredPlane = null;
+				} else {
+					// Reset previous hovered plane
+					if (hoveredPlane) {
+						const originalScale = originalScales.get(hoveredPlane);
+						const originalPos = originalPositions.get(hoveredPlane);
+						if (originalScale && originalPos) {
+							gsap.to(hoveredPlane.scale, {
+								x: originalScale.x,
+								y: originalScale.y,
+								duration: HOVER_DURATION,
+								ease: 'power2.out'
+							});
+							gsap.to(hoveredPlane.position, {
+								y: originalPos.y,
+								duration: HOVER_DURATION,
+								ease: 'power2.out'
+							});
+							// Reset neighboring planes
+							findNeighboringPlanes(hoveredPlane).forEach((neighbor) => {
+								const neighborOriginalScale = originalScales.get(neighbor);
+								const neighborOriginalPos = originalPositions.get(neighbor);
+								if (neighborOriginalScale && neighborOriginalPos) {
+									gsap.to(neighbor.scale, {
+										x: neighborOriginalScale.x,
+										y: neighborOriginalScale.y,
+										duration: HOVER_DURATION,
+										ease: 'power2.out'
+									});
+									gsap.to(neighbor.position, {
+										y: neighborOriginalPos.y,
+										duration: HOVER_DURATION,
+										ease: 'power2.out'
+									});
+								}
+							});
+						}
+
+						// Reset vertical neighbors
+						const verticalNeighbors = findVerticalNeighbors(hoveredPlane);
+						if (verticalNeighbors.above) {
+							const originalPos = originalPositions.get(verticalNeighbors.above);
+							if (originalPos) {
+								gsap.to(verticalNeighbors.above.position, {
+									y: originalPos.y,
+									duration: HOVER_DURATION,
+									ease: 'power2.out'
+								});
+							}
+						}
+						if (verticalNeighbors.below) {
+							const originalPos = originalPositions.get(verticalNeighbors.below);
+							if (originalPos) {
+								gsap.to(verticalNeighbors.below.position, {
+									y: originalPos.y,
+									duration: HOVER_DURATION,
+									ease: 'power2.out'
+								});
+							}
+						}
+					}
+
+					// Scale up new hovered plane and scale down its neighbors
+					if (newHoveredPlane) {
+						const originalPos = originalPositions.get(newHoveredPlane);
+						if (originalPos) {
+							const offset = calculateScaleOffset(newHoveredPlane, HOVER_SCALE);
+							gsap.to(newHoveredPlane.scale, {
+								x: HOVER_SCALE,
+								y: HOVER_SCALE,
+								duration: HOVER_DURATION,
+								ease: 'power2.out'
+							});
+							gsap.to(newHoveredPlane.position, {
+								y: originalPos.y + offset.y,
+								duration: HOVER_DURATION,
+								ease: 'power2.out'
+							});
+
+							// Scale down neighboring planes
+							findNeighboringPlanes(newHoveredPlane).forEach((neighbor) => {
+								const neighborOriginalPos = originalPositions.get(neighbor);
+								if (neighborOriginalPos) {
+									const neighborOffset = calculateScaleOffset(neighbor, NEIGHBOR_SCALE);
+									gsap.to(neighbor.scale, {
+										x: NEIGHBOR_SCALE,
+										y: NEIGHBOR_SCALE,
+										duration: HOVER_DURATION,
+										ease: 'power2.out'
+									});
+									gsap.to(neighbor.position, {
+										y: neighborOriginalPos.y + neighborOffset.y,
+										duration: HOVER_DURATION,
+										ease: 'power2.out'
+									});
+								}
+							});
+
+							// Handle vertical neighbors
+							const verticalNeighbors = findVerticalNeighbors(newHoveredPlane);
+
+							if (verticalNeighbors.above) {
+								moveVerticalNeighbor(verticalNeighbors.above, 'up', newHoveredPlane);
+							}
+
+							if (verticalNeighbors.below) {
+								moveVerticalNeighbor(verticalNeighbors.below, 'down', newHoveredPlane);
+							}
+						}
+					}
+
+					hoveredPlane = newHoveredPlane;
+				}
+			}
+
 			composer.render();
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
@@ -327,6 +1000,8 @@
 			window.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('touchstart', handleTouchStart);
 			window.removeEventListener('touchmove', handleTouchMove);
+			window.removeEventListener('mousemove', handleMouseMove);
+			window.removeEventListener('click', handleClick);
 		};
 	});
 </script>
@@ -334,3 +1009,10 @@
 <div>
 	<canvas class="webgl"></canvas>
 </div>
+
+<style>
+	canvas.webgl {
+		cursor: default;
+		transition: cursor 0.1s ease-out;
+	}
+</style>
