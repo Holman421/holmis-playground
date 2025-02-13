@@ -1,75 +1,102 @@
 <script lang="ts">
+	import { CONSTANTS } from './constants';
+	import { CustomShaderMaterial, ChromaticAberrationShader } from './shaders';
 	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 	import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 	import { gsap } from 'gsap';
+	import { calculateScaleOffset, findNeighboringPlanes } from './utils';
 
-	const imgArray = [
-		'/pictures/planet-img.jpg',
-		'/pictures/galaxy-img.jpg',
-		'/pictures/galaxy-img2.jpg',
-		'/pictures/universe.jpg',
-		'/pictures/red-universe.jpg',
-		'/pictures/green-universe.jpg',
-		'/pictures/yellow-universe.jpg',
-		'/pictures/purple-universe.jpg',
-		'/pictures/white-universe.jpg',
-		'/pictures/blue-universe.jpg',
-		'/pictures/black-hole.jpg',
-		'/pictures/orange-universe.jpg'
-	];
+	const imgArray1 = CONSTANTS.IMAGES.earth;
+	const imgArray2 = CONSTANTS.IMAGES.universe;
+	const imgArray3 = CONSTANTS.IMAGES.galaxy;
+	const imgArray4 = CONSTANTS.IMAGES.blackHole;
+
+	const groupNamesUI = CONSTANTS.UI.groupNames;
+	const groupNames = CONSTANTS.UI.internalGroupNames;
+
+	let currentGroupText = $state(groupNamesUI[0]);
+	let nextGroupText = $state(groupNamesUI[1]);
+
+	let currentScroll = 0;
+	let velocity = 0;
+	let scrollPosition = 0;
+	let currentEffect = 0;
+	let isAutoCentering = false;
+	let autoCenterTimeout: NodeJS.Timeout;
+	let isZoomed = false;
+	let zoomedPlane: THREE.Mesh | null = null;
+	let effectActive = false;
+	let currentFrustumSize = CONSTANTS.CAMERA.INITIAL_FRUSTUM_SIZE;
+	let isTransitioning = false;
+	let touchStartTime = 0;
+	let touchStartY = 0;
+	let lastTouchY = 0; // Add this line
+	let isTouchScrolling = false;
 
 	$effect(() => {
+		const sizes = {
+			width: window.innerWidth,
+			height: window.innerHeight - 56,
+			pixelRatio: Math.min(window.devicePixelRatio, 2)
+		};
+
+		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+
+		const renderer = new THREE.WebGLRenderer({
+			canvas: canvas,
+			antialias: true,
+			powerPreference: 'high-performance',
+			stencil: false,
+			depth: false
+		});
+		renderer.setSize(sizes.width, sizes.height);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+		// Then define texture loading with access to maxAnisotropy
+		const textureCache = new Map<string, THREE.Texture>();
+		const textureLoader = new THREE.TextureLoader();
+
+		const processTexture = (texture: THREE.Texture) => {
+			if (!texture.image) return;
+
+			const imageWidth = texture.image.width;
+			const imageHeight = texture.image.height;
+			const aspectRatio = imageWidth / imageHeight;
+
+			// Always center the texture
+			texture.center.set(0.5, 0.5);
+			texture.matrixAutoUpdate = false;
+			texture.wrapS = THREE.ClampToEdgeWrapping;
+			texture.wrapT = THREE.ClampToEdgeWrapping;
+
+			if (aspectRatio > 1) {
+				// Image is wider than tall - scale height to 1 and crop width
+				const scale = 1 / aspectRatio;
+				texture.repeat.set(scale, 1);
+				texture.offset.set((1 - scale) / 2, 0);
+			} else {
+				// Image is taller than wide - scale width to 1 and crop height
+				const scale = aspectRatio;
+				texture.repeat.set(1, scale);
+				texture.offset.set(0, (1 - scale) / 2);
+			}
+
+			texture.needsUpdate = true;
+		};
+
 		// Add mobile detection at the top
 		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
 			navigator.userAgent
 		);
-
-		// Add texture loader and cache at the top, before using them
-		const textureCache = new Map<string, THREE.Texture>();
-		const textureLoader = new THREE.TextureLoader(); // Simplified loader
 
 		// Base
 		const gui = new GUI({ width: 325 });
 		const debugObject: any = {
 			offset: 0.0
 		};
-
-		// Updated scroll mechanics
-		const SCROLL_SPEED = 5.0; // Adjusted for better control
-		const LERP_FACTOR = 0.1;
-		const DECELERATION = 0.92; // Slightly slower deceleration
-		const MAX_VELOCITY = 0.5; // Increased max velocity
-		const EFFECT_INTENSITY = 0.15; // Controls how quickly the effect builds up
-		let targetScroll = 0;
-		let currentScroll = 0;
-		let velocity = 0;
-		let scrollPosition = 0; // New: track absolute position
-
-		// Add smooth effect tracking
-		let currentEffect = 0;
-		const EFFECT_LERP = 0.08; // Smooth effect transition
-
-		// Add zoom state tracking
-		let isZoomed = false;
-		let zoomedPlane: THREE.Mesh | null = null;
-		let effectActive = false; // Add this line here
-		const INITIAL_FRUSTUM_SIZE = 6;
-		const ZOOMED_FRUSTUM_SIZE = 2; // Smaller value = more zoomed in
-		let currentFrustumSize = INITIAL_FRUSTUM_SIZE;
-
-		// Add transition state tracking
-		let isTransitioning = false;
-
-		// Use a single scale constant for both hover and zoom
-		const PLANE_SCALE = 2;
-		const HOVER_SCALE = PLANE_SCALE;
-		const ZOOM_SCALE = PLANE_SCALE;
-		const HOVER_DURATION = 0.3;
-		const ZOOM_DURATION = 1;
 
 		const handleWheel = (e: WheelEvent) => {
 			if (isZoomed || isTransitioning) {
@@ -78,19 +105,78 @@
 			}
 
 			e.preventDefault();
-			velocity += e.deltaY * 0.0001 * SCROLL_SPEED; // Reduced multiplier
-			velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocity));
+			isAutoCentering = false; // Stop auto-centering when user scrolls
+			clearTimeout(autoCenterTimeout);
+
+			velocity += e.deltaY * 0.0001 * CONSTANTS.SCROLL.SPEED; // Reduced multiplier
+			velocity = Math.max(
+				-CONSTANTS.SCROLL.MAX_VELOCITY,
+				Math.min(CONSTANTS.SCROLL.MAX_VELOCITY, velocity)
+			);
+
+			// Set up auto-center timeout
+			autoCenterTimeout = setTimeout(() => {
+				if (Math.abs(velocity) < CONSTANTS.AUTO_CENTER.THRESHOLD) {
+					// Only auto-center if almost stopped
+					isAutoCentering = true;
+				}
+			}, CONSTANTS.AUTO_CENTER.DELAY);
 		};
 
 		const handleTouchStart = (e: TouchEvent) => {
-			if (isTransitioning) return; // Prevent touch handling during transitions
+			if (isTransitioning) return;
 
 			e.preventDefault();
+			touchStartTime = Date.now();
+			touchStartY = e.touches[0].clientY;
 			lastTouchY = e.touches[0].clientY;
+			isTouchScrolling = false;
+		};
 
-			// Only handle tap/click interaction if not currently zoomed
-			if (!isZoomed) {
-				const touch = e.touches[0];
+		const handleTouchMove = (e: TouchEvent) => {
+			if (isZoomed || isTransitioning) {
+				e.preventDefault();
+				return;
+			}
+
+			e.preventDefault();
+			const touchY = e.touches[0].clientY;
+			const deltaY = lastTouchY - touchY;
+
+			// Check if user is scrolling
+			if (Math.abs(touchY - touchStartY) > CONSTANTS.TOUCH.SCROLL_THRESHOLD) {
+				isTouchScrolling = true;
+			}
+
+			velocity = Math.max(
+				-CONSTANTS.SCROLL.MAX_VELOCITY,
+				Math.min(CONSTANTS.SCROLL.MAX_VELOCITY, velocity + deltaY * 0.0003 * CONSTANTS.SCROLL.SPEED)
+			);
+			lastTouchY = touchY;
+
+			isAutoCentering = false;
+			clearTimeout(autoCenterTimeout);
+
+			// Set up auto-center timeout
+			autoCenterTimeout = setTimeout(() => {
+				if (Math.abs(velocity) < CONSTANTS.AUTO_CENTER.THRESHOLD) {
+					isAutoCentering = true;
+				}
+			}, CONSTANTS.AUTO_CENTER.DELAY);
+		};
+
+		// Add touch end handler
+		const handleTouchEnd = (e: TouchEvent) => {
+			const touchEndTime = Date.now();
+			const touchDuration = touchEndTime - touchStartTime;
+
+			if (
+				!isTouchScrolling &&
+				touchDuration < CONSTANTS.TOUCH.TIME_THRESHOLD &&
+				!isTransitioning &&
+				!isZoomed
+			) {
+				const touch = e.changedTouches[0];
 				const touchX = (touch.clientX / sizes.width) * 2 - 1;
 				const touchY = -(touch.clientY / sizes.height) * 2 + 1;
 
@@ -104,50 +190,21 @@
 					const clickedPlane = intersects[0].object as THREE.Mesh;
 					zoomToPlane(clickedPlane);
 				}
-			} else {
-				// If zoomed, any tap should reset the camera
+			} else if (isZoomed) {
 				resetCamera();
 			}
-		};
-
-		let lastTouchY = 0;
-		const handleTouchMove = (e: TouchEvent) => {
-			// Prevent scroll handling if zoomed or transitioning
-			if (isZoomed || isTransitioning) {
-				e.preventDefault();
-				return;
-			}
-
-			e.preventDefault();
-			const touchY = e.touches[0].clientY;
-			const deltaY = lastTouchY - touchY;
-			// Apply same velocity clamping to touch events
-			velocity = Math.max(
-				-MAX_VELOCITY,
-				Math.min(MAX_VELOCITY, velocity + deltaY * 0.0003 * SCROLL_SPEED)
-			);
-			lastTouchY = touchY;
 		};
 
 		// Add event listeners
 		window.addEventListener('wheel', handleWheel, { passive: false });
 		window.addEventListener('touchstart', handleTouchStart, { passive: false });
 		window.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-		// Canvas
-		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+		window.addEventListener('touchend', handleTouchEnd, { passive: false });
 
 		// Scene
 		const scene = new THREE.Scene();
 
 		// Grid configuration - updated
-		const ROWS = 4;
-		const COLUMNS = 3;
-		const HORIZONTAL_SPACING = 1.5; // Wider horizontal gaps
-		const VERTICAL_SPACING = 1.5; // Smaller vertical gaps
-		const TOTAL_SETS = 9; // Increased from 6 to 9 for more buffer
-		const VISIBLE_SETS = 4; // Increased from 3 to 4 to show more at once
-		const BUFFER_SETS = 2; // Increased from 1 to 2 for smoother transitions
 
 		// Add mouse tracking
 		const mouse = new THREE.Vector2();
@@ -166,31 +223,9 @@
 		const originalPositions = new Map<THREE.Mesh, THREE.Vector3>();
 
 		// Modify the constants for neighbor detection
-		const NEIGHBOR_SCALE = 0.7;
-		const GRID_X_THRESHOLD = 2.0; // Horizontal threshold
-		const GRID_Y_THRESHOLD = 2.0; // Vertical threshold
+		const NEIGHBOR_SCALE = CONSTANTS.SCALE.NEIGHBOR;
 
-		// Update the neighbor finding function to include corners
-		const findNeighboringPlanes = (plane: THREE.Mesh) => {
-			const planeMeta = planeMetadata.get(plane);
-			if (!planeMeta) return [];
-
-			return allPlanes.filter((p) => {
-				if (p === plane) return false;
-				const neighborMeta = planeMetadata.get(p);
-				if (!neighborMeta) return false;
-
-				// Calculate distance based on wrapped positions
-				const dx = Math.abs(plane.position.x - p.position.x);
-				const dy = Math.abs(plane.position.y - p.position.y);
-				const gridTotalWidth = gridWidth * (TOTAL_SETS - 3);
-
-				// Check both normal and wrapped distances
-				const wrappedDx = Math.min(dx, Math.abs(dx - gridTotalWidth));
-
-				return wrappedDx <= GRID_X_THRESHOLD && dy <= GRID_Y_THRESHOLD;
-			});
-		};
+		// Simplify the neighbor finding function to focus only on physical proximity
 
 		// Add position tracking for transform origin simulation
 		const planeMetadata = new Map<
@@ -200,171 +235,148 @@
 				col: number;
 				setIndex: number;
 				id: string;
+				groupName: string; // Add this field
 			}
 		>();
 		let planeIdCounter = 0;
 
-		// Preload all textures
-		const preloadTextures = async () => {
-			return Promise.all(
-				imgArray.map((url) => {
-					return new Promise<void>((resolve) => {
-						if (textureCache.has(url)) {
-							resolve();
-							return;
-						}
-						textureLoader.load(url, (texture) => {
-							texture.generateMipmaps = true;
-							texture.minFilter = THREE.LinearMipmapLinearFilter;
-							texture.magFilter = THREE.LinearFilter;
-							texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-							textureCache.set(url, texture);
-							resolve();
-						});
-					});
-				})
-			);
+		const createAdjustedPlaneGeometry = (texture: THREE.Texture): THREE.PlaneGeometry | null => {
+			if (!texture.image) return null;
+
+			const geometry = new THREE.PlaneGeometry(1, 1);
+			const imageAspect = texture.image.width / texture.image.height;
+			const uvs = geometry.attributes.uv;
+
+			if (imageAspect > 1) {
+				// Image is wider than tall - crop sides
+				const scale = 1 / imageAspect;
+				const offset = (1 - scale) / 2;
+				for (let i = 0; i < uvs.count; i++) {
+					const x = uvs.getX(i);
+					// Center the UV coordinates
+					uvs.setX(i, offset + x * scale);
+				}
+			} else if (imageAspect < 1) {
+				// Image is taller than wide - crop top/bottom
+				const scale = imageAspect;
+				const offset = (1 - scale) / 2;
+				for (let i = 0; i < uvs.count; i++) {
+					const y = uvs.getY(i);
+					// Center the UV coordinates
+					uvs.setY(i, offset + y * scale);
+				}
+			}
+
+			uvs.needsUpdate = true;
+			return geometry;
 		};
 
 		// Function to create a grid of images - updated initial position
 		const createImageGrid = (offsetX = 0, setIndex = 0) => {
-			const planes = [];
-			const itemsPerSet = imgArray.length;
-			const gridWidth = COLUMNS * HORIZONTAL_SPACING;
-			const gridHeight = ROWS * VERTICAL_SPACING;
+			const planes: THREE.Mesh[] = [];
+			// Select the appropriate image array based on setIndex
+			const imgArrayToUse = (() => {
+				switch ((setIndex % 4) + 1) {
+					case 1:
+						return imgArray1;
+					case 2:
+						return imgArray2;
+					case 3:
+						return imgArray3;
+					case 4:
+						return imgArray4;
+					default:
+						return imgArray1;
+				}
+			})();
+			const itemsPerSet = imgArrayToUse.length;
+			const gridWidth = CONSTANTS.GRID.COLUMNS * CONSTANTS.GRID.HORIZONTAL_SPACING;
+			const groupName = `Group ${(setIndex % groupNames.length) + 1}`;
 
 			for (let i = 0; i < itemsPerSet; i++) {
-				const row = Math.floor(i / COLUMNS);
-				const col = i % COLUMNS;
+				const row = Math.floor(i / CONSTANTS.GRID.COLUMNS);
+				const col = i % CONSTANTS.GRID.COLUMNS;
 
-				// Adjust initial position to center the visible sets
 				const x =
-					col * HORIZONTAL_SPACING -
-					(COLUMNS * HORIZONTAL_SPACING - HORIZONTAL_SPACING) / 2 +
+					col * CONSTANTS.GRID.HORIZONTAL_SPACING -
+					(CONSTANTS.GRID.COLUMNS * CONSTANTS.GRID.HORIZONTAL_SPACING -
+						CONSTANTS.GRID.HORIZONTAL_SPACING) /
+						2 +
 					offsetX -
-					gridWidth * (TOTAL_SETS / 2 - 1); // Adjusted multiplier
-				const y = row * VERTICAL_SPACING - (ROWS * VERTICAL_SPACING - VERTICAL_SPACING) / 2;
+					gridWidth * (CONSTANTS.GRID.TOTAL_SETS / 2 - 1);
+				const y =
+					row * CONSTANTS.GRID.VERTICAL_SPACING -
+					(CONSTANTS.GRID.ROWS * CONSTANTS.GRID.VERTICAL_SPACING -
+						CONSTANTS.GRID.VERTICAL_SPACING) /
+						2;
 
-				const texture = textureCache.get(imgArray[i]) || textureLoader.load(imgArray[i]);
-				const geometry = new THREE.PlaneGeometry(1, 1);
-				const material = new THREE.MeshBasicMaterial({
-					map: texture,
+				const texture =
+					textureCache.get(imgArrayToUse[i]) ||
+					textureLoader.load(imgArrayToUse[i], (loadedTexture) => {
+						processTexture(loadedTexture);
+					});
+
+				let geometry = new THREE.PlaneGeometry(1, 1);
+				const material = new THREE.ShaderMaterial({
+					...CustomShaderMaterial,
+					uniforms: {
+						map: { value: texture },
+						opacity: { value: CONSTANTS.OPACITY.INACTIVE },
+						grayscale: { value: 1.0 } // Start grayscale
+					},
 					transparent: true
 				});
+
+				// Handle UV adjustments when texture loads
+				if (!texture.image) {
+					textureLoader.load(imgArrayToUse[i], (loadedTexture) => {
+						const newGeometry = createAdjustedPlaneGeometry(loadedTexture);
+						if (newGeometry) {
+							plane.geometry.dispose();
+							plane.geometry = newGeometry;
+						}
+					});
+				} else {
+					const adjustedGeometry = createAdjustedPlaneGeometry(texture);
+					if (adjustedGeometry) {
+						geometry = adjustedGeometry;
+					}
+				}
+
 				const plane = new THREE.Mesh(geometry, material);
 				plane.position.set(x, y, 0);
+				plane.material.transparent = true; // Enable transparency
+				plane.material.opacity = CONSTANTS.OPACITY.INACTIVE; // Start with inactive opacity
 				originalScales.set(plane, new THREE.Vector3(1, 1, 1));
 				originalPositions.set(plane, new THREE.Vector3(x, y, 0));
+
 				const planeId = `plane_${i}_${setIndex}_${planeIdCounter++}`;
-				planeMetadata.set(plane, {
+				const metadata = {
 					row,
 					col,
 					setIndex,
-					id: planeId
-				});
+					id: planeId,
+					groupName
+				};
+
+				// Store metadata in both places for different purposes
+				planeMetadata.set(plane, metadata);
+				plane.userData.metadata = metadata; // Add this line
+
 				scene.add(plane);
 				planes.push(plane);
 			}
 			return planes;
 		};
 
-		// Add function to calculate position offset based on row
-		const calculateScaleOffset = (plane: THREE.Mesh, targetScale: number) => {
-			const metadata = planeMetadata.get(plane);
-			if (!metadata) return { x: 0, y: 0 };
-
-			const isTopRow = metadata.row === 0;
-			const isBottomRow = metadata.row === ROWS - 1;
-			const scaleDelta = targetScale - 1;
-
-			let yOffset = 0;
-			if (isTopRow) {
-				yOffset = scaleDelta * 0.5; // Move up when scaling from top
-			} else if (isBottomRow) {
-				yOffset = -(scaleDelta * 0.5); // Move down when scaling from bottom
-			}
-
-			return { x: 0, y: yOffset };
-		};
-
 		// Create multiple sets of images for seamless looping
 		let allPlanes: THREE.Mesh[] = [];
-		const gridWidth = COLUMNS * HORIZONTAL_SPACING;
-
-		for (let i = 0; i < TOTAL_SETS; i++) {
-			const planes = createImageGrid(i * gridWidth, i);
-			allPlanes = [...allPlanes, ...planes];
-		}
-
-		// Add function to find duplicate planes at the same visual position
-		const findDuplicatePlanes = (plane: THREE.Mesh) => {
-			const planeMeta = planeMetadata.get(plane);
-			if (!planeMeta) return [];
-
-			return allPlanes.filter((p) => {
-				if (p === plane) return false;
-				const pMeta = planeMetadata.get(p);
-				if (!pMeta) return false;
-
-				// Check if they're in the same visual column and row
-				return pMeta.row === planeMeta.row && Math.abs(p.position.x - plane.position.x) < 0.1;
-			});
-		};
-
-		// Updated Chromatic Aberration Shader
-		const ChromaticAberrationShader = {
-			uniforms: {
-				tDiffuse: { value: null },
-				uOffset: { value: 0.0 }
-			},
-			vertexShader: `
-				varying vec2 vUv;
-				void main() {
-					vUv = uv;
-					gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-				}
-			`,
-			fragmentShader: `
-				uniform sampler2D tDiffuse;
-				uniform float uOffset;
-				varying vec2 vUv;
-
-				void main() {
-					float x = vUv.x * 2.0 - 1.0;
-					
-					// Calculate distortion strength (always positive direction)
-					float distortionStrength = pow(abs(x), 5.0) * 1.25;
-					distortionStrength *= abs(uOffset) * 0.1; // Use absolute value of uOffset
-
-					// Use fixed direction regardless of scroll direction
-					float direction = x < 0.0 ? 1.0 : -1.0;
-					
-					// Keep stretch direction consistent
-					float yStretch = 1.0 + (abs(uOffset) * 0.1);
-					float yOffset = (vUv.y - 0.5) * yStretch + 0.5;
-					
-					// Apply consistent direction warp
-					vec2 offsetUV = vec2(0.0, distortionStrength * direction);
-					vec2 finalUV = vec2(vUv.x, yOffset) + offsetUV;
-					
-					vec4 distortedColor = texture2D(tDiffuse, finalUV);
-					
-					gl_FragColor = distortedColor;
-				}
-			`
-		};
+		const gridWidth = CONSTANTS.GRID.COLUMNS * CONSTANTS.GRID.HORIZONTAL_SPACING;
 
 		// Lights
 		const directionalLight = new THREE.DirectionalLight('#ffffff', 4);
 		directionalLight.position.set(6.25, 3, 4);
 		scene.add(directionalLight);
-
-		// Sizes
-		const sizes = {
-			width: window.innerWidth,
-			height: window.innerHeight - 56,
-			pixelRatio: Math.min(window.devicePixelRatio, 2)
-		};
 
 		window.addEventListener('resize', () => {
 			// Update sizes
@@ -386,7 +398,7 @@
 		});
 
 		// Camera setup - replace perspective with orthographic
-		const frustumSize = 6; // Increased to show more of the scene
+		const frustumSize = CONSTANTS.CAMERA.INITIAL_FRUSTUM_SIZE;
 		const aspect = sizes.width / sizes.height;
 		const camera = new THREE.OrthographicCamera(
 			(frustumSize * aspect) / -2,
@@ -396,7 +408,7 @@
 			0.1,
 			100
 		);
-		camera.position.set(0, 0, 4);
+		camera.position.set(0, CONSTANTS.CAMERA.INITIAL_Y, 4);
 		scene.add(camera);
 
 		// Update resize handler
@@ -419,29 +431,16 @@
 			// Update zoom if currently zoomed in
 			if (isZoomed && zoomedPlane) {
 				const zoomedSize = calculateZoomFrustumSize();
-				currentFrustumSize = zoomedSize;
+				(currentFrustumSize as number) = zoomedSize;
 				updateCameraFrustum(currentFrustumSize);
 			}
 		});
 
-		// Controls
-		// const controls = new OrbitControls(camera, canvas);
-		// controls.enableDamping = true;
-
-		// Renderer
-		const renderer = new THREE.WebGLRenderer({
-			canvas: canvas,
-			antialias: true,
-			powerPreference: 'high-performance',
-			stencil: false,
-			depth: false // We don't need depth testing for 2D
-		});
-		renderer.setSize(sizes.width, sizes.height);
-		renderer.setPixelRatio(sizes.pixelRatio);
-
 		// Enable shadow map auto update only when needed
 		renderer.shadowMap.autoUpdate = false;
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+		// Add this after renderer creation and before creating planes
 
 		// Post Processing
 		const composer = new EffectComposer(renderer);
@@ -496,13 +495,8 @@
 
 		gui.hide();
 
-		// Add easing function
-		const easeOutCubic = (x: number): number => {
-			return 1 - Math.pow(1 - x, 3);
-		};
-
 		// Add constants for vertical overlap handling
-		const VERTICAL_OVERLAP_OFFSET = 0.5; // How far to move vertical neighbors
+		const VERTICAL_OVERLAP_OFFSET = CONSTANTS.OVERLAP.VERTICAL_OFFSET; // How far to move vertical neighbors
 
 		// Improved findVerticalNeighbors function
 		const findVerticalNeighbors = (plane: THREE.Mesh) => {
@@ -510,7 +504,7 @@
 			if (!metadata) return { above: null, below: null };
 
 			const isTopRow = metadata.row === 0;
-			const isBottomRow = metadata.row === ROWS - 1;
+			const isBottomRow = metadata.row === CONSTANTS.GRID.ROWS - 1;
 
 			// Early return if not on top or bottom row
 			if (!isTopRow && !isBottomRow) return { above: null, below: null };
@@ -523,7 +517,7 @@
 
 					// Calculate wrapped distance for x position
 					const dx = Math.abs(plane.position.x - p.position.x);
-					const gridTotalWidth = gridWidth * (TOTAL_SETS - 3);
+					const gridTotalWidth = gridWidth * (CONSTANTS.GRID.TOTAL_SETS - 3);
 					const wrappedDx = Math.min(dx, Math.abs(dx - gridTotalWidth));
 
 					// Use a very small threshold for more precise matching
@@ -601,14 +595,14 @@
 			gsap.to(neighbor.scale, {
 				x: NEIGHBOR_SCALE,
 				y: NEIGHBOR_SCALE,
-				duration: HOVER_DURATION,
+				duration: CONSTANTS.DURATION.HOVER,
 				ease: 'power2.out'
 			});
 
 			// Move to target position
 			gsap.to(neighbor.position, {
 				y: targetY,
-				duration: HOVER_DURATION,
+				duration: CONSTANTS.DURATION.HOVER,
 				ease: 'power2.out',
 				onComplete: () => {
 					if (verticalNeighborStates.has(neighbor)) {
@@ -630,7 +624,7 @@
 					gsap.killTweensOf(neighbor.position);
 					gsap.to(neighbor.position, {
 						y: originalPos.y,
-						duration: HOVER_DURATION * 0.5,
+						duration: CONSTANTS.DURATION.HOVER * 0.5,
 						ease: 'power2.out',
 						onComplete: () => {
 							activeVerticalNeighbors.delete(neighbor);
@@ -657,19 +651,7 @@
 
 			if (intersects.length > 0) {
 				const clickedPlane = intersects[0].object as THREE.Mesh;
-				// Reset any existing hover states before zooming
-				if (hoveredPlane) {
-					const originalPos = originalPositions.get(hoveredPlane);
-					if (originalPos) {
-						gsap.to(hoveredPlane.scale, {
-							x: 1,
-							y: 1,
-							duration: HOVER_DURATION / 2,
-							ease: 'power2.out'
-						});
-					}
-				}
-				hoveredPlane = null;
+				// Don't reset hover states, just keep the current scale
 				zoomToPlane(clickedPlane);
 			}
 		};
@@ -690,12 +672,17 @@
 		// Add helper function to calculate zoom frustum size based on aspect ratio
 		const calculateZoomFrustumSize = () => {
 			const aspect = sizes.width / sizes.height;
+			const targetAspect = 1; // Assuming our planes are square, adjust if they're not
+			const padding = 0.2; // Add padding factor to ensure full visibility
+
 			if (aspect < 1) {
-				// Portrait mode - fit to width
-				return ZOOMED_FRUSTUM_SIZE * (1 / aspect);
+				// Portrait mode - fit to width with padding
+				return (
+					(CONSTANTS.CAMERA.ZOOMED_FRUSTUM_SIZE + padding) * (1 / Math.min(aspect, targetAspect))
+				);
 			}
-			// Landscape mode - fit to height
-			return ZOOMED_FRUSTUM_SIZE;
+			// Landscape mode - fit to height with padding
+			return CONSTANTS.CAMERA.ZOOMED_FRUSTUM_SIZE + padding;
 		};
 
 		const zoomToPlane = (plane: THREE.Mesh) => {
@@ -708,21 +695,31 @@
 
 			const targetPosition = plane.position.clone();
 
-			// Always scale up the clicked plane to HOVER_SCALE
+			// Make the clicked plane colorful regardless of its group
+			if (plane.material instanceof THREE.ShaderMaterial) {
+				gsap.to(plane.material.uniforms.opacity, {
+					value: CONSTANTS.OPACITY.ACTIVE,
+					ease: 'power2.inOut'
+				});
+				gsap.to(plane.material.uniforms.grayscale, {
+					value: 0.0,
+					ease: 'power2.inOut'
+				});
+			}
+
+			// Always ensure the plane is at CONSTANTS.SCALE.ZOOM
 			gsap.to(plane.scale, {
-				x: HOVER_SCALE,
-				y: HOVER_SCALE,
-				duration: ZOOM_DURATION,
+				x: CONSTANTS.SCALE.ZOOM,
+				y: CONSTANTS.SCALE.ZOOM,
 				ease: 'power2.inOut'
 			});
 
 			// Apply position offset for the main plane
-			const offset = calculateScaleOffset(plane, HOVER_SCALE);
+			const offset = calculateScaleOffset(plane, CONSTANTS.SCALE.ZOOM, planeMetadata);
 			const originalPos = originalPositions.get(plane);
 			if (originalPos) {
 				gsap.to(plane.position, {
 					y: originalPos.y + offset.y,
-					duration: ZOOM_DURATION,
 					ease: 'power2.inOut'
 				});
 			}
@@ -732,7 +729,6 @@
 				x: targetPosition.x,
 				y: targetPosition.y,
 				z: 4,
-				duration: ZOOM_DURATION,
 				ease: 'power2.inOut',
 				onComplete: () => {
 					isTransitioning = false; // End transition
@@ -746,7 +742,6 @@
 				{ value: currentFrustumSize },
 				{
 					value: zoomedSize,
-					duration: ZOOM_DURATION,
 					ease: 'power2.inOut',
 					onUpdate: function () {
 						currentFrustumSize = this.targets()[0].value;
@@ -756,12 +751,11 @@
 			);
 
 			// Keep neighbors scaled down
-			const neighbors = findNeighboringPlanes(plane);
+			const neighbors = findNeighboringPlanes(plane, allPlanes, CONSTANTS.GRID, planeMetadata);
 			neighbors.forEach((neighbor) => {
 				gsap.to(neighbor.scale, {
 					x: NEIGHBOR_SCALE,
 					y: NEIGHBOR_SCALE,
-					duration: ZOOM_DURATION,
 					ease: 'power2.inOut'
 				});
 			});
@@ -779,60 +773,116 @@
 		const resetCamera = () => {
 			if (!isZoomed || isTransitioning) return;
 
-			isTransitioning = true; // Start transition
+			isTransitioning = true;
 			isZoomed = false;
-			velocity = 0; // Reset velocity when resetting camera
+			velocity = 0;
 
-			// Reset vertical neighbors first
-			if (zoomedPlane) {
-				resetVerticalNeighbors(zoomedPlane);
+			// Store the previously zoomed plane before nulling it
+			const previousZoomedPlane = zoomedPlane;
+			zoomedPlane = null;
+
+			// Start color transition immediately if the plane exists
+			if (previousZoomedPlane && previousZoomedPlane.material instanceof THREE.ShaderMaterial) {
+				const metadata = planeMetadata.get(previousZoomedPlane);
+				if (metadata) {
+					const isInActiveGroup = metadata.groupName === currentCenterGroup;
+					gsap.to(previousZoomedPlane.material.uniforms.opacity, {
+						value: isInActiveGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
+						ease: 'power2.inOut'
+					});
+					gsap.to(previousZoomedPlane.material.uniforms.grayscale, {
+						value: isInActiveGroup ? 0.0 : 1.0,
+						ease: 'power2.inOut'
+					});
+				}
 			}
 
-			// Reset camera
-			gsap.to(camera.position, {
+			// Timeline for camera movement
+			const timeline = gsap.timeline({
+				onComplete: () => {
+					// Only start scaling transitions after camera movement is complete
+					if (previousZoomedPlane) {
+						// Create a new timeline for scale transitions
+						const scaleTimeline = gsap.timeline();
+
+						// First reset vertical neighbors
+						resetVerticalNeighbors(previousZoomedPlane);
+
+						// Then animate the main plane's scale and position
+						const originalPos = originalPositions.get(previousZoomedPlane);
+						if (originalPos) {
+							scaleTimeline
+								.to(previousZoomedPlane.scale, {
+									x: 1,
+									y: 1,
+									duration: CONSTANTS.DURATION.HOVER,
+									ease: 'power2.out'
+								})
+								.to(
+									previousZoomedPlane.position,
+									{
+										y: originalPos.y,
+										duration: CONSTANTS.DURATION.HOVER,
+										ease: 'power2.out'
+									},
+									'<'
+								); // Start at same time as scale
+						}
+
+						// Finally reset all other planes
+						allPlanes.forEach((plane) => {
+							if (plane !== previousZoomedPlane) {
+								const planeOriginalPos = originalPositions.get(plane);
+								if (planeOriginalPos) {
+									scaleTimeline
+										.to(
+											plane.scale,
+											{
+												x: 1,
+												y: 1,
+												duration: CONSTANTS.DURATION.HOVER,
+												ease: 'power2.out'
+											},
+											'<'
+										)
+										.to(
+											plane.position,
+											{
+												y: planeOriginalPos.y,
+												duration: CONSTANTS.DURATION.HOVER,
+												ease: 'power2.out'
+											},
+											'<'
+										);
+								}
+							}
+						});
+					}
+					isTransitioning = false;
+				}
+			});
+
+			// Animate camera position
+			timeline.to(camera.position, {
 				x: 0,
-				y: 0,
+				y: CONSTANTS.CAMERA.INITIAL_Y,
 				z: 4,
-				duration: ZOOM_DURATION,
 				ease: 'power2.inOut'
 			});
 
-			gsap.to(
+			// Animate frustum size simultaneously
+			timeline.to(
 				{ value: currentFrustumSize },
 				{
-					value: INITIAL_FRUSTUM_SIZE,
-					duration: ZOOM_DURATION,
+					value: CONSTANTS.CAMERA.INITIAL_FRUSTUM_SIZE,
 					ease: 'power2.inOut',
 					onUpdate: function () {
 						currentFrustumSize = this.targets()[0].value;
 						updateCameraFrustum(currentFrustumSize);
-					},
-					onComplete: () => {
-						isTransitioning = false; // End transition
-						// Ensure complete reset of all planes after zoom animation
-						allPlanes.forEach((plane) => {
-							const originalPos = originalPositions.get(plane);
-							if (originalPos) {
-								gsap.killTweensOf(plane.scale);
-								gsap.killTweensOf(plane.position);
-								gsap.to(plane.scale, {
-									x: 1,
-									y: 1,
-									duration: HOVER_DURATION,
-									ease: 'power2.out'
-								});
-								gsap.to(plane.position, {
-									y: originalPos.y,
-									duration: HOVER_DURATION,
-									ease: 'power2.out'
-								});
-							}
-						});
 					}
-				}
+				},
+				'<' // Start at same time as camera movement
 			);
-
-			zoomedPlane = null;
 		};
 
 		// Add helper function to manage cursor
@@ -851,51 +901,94 @@
 
 		// Add object pooling for better performance
 		const objectPool = new Set<THREE.Mesh>();
-		const reuseOrCreatePlane = () => {
-			for (const plane of objectPool) {
-				if (!plane.parent) {
-					return plane;
-				}
-			}
-			const plane = new THREE.Mesh(
-				new THREE.PlaneGeometry(1, 1),
-				new THREE.MeshBasicMaterial({ transparent: true })
-			);
-			objectPool.add(plane);
-			return plane;
-		};
 
 		// Add frustum buffer calculation
 		const calculateVisibilityBounds = () => {
 			const aspect = sizes.width / sizes.height;
 			const horizontalBound = (frustumSize * aspect) / 2;
 			const verticalBound = frustumSize / 2;
+			// Add extra buffer space to prevent visible popping
+			const horizontalBuffer = gridWidth * 2;
 			return {
-				left: -horizontalBound - HORIZONTAL_SPACING * 2,
-				right: horizontalBound + HORIZONTAL_SPACING * 2,
-				top: verticalBound + VERTICAL_SPACING,
-				bottom: -verticalBound - VERTICAL_SPACING
+				left: -horizontalBound - horizontalBuffer,
+				right: horizontalBound + horizontalBuffer,
+				top: verticalBound + CONSTANTS.GRID.VERTICAL_SPACING,
+				bottom: -verticalBound - CONSTANTS.GRID.VERTICAL_SPACING
 			};
 		};
 
-		// Animate
-		const clock = new THREE.Clock();
+		// Add after other state variables
+		let currentCenterGroup: string | null = null;
+
 		let animationFrameId: number;
-		let scrollX = 0;
-		const scrollSpeed = 0.1;
-		const maxScroll = gridWidth;
 
-		// Optimize animation performance
-		const ANIMATION_FRAME_BUDGET = 16; // ~60fps
-		let lastFrameTime = 0;
+		// Add this function for handling text visibility transitions
+		const updateTextVisibility = (offset: number) => {
+			const container = document.getElementById(CONSTANTS.TEXT.CONTAINER_ID);
+			if (!container) return;
 
-		// Modified tick function - Option 1: Remove currentTime parameter
+			const opacity = Math.max(0, 1 - offset / CONSTANTS.TEXT.HIDE_THRESHOLD);
+			container.style.opacity = opacity.toString();
+		};
+
+		// New: Extract text animation into a dedicated function
+		const animateGroupText = (currentIndex: number, prevIndex: number) => {
+			const nextIndex = currentIndex === 3 ? 0 : currentIndex + 1;
+			const timeline = gsap.timeline();
+			const currentTitleElement = document.getElementById('text1');
+			const nextTitleElement = document.getElementById('text2');
+
+			const isScrollForward = (() => {
+				if (currentIndex === 0 && prevIndex === 3) return true;
+				if (currentIndex === 3 && prevIndex === 0) return false;
+				return currentIndex > prevIndex;
+			})();
+
+			return new Promise<void>((resolve) => {
+				timeline
+					.set(
+						nextTitleElement,
+						{
+							opacity: 0,
+							x: isScrollForward ? '150%' : '-150%'
+						},
+						'<'
+					)
+					.to(
+						currentTitleElement,
+						{
+							opacity: 0,
+							x: isScrollForward ? '-150%' : '150%'
+						},
+						'<'
+					)
+					.to(
+						nextTitleElement,
+						{
+							opacity: 1,
+							x: '0%',
+							onComplete: () => {
+								gsap.set(currentTitleElement, {
+									opacity: 1,
+									x: '0%'
+								});
+								gsap.set(nextTitleElement, {
+									opacity: 0,
+									x: isScrollForward ? '150%' : '-150%'
+								});
+								(currentGroupText as any) = groupNamesUI[currentIndex];
+								(nextGroupText as any) = groupNamesUI[nextIndex];
+								resolve();
+							}
+						},
+						'<'
+					);
+			});
+		};
+
 		const tick = () => {
-			// Remove frame skipping since we don't have currentTime
-			// Just call render every frame
-
 			// Apply deceleration
-			velocity *= DECELERATION;
+			velocity *= CONSTANTS.SCROLL.DECELERATION;
 
 			// Clear tiny velocities to ensure complete stop
 			if (Math.abs(velocity) < 0.0001) {
@@ -905,41 +998,134 @@
 			// Update scroll position
 			scrollPosition += velocity;
 
+			updateTextVisibility(Math.abs(velocity));
+
 			// Smooth movement
-			currentScroll += (velocity - currentScroll) * LERP_FACTOR;
+			currentScroll += (velocity - currentScroll) * CONSTANTS.SCROLL.LERP_FACTOR;
+
+			// Add this before updating plane positions
+			// Calculate center line position in world coordinates
+			const centerLineX = camera.position.x;
+			let newCenterGroup: string | null = null;
+			let closestDistance = Infinity;
+
+			// Check all planes against center line
+			allPlanes.forEach((plane) => {
+				const metadata = planeMetadata.get(plane);
+				if (!metadata) return;
+
+				// Only check one plane per group (first plane in each row)
+				if (metadata.col !== 0 || metadata.row !== 0) return;
+
+				const distance = Math.abs(plane.position.x - centerLineX);
+				if (distance < closestDistance) {
+					closestDistance = distance;
+					// Only update newCenterGroup if we're close enough to trigger a switch
+					const normalizedDistance = distance / (gridWidth / 2); // Convert to 0-1 range
+					if (normalizedDistance < CONSTANTS.TEXT.GROUP_SWITCH_THRESHOLD) {
+						newCenterGroup = metadata.groupName;
+					}
+				}
+			});
+
+			// Only update if we found a new center group within threshold
+			if (newCenterGroup !== null && newCenterGroup !== currentCenterGroup) {
+				const oldCenterGroup = currentCenterGroup;
+				currentCenterGroup = newCenterGroup;
+
+				// Rest of the group switching code remains the same...
+				// Update the UI text based on the group index
+				if (currentCenterGroup) {
+					const currentIndex = parseInt((currentCenterGroup as string).split(' ')[1]) - 1;
+					const prevIndex = parseInt((oldCenterGroup as string)?.split(' ')[1]) - 1 || 0;
+
+					// Use the new animation function
+					animateGroupText(currentIndex, prevIndex);
+				}
+
+				// Handle opacity transitions with GSAP
+				allPlanes.forEach((plane) => {
+					if (plane.material instanceof THREE.ShaderMaterial) {
+						const metadata = planeMetadata.get(plane);
+						if (!metadata) return;
+
+						gsap.killTweensOf(plane.material.uniforms.opacity, 'value');
+						gsap.killTweensOf(plane.material.uniforms.grayscale, 'value');
+
+						const isNewCenterGroup = metadata.groupName === currentCenterGroup;
+						const isOldCenterGroup = metadata.groupName === oldCenterGroup;
+
+						// Animate both opacity and grayscale
+						gsap.to(plane.material.uniforms.opacity, {
+							value: isNewCenterGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
+							duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
+							ease: 'power2.inOut'
+						});
+
+						gsap.to(plane.material.uniforms.grayscale, {
+							value: isNewCenterGroup ? 0.0 : 1.0,
+							duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
+							ease: 'power2.inOut'
+						});
+
+						if (isOldCenterGroup) {
+							plane.material.uniforms.opacity.value = CONSTANTS.OPACITY.ACTIVE;
+							plane.material.uniforms.grayscale.value = 0.0;
+						}
+					}
+				});
+			}
 
 			// Update planes positions with improved wrapping logic
 			allPlanes.forEach((plane) => {
-				const originalX = plane.position.x;
 				plane.position.x -= currentScroll;
 
-				const setWidth = gridWidth; // Width of one complete set of 12 images
-				const totalWidth = setWidth * TOTAL_SETS;
-				const activeWidth = setWidth * (VISIBLE_SETS + BUFFER_SETS * 2); // Add buffer to visible width
-				const halfActiveWidth = activeWidth / 2;
+				const setWidth = gridWidth * CONSTANTS.GRID.TOTAL_SETS;
+				const halfWidth = setWidth / 2;
 
-				// Improved wrapping logic
-				if (plane.position.x < -halfActiveWidth) {
-					// When wrapping to right side
-					plane.position.x += totalWidth;
-
-					// Reset any active states
-					if (plane === hoveredPlane) {
-						hoveredPlane = null;
+				// Handle wrapping with visibility
+				if (plane.position.x < -halfWidth) {
+					plane.visible = false; // Hide before wrapping
+					plane.position.x += setWidth;
+					// Update plane's opacity based on current center group after wrapping
+					if (plane.material instanceof THREE.ShaderMaterial && currentCenterGroup) {
+						const metadata = planeMetadata.get(plane);
+						if (metadata) {
+							plane.material.uniforms.opacity.value =
+								metadata.groupName === currentCenterGroup
+									? CONSTANTS.OPACITY.ACTIVE
+									: CONSTANTS.OPACITY.INACTIVE;
+							plane.material.uniforms.grayscale.value =
+								metadata.groupName === currentCenterGroup ? 0.0 : 1.0;
+						}
 					}
-					gsap.killTweensOf(plane.scale);
-					gsap.killTweensOf(plane.position);
-					plane.scale.set(1, 1, 1);
-
-					const originalPos = originalPositions.get(plane);
-					if (originalPos) {
-						plane.position.y = originalPos.y;
+					// Small delay before showing to ensure position is updated
+					setTimeout(() => {
+						plane.visible = true;
+					}, 0);
+				} else if (plane.position.x > halfWidth) {
+					plane.visible = false; // Hide before wrapping
+					plane.position.x -= setWidth;
+					// Update plane's opacity based on current center group after wrapping
+					if (plane.material instanceof THREE.ShaderMaterial && currentCenterGroup) {
+						const metadata = planeMetadata.get(plane);
+						if (metadata) {
+							plane.material.uniforms.opacity.value =
+								metadata.groupName === currentCenterGroup
+									? CONSTANTS.OPACITY.ACTIVE
+									: CONSTANTS.OPACITY.INACTIVE;
+							plane.material.uniforms.grayscale.value =
+								metadata.groupName === currentCenterGroup ? 0.0 : 1.0;
+						}
 					}
-				} else if (plane.position.x > halfActiveWidth) {
-					// When wrapping to left side
-					plane.position.x -= totalWidth;
+					// Small delay before showing to ensure position is updated
+					setTimeout(() => {
+						plane.visible = true;
+					}, 0);
+				}
 
-					// Reset any active states
+				// Reset any active states when wrapping
+				if (Math.abs(plane.position.x) > halfWidth - gridWidth) {
 					if (plane === hoveredPlane) {
 						hoveredPlane = null;
 					}
@@ -955,11 +1141,11 @@
 			});
 
 			// Improved chromatic aberration calculation
-			const velocityImpact = Math.abs(velocity) / EFFECT_INTENSITY;
+			const velocityImpact = Math.abs(velocity) / CONSTANTS.EFFECT.INTENSITY;
 			const targetEffect = Math.pow(velocityImpact, 1.5); // Non-linear scaling
 
 			// Smooth transition of the effect
-			currentEffect += (targetEffect - currentEffect) * EFFECT_LERP;
+			currentEffect += (targetEffect - currentEffect) * CONSTANTS.EFFECT.LERP;
 
 			// Apply the effect with direction
 			chromaticAberrationPass.uniforms.uOffset.value = currentEffect * Math.sign(velocity);
@@ -983,7 +1169,14 @@
 					? null
 					: (intersects[0].object as THREE.Mesh);
 
-			// Only process hover effects if not on mobile
+			// Add this section right here, before the hover state handling
+			if (newHoveredPlane && (!hoveredPlane || hoveredPlane !== newHoveredPlane)) {
+				const metadata = planeMetadata.get(newHoveredPlane);
+				if (metadata) {
+					console.log(`Hovering over group: ${metadata.groupName}`);
+				}
+			}
+
 			if (!isMobile && hoveredPlane !== newHoveredPlane && !isZoomed) {
 				// Reset all active vertical neighbors first
 				activeVerticalNeighbors.forEach(resetVerticalNeighbors);
@@ -996,33 +1189,35 @@
 						gsap.to(hoveredPlane.scale, {
 							x: originalScale.x,
 							y: originalScale.y,
-							duration: HOVER_DURATION * 0.5, // Faster reset during scroll
+							duration: CONSTANTS.DURATION.HOVER * 0.5, // Faster reset during scroll
 							ease: 'power2.out'
 						});
 						gsap.to(hoveredPlane.position, {
 							y: originalPos.y,
-							duration: HOVER_DURATION * 0.5,
+							duration: CONSTANTS.DURATION.HOVER * 0.5,
 							ease: 'power2.out'
 						});
 
 						// Reset all affected neighbors quickly
-						findNeighboringPlanes(hoveredPlane).forEach((neighbor) => {
-							const neighborOriginalScale = originalScales.get(neighbor);
-							const neighborOriginalPos = originalPositions.get(neighbor);
-							if (neighborOriginalScale && neighborOriginalPos) {
-								gsap.to(neighbor.scale, {
-									x: 1,
-									y: 1,
-									duration: HOVER_DURATION * 0.5,
-									ease: 'power2.out'
-								});
-								gsap.to(neighbor.position, {
-									y: neighborOriginalPos.y,
-									duration: HOVER_DURATION * 0.5,
-									ease: 'power2.out'
-								});
+						findNeighboringPlanes(hoveredPlane, allPlanes, CONSTANTS.GRID, planeMetadata).forEach(
+							(neighbor) => {
+								const neighborOriginalScale = originalScales.get(neighbor);
+								const neighborOriginalPos = originalPositions.get(neighbor);
+								if (neighborOriginalScale && neighborOriginalPos) {
+									gsap.to(neighbor.scale, {
+										x: 1,
+										y: 1,
+										duration: CONSTANTS.DURATION.HOVER * 0.5,
+										ease: 'power2.out'
+									});
+									gsap.to(neighbor.position, {
+										y: neighborOriginalPos.y,
+										duration: CONSTANTS.DURATION.HOVER * 0.5,
+										ease: 'power2.out'
+									});
+								}
 							}
-						});
+						);
 					}
 					hoveredPlane = null;
 				} else {
@@ -1034,32 +1229,34 @@
 							gsap.to(hoveredPlane.scale, {
 								x: originalScale.x,
 								y: originalScale.y,
-								duration: HOVER_DURATION,
+								duration: CONSTANTS.DURATION.HOVER,
 								ease: 'power2.out'
 							});
 							gsap.to(hoveredPlane.position, {
 								y: originalPos.y,
-								duration: HOVER_DURATION,
+								duration: CONSTANTS.DURATION.HOVER,
 								ease: 'power2.out'
 							});
 							// Reset neighboring planes
-							findNeighboringPlanes(hoveredPlane).forEach((neighbor) => {
-								const neighborOriginalScale = originalScales.get(neighbor);
-								const neighborOriginalPos = originalPositions.get(neighbor);
-								if (neighborOriginalScale && neighborOriginalPos) {
-									gsap.to(neighbor.scale, {
-										x: neighborOriginalScale.x,
-										y: neighborOriginalScale.y,
-										duration: HOVER_DURATION,
-										ease: 'power2.out'
-									});
-									gsap.to(neighbor.position, {
-										y: neighborOriginalPos.y,
-										duration: HOVER_DURATION,
-										ease: 'power2.out'
-									});
+							findNeighboringPlanes(hoveredPlane, allPlanes, CONSTANTS.GRID, planeMetadata).forEach(
+								(neighbor) => {
+									const neighborOriginalScale = originalScales.get(neighbor);
+									const neighborOriginalPos = originalPositions.get(neighbor);
+									if (neighborOriginalScale && neighborOriginalPos) {
+										gsap.to(neighbor.scale, {
+											x: neighborOriginalScale.x,
+											y: neighborOriginalScale.y,
+											duration: CONSTANTS.DURATION.HOVER,
+											ease: 'power2.out'
+										});
+										gsap.to(neighbor.position, {
+											y: neighborOriginalPos.y,
+											duration: CONSTANTS.DURATION.HOVER,
+											ease: 'power2.out'
+										});
+									}
 								}
-							});
+							);
 						}
 
 						// Reset vertical neighbors
@@ -1069,7 +1266,7 @@
 							if (originalPos) {
 								gsap.to(verticalNeighbors.above.position, {
 									y: originalPos.y,
-									duration: HOVER_DURATION,
+									duration: CONSTANTS.DURATION.HOVER,
 									ease: 'power2.out'
 								});
 							}
@@ -1079,7 +1276,7 @@
 							if (originalPos) {
 								gsap.to(verticalNeighbors.below.position, {
 									y: originalPos.y,
-									duration: HOVER_DURATION,
+									duration: CONSTANTS.DURATION.HOVER,
 									ease: 'power2.out'
 								});
 							}
@@ -1090,33 +1287,46 @@
 					if (newHoveredPlane) {
 						const originalPos = originalPositions.get(newHoveredPlane);
 						if (originalPos) {
-							const offset = calculateScaleOffset(newHoveredPlane, HOVER_SCALE);
+							const offset = calculateScaleOffset(
+								newHoveredPlane,
+								CONSTANTS.SCALE.HOVER,
+								planeMetadata
+							);
 							gsap.to(newHoveredPlane.scale, {
-								x: HOVER_SCALE,
-								y: HOVER_SCALE,
-								duration: HOVER_DURATION,
+								x: CONSTANTS.SCALE.HOVER,
+								y: CONSTANTS.SCALE.HOVER,
+								duration: CONSTANTS.DURATION.HOVER,
 								ease: 'power2.out'
 							});
 							gsap.to(newHoveredPlane.position, {
 								y: originalPos.y + offset.y,
-								duration: HOVER_DURATION,
+								duration: CONSTANTS.DURATION.HOVER,
 								ease: 'power2.out'
 							});
 
 							// Scale down neighboring planes
-							findNeighboringPlanes(newHoveredPlane).forEach((neighbor) => {
+							findNeighboringPlanes(
+								newHoveredPlane,
+								allPlanes,
+								CONSTANTS.GRID,
+								planeMetadata
+							).forEach((neighbor) => {
 								const neighborOriginalPos = originalPositions.get(neighbor);
 								if (neighborOriginalPos) {
-									const neighborOffset = calculateScaleOffset(neighbor, NEIGHBOR_SCALE);
+									const neighborOffset = calculateScaleOffset(
+										neighbor,
+										NEIGHBOR_SCALE,
+										planeMetadata
+									);
 									gsap.to(neighbor.scale, {
 										x: NEIGHBOR_SCALE,
 										y: NEIGHBOR_SCALE,
-										duration: HOVER_DURATION,
+										duration: CONSTANTS.DURATION.HOVER,
 										ease: 'power2.out'
 									});
 									gsap.to(neighbor.position, {
 										y: neighborOriginalPos.y + neighborOffset.y,
-										duration: HOVER_DURATION,
+										duration: CONSTANTS.DURATION.HOVER,
 										ease: 'power2.out'
 									});
 								}
@@ -1163,7 +1373,10 @@
 				if (isVisible) {
 					plane.visible = true;
 					// Only update positions of visible and buffer planes
-					if (Math.abs(worldPos.x) < bounds.right + HORIZONTAL_SPACING * BUFFER_SETS) {
+					if (
+						Math.abs(worldPos.x) <
+						bounds.right + CONSTANTS.GRID.HORIZONTAL_SPACING * CONSTANTS.GRID.BUFFER_SETS
+					) {
 						// Existing position update code...
 					}
 				} else {
@@ -1171,26 +1384,123 @@
 				}
 			});
 
+			// First pass: find the center group - Add conditions to prevent group switching
+			if (!isZoomed && !isTransitioning) {
+				// Add this condition
+				allPlanes.forEach((plane) => {
+					const metadata = planeMetadata.get(plane);
+					if (!metadata) return;
+
+					// Only check one plane per group (first plane in each row)
+					if (metadata.col !== 0 || metadata.row !== 0) return;
+
+					const distance = Math.abs(plane.position.x - centerLineX);
+					if (distance < closestDistance) {
+						closestDistance = distance;
+						newCenterGroup = metadata.groupName;
+					}
+				});
+
+				// Second pass: update opacities - Only execute if not zoomed or transitioning
+				if (newCenterGroup !== currentCenterGroup) {
+					const oldCenterGroup = currentCenterGroup;
+					currentCenterGroup = newCenterGroup;
+
+					// Update the UI text based on the group index
+					if (currentCenterGroup) {
+						const currentIndex = parseInt((currentCenterGroup as string).split(' ')[1]) - 1;
+						const prevIndex = parseInt((oldCenterGroup as string)?.split(' ')[1]) - 1 || 0;
+
+						// Use the new animation function
+						animateGroupText(currentIndex, prevIndex);
+					}
+
+					// Handle opacity transitions with GSAP
+					allPlanes.forEach((plane) => {
+						if (plane.material instanceof THREE.ShaderMaterial) {
+							const metadata = planeMetadata.get(plane);
+							if (!metadata) return;
+
+							gsap.killTweensOf(plane.material.uniforms.opacity, 'value');
+							gsap.killTweensOf(plane.material.uniforms.grayscale, 'value');
+
+							const isNewCenterGroup = metadata.groupName === currentCenterGroup;
+							const isOldCenterGroup = metadata.groupName === oldCenterGroup;
+
+							// Animate both opacity and grayscale
+							gsap.to(plane.material.uniforms.opacity, {
+								value: isNewCenterGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
+								duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
+								ease: 'power2.inOut'
+							});
+
+							gsap.to(plane.material.uniforms.grayscale, {
+								value: isNewCenterGroup ? 0.0 : 1.0,
+								duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
+								ease: 'power2.inOut'
+							});
+
+							if (isOldCenterGroup) {
+								plane.material.uniforms.opacity.value = CONSTANTS.OPACITY.ACTIVE;
+								plane.material.uniforms.grayscale.value = 0.0;
+							}
+						}
+					});
+				}
+			}
+
+			// Replace the findClosestGroupCenter function with this updated version
+			const findActiveGroupCenter = () => {
+				let activeGroupPlane = null;
+				allPlanes.forEach((plane) => {
+					const metadata = planeMetadata.get(plane);
+					if (!metadata || metadata.col !== 1 || metadata.row !== 1) return;
+
+					if (metadata.groupName === currentCenterGroup) {
+						activeGroupPlane = plane;
+					}
+				});
+
+				if (activeGroupPlane) {
+					return (activeGroupPlane as any).position.x;
+				}
+
+				return camera.position.x;
+			};
+
+			// Update the auto-centering portion in the tick function (find and replace this section)
+			if (isAutoCentering && !isZoomed && !isTransitioning) {
+				const targetX = findActiveGroupCenter();
+				const currentX = camera.position.x;
+				const distance = targetX - currentX;
+
+				// Smoother speed calculation with easing
+				const distanceAbs = Math.abs(distance);
+				const normalizedDistance = Math.min(distanceAbs / 2, 1.0);
+				const easedMultiplier = normalizedDistance * CONSTANTS.AUTO_CENTER.MAX_MULTIPLIER;
+
+				if (distanceAbs > 0.01) {
+					// Smoother velocity calculation with sign preservation
+					const direction = Math.sign(distance);
+					const baseSpeed = CONSTANTS.AUTO_CENTER.SPEED * (1 + easedMultiplier);
+					velocity = direction * baseSpeed * Math.min(distanceAbs, 2.0);
+				} else {
+					isAutoCentering = false;
+					velocity = 0;
+				}
+			}
+
 			composer.render();
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
+		// Create the grids immediately
+		for (let i = 0; i < CONSTANTS.GRID.TOTAL_SETS; i++) {
+			const planes = createImageGrid(i * gridWidth, i);
+			allPlanes = [...allPlanes, ...planes];
+		}
+
 		tick();
-
-		// Optimize event listeners with debouncing
-		const debounce = <T extends (...args: any[]) => any>(fn: T, ms: number) => {
-			let timeoutId: ReturnType<typeof setTimeout>;
-			return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-				clearTimeout(timeoutId);
-				timeoutId = setTimeout(() => fn.apply(this, args), ms);
-			};
-		};
-
-		const debouncedResize = debounce(() => {
-			// ...existing resize code...
-		}, 250);
-
-		window.addEventListener('resize', debouncedResize);
 
 		return () => {
 			if (gui) gui.destroy();
@@ -1200,6 +1510,7 @@
 			window.removeEventListener('touchmove', handleTouchMove);
 			window.removeEventListener('mousemove', handleMouseMove);
 			window.removeEventListener('click', handleClick);
+			window.removeEventListener('touchend', handleTouchEnd);
 			textureCache.forEach((texture) => texture.dispose());
 			textureCache.clear();
 			objectPool.forEach((obj) => {
@@ -1209,12 +1520,24 @@
 			objectPool.clear();
 			renderer.dispose();
 			composer.dispose();
+			clearTimeout(autoCenterTimeout);
 		};
 	});
 </script>
 
 <div>
 	<canvas class="webgl"></canvas>
+	<div
+		id={CONSTANTS.TEXT.CONTAINER_ID}
+		class="absolute bottom-10 left-1/2 -translate-x-1/2 w-[300px] h-[50px]"
+	>
+		<h1 id="text1" class="absolute text-6xl font-audiowide text-white whitespace-nowrap">
+			{currentGroupText}
+		</h1>
+		<h1 id="text2" class="absolute text-6xl font-audiowide text-white whitespace-nowrap">
+			{nextGroupText}
+		</h1>
+	</div>
 </div>
 
 <style>
@@ -1222,6 +1545,6 @@
 		cursor: default;
 		transition: cursor 0.1s ease-out;
 		position: relative;
-		z-index: 0; /* Ensure canvas is below loading elements */
+		z-index: 0;
 	}
 </style>
