@@ -33,7 +33,7 @@
 	let maskState = $state(1);
 	let autoChange = $state(false);
 
-	const numberOfStates = 8;
+	const numberOfStates = 7;
 	let intervalId: ReturnType<typeof setInterval> | undefined;
 	let audioElement: HTMLAudioElement;
 
@@ -305,7 +305,7 @@
 					alt="face"
 				/>
 			{:else if maskState === 8}
-				<div
+				<!-- <div
 					class="mask-element"
 					style="clip-path: polygon(50% 0%, 67.5% 37.5%, 35% 100%, 0% 100%)"
 				>
@@ -317,7 +317,7 @@
 					<video class="mask-video" autoplay loop muted playsinline>
 						<source src={state4Vid} type="video/mp4" />
 					</video>
-				</div>
+				</div> -->
 			{:else}
 				<div
 					class="mask-element"
