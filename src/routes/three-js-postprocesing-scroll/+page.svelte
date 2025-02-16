@@ -35,6 +35,12 @@
 	let touchStartY = 0;
 	let lastTouchY = 0; // Add this line
 	let isTouchScrolling = false;
+	let textVisibilityTimeout: NodeJS.Timeout;
+	let isTextHidden = false;
+	let isGroupTransitionLocked = false; // Add this new state variable
+	let lockedCenterGroup: string | null = null; // Add this new variable
+	let isGroupSwitchingEnabled = true;
+	let groupSwitchDebounceTimeout: NodeJS.Timeout;
 
 	$effect(() => {
 		const sizes = {
@@ -493,7 +499,7 @@
 			.name('uOffset')
 			.listen();
 
-		gui.hide();
+		// gui.hide();
 
 		// Add constants for vertical overlap handling
 		const VERTICAL_OVERLAP_OFFSET = CONSTANTS.OVERLAP.VERTICAL_OFFSET; // How far to move vertical neighbors
@@ -685,9 +691,26 @@
 			return CONSTANTS.CAMERA.ZOOMED_FRUSTUM_SIZE + padding;
 		};
 
+		const setGroupSwitchingEnabled = (enabled: boolean) => {
+			isGroupSwitchingEnabled = enabled;
+			if (!enabled) {
+				clearTimeout(groupSwitchDebounceTimeout);
+				groupSwitchDebounceTimeout = setTimeout(
+					() => {
+						isGroupSwitchingEnabled = true;
+					},
+					CONSTANTS.DURATION.ZOOM * 1000 + 100
+				); // Duration in ms + buffer
+			}
+		};
+
 		const zoomToPlane = (plane: THREE.Mesh) => {
 			if (isTransitioning) return; // Prevent multiple zoom attempts
 
+			setGroupSwitchingEnabled(false); // Disable group switching
+			// Store and lock the current group immediately
+			lockedCenterGroup = currentCenterGroup;
+			isGroupTransitionLocked = true;
 			isTransitioning = true; // Start transition
 			isZoomed = true;
 			zoomedPlane = plane;
@@ -699,10 +722,12 @@
 			if (plane.material instanceof THREE.ShaderMaterial) {
 				gsap.to(plane.material.uniforms.opacity, {
 					value: CONSTANTS.OPACITY.ACTIVE,
+					duration: CONSTANTS.DURATION.ZOOM,
 					ease: 'power2.inOut'
 				});
 				gsap.to(plane.material.uniforms.grayscale, {
 					value: 0.0,
+					duration: CONSTANTS.DURATION.ZOOM,
 					ease: 'power2.inOut'
 				});
 			}
@@ -711,6 +736,7 @@
 			gsap.to(plane.scale, {
 				x: CONSTANTS.SCALE.ZOOM,
 				y: CONSTANTS.SCALE.ZOOM,
+				duration: CONSTANTS.DURATION.ZOOM,
 				ease: 'power2.inOut'
 			});
 
@@ -720,6 +746,7 @@
 			if (originalPos) {
 				gsap.to(plane.position, {
 					y: originalPos.y + offset.y,
+					duration: CONSTANTS.DURATION.ZOOM,
 					ease: 'power2.inOut'
 				});
 			}
@@ -729,9 +756,11 @@
 				x: targetPosition.x,
 				y: targetPosition.y,
 				z: 4,
+				duration: CONSTANTS.DURATION.ZOOM,
 				ease: 'power2.inOut',
 				onComplete: () => {
 					isTransitioning = false; // End transition
+					// Don't unlock group transitions here - keep locked while zoomed
 				}
 			});
 
@@ -742,6 +771,7 @@
 				{ value: currentFrustumSize },
 				{
 					value: zoomedSize,
+					duration: CONSTANTS.DURATION.ZOOM,
 					ease: 'power2.inOut',
 					onUpdate: function () {
 						currentFrustumSize = this.targets()[0].value;
@@ -756,6 +786,7 @@
 				gsap.to(neighbor.scale, {
 					x: NEIGHBOR_SCALE,
 					y: NEIGHBOR_SCALE,
+					duration: CONSTANTS.DURATION.ZOOM,
 					ease: 'power2.inOut'
 				});
 			});
@@ -773,7 +804,9 @@
 		const resetCamera = () => {
 			if (!isZoomed || isTransitioning) return;
 
+			setGroupSwitchingEnabled(false); // Disable group switching
 			isTransitioning = true;
+			isGroupTransitionLocked = true; // Keep lock during reset
 			isZoomed = false;
 			velocity = 0;
 
@@ -781,100 +814,33 @@
 			const previousZoomedPlane = zoomedPlane;
 			zoomedPlane = null;
 
-			// Start color transition immediately if the plane exists
-			if (previousZoomedPlane && previousZoomedPlane.material instanceof THREE.ShaderMaterial) {
-				const metadata = planeMetadata.get(previousZoomedPlane);
-				if (metadata) {
-					const isInActiveGroup = metadata.groupName === currentCenterGroup;
-					gsap.to(previousZoomedPlane.material.uniforms.opacity, {
-						value: isInActiveGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
-						ease: 'power2.inOut'
-					});
-					gsap.to(previousZoomedPlane.material.uniforms.grayscale, {
-						value: isInActiveGroup ? 0.0 : 1.0,
-						ease: 'power2.inOut'
-					});
-				}
-			}
-
-			// Timeline for camera movement
-			const timeline = gsap.timeline({
+			// Create a master timeline for all animations
+			const masterTimeline = gsap.timeline({
 				onComplete: () => {
-					// Only start scaling transitions after camera movement is complete
-					if (previousZoomedPlane) {
-						// Create a new timeline for scale transitions
-						const scaleTimeline = gsap.timeline();
-
-						// First reset vertical neighbors
-						resetVerticalNeighbors(previousZoomedPlane);
-
-						// Then animate the main plane's scale and position
-						const originalPos = originalPositions.get(previousZoomedPlane);
-						if (originalPos) {
-							scaleTimeline
-								.to(previousZoomedPlane.scale, {
-									x: 1,
-									y: 1,
-									duration: CONSTANTS.DURATION.HOVER,
-									ease: 'power2.out'
-								})
-								.to(
-									previousZoomedPlane.position,
-									{
-										y: originalPos.y,
-										duration: CONSTANTS.DURATION.HOVER,
-										ease: 'power2.out'
-									},
-									'<'
-								); // Start at same time as scale
-						}
-
-						// Finally reset all other planes
-						allPlanes.forEach((plane) => {
-							if (plane !== previousZoomedPlane) {
-								const planeOriginalPos = originalPositions.get(plane);
-								if (planeOriginalPos) {
-									scaleTimeline
-										.to(
-											plane.scale,
-											{
-												x: 1,
-												y: 1,
-												duration: CONSTANTS.DURATION.HOVER,
-												ease: 'power2.out'
-											},
-											'<'
-										)
-										.to(
-											plane.position,
-											{
-												y: planeOriginalPos.y,
-												duration: CONSTANTS.DURATION.HOVER,
-												ease: 'power2.out'
-											},
-											'<'
-										);
-								}
-							}
-						});
-					}
-					isTransitioning = false;
+					// Only unlock after ALL animations are complete
+					setTimeout(() => {
+						isTransitioning = false;
+						isGroupTransitionLocked = false;
+						lockedCenterGroup = null;
+					}, 100); // Small buffer after animations complete
 				}
 			});
 
-			// Animate camera position
-			timeline.to(camera.position, {
+			// Camera movement timeline
+			masterTimeline.to(camera.position, {
 				x: 0,
 				y: CONSTANTS.CAMERA.INITIAL_Y,
 				z: 4,
+				duration: CONSTANTS.DURATION.ZOOM,
 				ease: 'power2.inOut'
 			});
 
-			// Animate frustum size simultaneously
-			timeline.to(
+			// Frustum animation
+			masterTimeline.to(
 				{ value: currentFrustumSize },
 				{
 					value: CONSTANTS.CAMERA.INITIAL_FRUSTUM_SIZE,
+					duration: CONSTANTS.DURATION.ZOOM,
 					ease: 'power2.inOut',
 					onUpdate: function () {
 						currentFrustumSize = this.targets()[0].value;
@@ -883,6 +849,64 @@
 				},
 				'<' // Start at same time as camera movement
 			);
+
+			// After camera movement completes, handle the planes
+			if (previousZoomedPlane) {
+				// Reset vertical neighbors
+				resetVerticalNeighbors(previousZoomedPlane);
+
+				// Reset main plane
+				const originalPos = originalPositions.get(previousZoomedPlane);
+				if (originalPos) {
+					masterTimeline.to(
+						previousZoomedPlane.scale,
+						{
+							x: 1,
+							y: 1,
+							duration: CONSTANTS.DURATION.ZOOM,
+							ease: 'power2.out'
+						},
+						'>-=0.3'
+					);
+					masterTimeline.to(
+						previousZoomedPlane.position,
+						{
+							y: originalPos.y,
+							duration: CONSTANTS.DURATION.ZOOM,
+							ease: 'power2.out'
+						},
+						'<'
+					);
+				}
+
+				// Reset all other planes
+				allPlanes.forEach((plane) => {
+					if (plane !== previousZoomedPlane) {
+						const planeOriginalPos = originalPositions.get(plane);
+						if (planeOriginalPos) {
+							masterTimeline.to(
+								plane.scale,
+								{
+									x: 1,
+									y: 1,
+									duration: CONSTANTS.DURATION.ZOOM,
+									ease: 'power2.out'
+								},
+								'<'
+							);
+							masterTimeline.to(
+								plane.position,
+								{
+									y: planeOriginalPos.y,
+									duration: CONSTANTS.DURATION.ZOOM,
+									ease: 'power2.out'
+								},
+								'<'
+							);
+						}
+					}
+				});
+			}
 		};
 
 		// Add helper function to manage cursor
@@ -922,13 +946,37 @@
 
 		let animationFrameId: number;
 
-		// Add this function for handling text visibility transitions
+		// Update the updateTextVisibility function
 		const updateTextVisibility = (offset: number) => {
 			const container = document.getElementById(CONSTANTS.TEXT.CONTAINER_ID);
 			if (!container) return;
 
-			const opacity = Math.max(0, 1 - offset / CONSTANTS.TEXT.HIDE_THRESHOLD);
-			container.style.opacity = opacity.toString();
+			if (offset > CONSTANTS.TEXT.HIDE_THRESHOLD) {
+				clearTimeout(textVisibilityTimeout);
+			}
+
+			console.log('This function is running');
+
+			if (offset > CONSTANTS.TEXT.HIDE_THRESHOLD && !isTextHidden) {
+				console.log('Setting text opacity to 0');
+				gsap.to(container, {
+					opacity: 0,
+					duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
+					ease: 'power2.inOut'
+				});
+				isTextHidden = true;
+			} else if (isTextHidden && offset < CONSTANTS.TEXT.HIDE_THRESHOLD) {
+				console.log('Text is being set back to visible 1');
+				// Show text with delay when effect is minimal
+				textVisibilityTimeout = setTimeout(() => {
+					gsap.to(container, {
+						opacity: 1,
+						duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
+						ease: 'power2.inOut'
+					});
+					isTextHidden = false;
+				}, 250);
+			}
 		};
 
 		// New: Extract text animation into a dedicated function
@@ -986,6 +1034,15 @@
 			});
 		};
 
+		// Add this helper function near the other utility functions
+		const isCameraAtDefaultPosition = () => {
+			return (
+				Math.abs(camera.position.x) === 0 &&
+				Math.abs(camera.position.y - CONSTANTS.CAMERA.INITIAL_Y) === 0 &&
+				Math.abs(camera.position.z - 4) === 0
+			);
+		};
+
 		const tick = () => {
 			// Apply deceleration
 			velocity *= CONSTANTS.SCROLL.DECELERATION;
@@ -998,7 +1055,8 @@
 			// Update scroll position
 			scrollPosition += velocity;
 
-			updateTextVisibility(Math.abs(velocity));
+			// Update text visibility based on chromatic aberration effect
+			updateTextVisibility(chromaticAberrationPass.uniforms.uOffset.value);
 
 			// Smooth movement
 			currentScroll += (velocity - currentScroll) * CONSTANTS.SCROLL.LERP_FACTOR;
@@ -1052,23 +1110,23 @@
 						gsap.killTweensOf(plane.material.uniforms.opacity, 'value');
 						gsap.killTweensOf(plane.material.uniforms.grayscale, 'value');
 
-						const isNewCenterGroup = metadata.groupName === currentCenterGroup;
-						const isOldCenterGroup = metadata.groupName === oldCenterGroup;
+						const activeGroup = lockedCenterGroup || currentCenterGroup;
+						const isInActiveGroup = metadata.groupName === activeGroup;
 
 						// Animate both opacity and grayscale
 						gsap.to(plane.material.uniforms.opacity, {
-							value: isNewCenterGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
+							value: isInActiveGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
 							duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
 							ease: 'power2.inOut'
 						});
 
 						gsap.to(plane.material.uniforms.grayscale, {
-							value: isNewCenterGroup ? 0.0 : 1.0,
+							value: isInActiveGroup ? 0.0 : 1.0,
 							duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
 							ease: 'power2.inOut'
 						});
 
-						if (isOldCenterGroup) {
+						if (metadata.groupName === oldCenterGroup) {
 							plane.material.uniforms.opacity.value = CONSTANTS.OPACITY.ACTIVE;
 							plane.material.uniforms.grayscale.value = 0.0;
 						}
@@ -1168,14 +1226,6 @@
 				isMobile || effectActive || isZoomed || isTransitioning || intersects.length === 0
 					? null
 					: (intersects[0].object as THREE.Mesh);
-
-			// Add this section right here, before the hover state handling
-			if (newHoveredPlane && (!hoveredPlane || hoveredPlane !== newHoveredPlane)) {
-				const metadata = planeMetadata.get(newHoveredPlane);
-				if (metadata) {
-					console.log(`Hovering over group: ${metadata.groupName}`);
-				}
-			}
 
 			if (!isMobile && hoveredPlane !== newHoveredPlane && !isZoomed) {
 				// Reset all active vertical neighbors first
@@ -1385,7 +1435,14 @@
 			});
 
 			// First pass: find the center group - Add conditions to prevent group switching
-			if (!isZoomed && !isTransitioning) {
+			if (
+				isCameraAtDefaultPosition() && // Only allow switching at default camera position
+				!isZoomed &&
+				!isTransitioning &&
+				!isGroupTransitionLocked &&
+				!lockedCenterGroup &&
+				Math.abs(velocity) < 0.01
+			) {
 				// Add this condition
 				allPlanes.forEach((plane) => {
 					const metadata = planeMetadata.get(plane);
@@ -1424,23 +1481,23 @@
 							gsap.killTweensOf(plane.material.uniforms.opacity, 'value');
 							gsap.killTweensOf(plane.material.uniforms.grayscale, 'value');
 
-							const isNewCenterGroup = metadata.groupName === currentCenterGroup;
-							const isOldCenterGroup = metadata.groupName === oldCenterGroup;
+							const activeGroup = lockedCenterGroup || currentCenterGroup;
+							const isInActiveGroup = metadata.groupName === activeGroup;
 
 							// Animate both opacity and grayscale
 							gsap.to(plane.material.uniforms.opacity, {
-								value: isNewCenterGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
+								value: isInActiveGroup ? CONSTANTS.OPACITY.ACTIVE : CONSTANTS.OPACITY.INACTIVE,
 								duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
 								ease: 'power2.inOut'
 							});
 
 							gsap.to(plane.material.uniforms.grayscale, {
-								value: isNewCenterGroup ? 0.0 : 1.0,
+								value: isInActiveGroup ? 0.0 : 1.0,
 								duration: CONSTANTS.DURATION.OPACITY_TRANSITION,
 								ease: 'power2.inOut'
 							});
 
-							if (isOldCenterGroup) {
+							if (oldCenterGroup) {
 								plane.material.uniforms.opacity.value = CONSTANTS.OPACITY.ACTIVE;
 								plane.material.uniforms.grayscale.value = 0.0;
 							}
@@ -1521,6 +1578,7 @@
 			renderer.dispose();
 			composer.dispose();
 			clearTimeout(autoCenterTimeout);
+			clearTimeout(textVisibilityTimeout);
 		};
 	});
 </script>

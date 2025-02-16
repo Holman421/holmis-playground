@@ -104,7 +104,10 @@
 	<a {href}>
 		<div id="cardBorderEffect-{uniqueId}">
 			<div id="cardGooEffect-{uniqueId}">
-				<div id="projectCard" class="px-5 pt-5 pb-6 w-[400px] h-[200px] relative">
+				<div
+					id="projectCard"
+					class="px-5 pt-5 pb-0 sm:pb-6 w-[350px] h-auto sm:w-[400px] sm:h-[200px] relative"
+				>
 					<div class="flex flex-col gap-4 h-full">
 						<h3 class="main-text font-audiowide">{title}</h3>
 						<div class="flex justify-between">
@@ -113,19 +116,12 @@
 								<img
 									src={imgSrc}
 									alt="Project thumbnail"
-									class="object-cover w-full h-full"
+									class="object-fill w-full h-full"
 									style="mask-image: radial-gradient(ellipse at center, black 95%, transparent 70%);"
 								/>
 							</div>
 						</div>
 					</div>
-					<!-- <div class="flex gap-2 mt-4 flex-wrap">
-						{#each technologies as technology}
-							<div class="border rounded-full px-3 border-[#fafafa] secondary-text">
-								{technology}
-							</div>
-						{/each}
-					</div> -->
 				</div>
 			</div>
 		</div>
