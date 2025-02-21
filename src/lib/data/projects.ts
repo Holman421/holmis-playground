@@ -49,7 +49,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-galaxy',
-		title: 'Three.js Galaxy generator',
+		title: 'Galaxy generator',
 		description: 'Scene with thousands of particles forming galaxy, higtly customizable',
 		technologies: ['Three.js', 'Particles', 'GUI', 'Trigonometry'],
 		shared: true,
@@ -138,7 +138,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-hologram',
-		title: 'Glitching hologram effect',
+		title: 'Hologram effect',
 		description: 'Hologram like effect with occasional glitch',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
@@ -170,7 +170,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-moving-particles',
-		title: '2D Displacement particles',
+		title: 'Particles canvas',
 		description:
 			'Scene with picture divided into particles that gets displacement with mouse movement',
 		technologies: ['THREE.js', 'Shaders', 'Points', 'Canvas', 'Raycaster'],
@@ -205,8 +205,7 @@ export const projects = [
 	{
 		href: '/three-js-shaders-wobbly-sphere',
 		title: 'Virus project',
-		description:
-			'Dangerous virus cards with 3D models of the molecules with various surface disturption animated with shaders',
+		description: 'Virus cards with 3D models of the molecules with various surface disturption',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true,
 		imgSrc: '/projectThumbnails/virus.png'
@@ -253,7 +252,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-postprocesing',
-		title: 'Postprocessing effects',
+		title: 'Postprocessing effect',
 		description: 'Various post procesing effects on 3D models together with html tags',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: true,
@@ -311,7 +310,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-tsl-honeycomb',
-		title: 'Honeycomb like transition',
+		title: 'Honeycomb transition',
 		description: 'Scene with honeycomb like transition effect',
 		technologies: ['THREE.js'],
 		shared: true,
@@ -327,7 +326,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-hover-pixelation',
-		title: 'Onhover pixelation effect',
+		title: 'Onhover pixelation',
 		description: 'Image pixelation distortion onhover effect',
 		technologies: ['THREE.js'],
 		shared: true,
@@ -440,7 +439,7 @@ export const projects = [
 	},
 	{
 		href: '/three-js-shaders-art',
-		title: 'Animated noise gradients',
+		title: 'Noise gradients',
 		description: '',
 		technologies: ['THREE.js'],
 		shared: true,
