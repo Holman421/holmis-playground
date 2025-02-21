@@ -15,6 +15,7 @@
 		handleScene6,
 		resizeRenderer
 	} from './three-js-utils';
+	import AvalabsMask from './AvalabsMask.svelte';
 
 	let containerElement: HTMLDivElement;
 	// Generate unique IDs for this instance
@@ -158,14 +159,31 @@
 			</svg>
 		{:else if maskState === 1 || maskState === 4}
 			<canvas class="webgl relative z-40 size-full"></canvas>
+		{:else if maskState === 3}
+			<AvalabsMask>
+				<video
+					class="mask-video"
+					style="width: 100%; height: 100%; object-fit: cover;"
+					autoplay
+					loop
+					muted
+					playsinline
+				>
+					<source src={state3Vid} type="video/mp4" />
+				</video>
+			</AvalabsMask>
 		{/if}
 		<div class="size-full absolute">
 			{#if maskState === 1}
-				<div
-					class="mask-element"
-					style="clip-path: polygon(50% 0%, 67.5% 37.5%, 35% 100%, 0% 100%)"
-				>
-					<video class="mask-video" autoplay loop muted playsinline>
+				<AvalabsMask>
+					<video
+						class="mask-video"
+						style="width: 100%; height: 100%; object-fit: cover;"
+						autoplay
+						loop
+						muted
+						playsinline
+					>
 						<source src={state1Vid} type="video/mp4" />
 					</video>
 					<h3
@@ -173,17 +191,8 @@
 					>
 						<span class="text-red-500">Hyper</span><span class="text-white">SDK</span>
 					</h3>
-				</div>
-				<div class="mask-element" style="clip-path: polygon(80% 60%, 100% 100%, 60% 100%)">
-					<video class="mask-video" autoplay loop muted playsinline>
-						<source src={state1Vid} type="video/mp4" />
-					</video>
-				</div>
+				</AvalabsMask>
 			{:else if maskState === 2}
-				<div
-					class="mask-element bg-blue-500"
-					style="clip-path: polygon(50% 0%, 67.5% 37.5%, 35% 100%, 0% 100%)"
-				></div>
 				<div
 					class="mask-element"
 					style="clip-path: polygon(0% 0%, 100% 0%, 67.5% 37.5%, 35% 100%, 0% 100%)"
@@ -192,54 +201,35 @@
 						<source src={state2Vid} type="video/webm" />
 					</video>
 				</div>
-				<div
-					class="mask-element bg-blue-500"
-					style="clip-path: polygon(80% 60%, 100% 100%, 60% 100%)"
-				></div>
+				<AvalabsMask>
+					<div class=" bg-blue-500 size-full"></div>
+				</AvalabsMask>
 			{:else if maskState === 3}
-				<svg
-					width="100%"
-					height="100%"
-					viewBox="0 0 400 400"
-					preserveAspectRatio="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<defs>
-						<clipPath id="multiClip">
-							<polygon points="200,0 270,150 140,400 0,400" />
-							<polygon points="320,240 400,400 240,400" />
-						</clipPath>
-					</defs>
-
-					<foreignObject width="100%" height="100%" clip-path="url(#multiClip)">
-						<div style="width: 100%; height: 100%;">
-							<video
-								class="mask-video"
-								style="width: 100%; height: 100%; object-fit: cover;"
-								autoplay
-								loop
-								muted
-								playsinline
-							>
-								<source src={state3Vid} type="video/mp4" />
-							</video>
-						</div>
-					</foreignObject>
-				</svg>
+				<AvalabsMask>
+					<video
+						class="mask-video"
+						style="width: 100%; height: 100%; object-fit: cover;"
+						autoplay
+						loop
+						muted
+						playsinline
+					>
+						<source src={state3Vid} type="video/mp4" />
+					</video>
+				</AvalabsMask>
 			{:else if maskState === 4}
-				<div
-					class="mask-element"
-					style="clip-path: polygon(50% 0%, 67.5% 37.5%, 35% 100%, 0% 100%)"
-				>
-					<video class="mask-video" autoplay loop muted playsinline>
+				<AvalabsMask>
+					<video
+						class="mask-video"
+						style="width: 100%; height: 100%; object-fit: cover;"
+						autoplay
+						loop
+						muted
+						playsinline
+					>
 						<source src={state4Vid} type="video/mp4" />
 					</video>
-				</div>
-				<div class="mask-element" style="clip-path: polygon(80% 60%, 100% 100%, 60% 100%)">
-					<video class="mask-video" autoplay loop muted playsinline>
-						<source src={state4Vid} type="video/mp4" />
-					</video>
-				</div>
+				</AvalabsMask>
 			{:else if maskState === 5}
 				<div
 					class="mask-element z-10 clip-path-animation"
@@ -251,19 +241,18 @@
 						alt="face"
 					/>
 				</div>
-				<div
-					class="mask-element"
-					style="clip-path: polygon(50% 0%, 67.5% 37.5%, 35% 100%, 0% 100%)"
-				>
-					<video class="mask-video" autoplay loop muted playsinline>
+				<AvalabsMask>
+					<video
+						class="mask-video"
+						style="width: 100%; height: 100%; object-fit: cover;"
+						autoplay
+						loop
+						muted
+						playsinline
+					>
 						<source src={state5Vid} type="video/mp4" />
 					</video>
-				</div>
-				<div class="mask-element" style="clip-path: polygon(80% 60%, 100% 100%, 60% 100%)">
-					<video class="mask-video" autoplay loop muted playsinline>
-						<source src={state5Vid} type="video/mp4" />
-					</video>
-				</div>
+				</AvalabsMask>
 			{:else if maskState === 6}
 				<div
 					class="mask-element bg-pink-400"

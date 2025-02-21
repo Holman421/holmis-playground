@@ -437,5 +437,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/galery-warp.png'
+	},
+	{
+		href: '/three-js-shaders-art',
+		title: 'Animated noise gradients',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/noice-gradient.png'
 	}
 ];

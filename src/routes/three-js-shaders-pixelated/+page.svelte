@@ -11,9 +11,73 @@
 		RGBELoader
 	} from 'three/examples/jsm/Addons.js';
 
+	let imageTexture: THREE.Texture;
+	let planeMaterial: THREE.ShaderMaterial;
+	let renderPixelatedPassRef: any;
+
+	let pixelationConfig = {
+		minPixelSize: 1
+	};
+
+	const triggerPixelAnimation = () => {
+		if (!renderPixelatedPassRef) return;
+
+		renderPixelatedPassRef.enabled = true;
+		const pixelAnimation = { size: 100 };
+		const targetSize = pixelationConfig.minPixelSize; // Use configured minimum size
+		const duration = 0.75;
+		const startTime = performance.now();
+
+		const animate = () => {
+			const elapsedTime = (performance.now() - startTime) / 1000;
+			const t = Math.min(elapsedTime / duration, 1);
+			pixelAnimation.size = THREE.MathUtils.lerp(100, targetSize, t);
+			renderPixelatedPassRef.setPixelSize(
+				Math.max(pixelationConfig.minPixelSize, pixelAnimation.size)
+			);
+
+			if (t < 1) {
+				requestAnimationFrame(animate);
+			}
+		};
+
+		animate();
+	};
+
+	function handleImageUpload(event: Event) {
+		const file = (event.target as HTMLInputElement).files?.[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				const img = new Image();
+				img.onload = () => {
+					if (imageTexture) {
+						imageTexture.dispose();
+					}
+					imageTexture = new THREE.Texture(img);
+					imageTexture.needsUpdate = true;
+					planeMaterial.uniforms.uPicture.value = imageTexture;
+					triggerPixelAnimation();
+				};
+				img.src = e.target?.result as string;
+			};
+			reader.readAsDataURL(file);
+		}
+	}
+
 	$effect(() => {
 		// Base
 		const gui = new GUI({ width: 325 });
+
+		// Add pixelation slider
+		gui
+			.add(pixelationConfig, 'minPixelSize', 1, 32, 1)
+			.name('Pixelation Level')
+			.onChange((value: number) => {
+				if (renderPixelatedPassRef) {
+					renderPixelatedPassRef.setPixelSize(value);
+				}
+			});
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -29,13 +93,11 @@
 		gltfLoader.setDRACOLoader(dracoLoader);
 
 		// Plane
-		const plane = new THREE.Mesh(
-			new THREE.PlaneGeometry(2, 2, 2),
-			new THREE.ShaderMaterial({
-				uniforms: {
-					uPicture: { value: new THREE.TextureLoader().load('/pictures/galaxy-img.jpg') }
-				},
-				vertexShader: `
+		planeMaterial = new THREE.ShaderMaterial({
+			uniforms: {
+				uPicture: { value: new THREE.TextureLoader().load('/pictures/galaxy-img.jpg') }
+			},
+			vertexShader: `
 				varying vec2 vUv;
 
 					void main() {
@@ -43,7 +105,7 @@
 						vUv = uv;
 					}
 				`,
-				fragmentShader: `
+			fragmentShader: `
 					uniform sampler2D uPicture;
 
 					varying vec2 vUv;
@@ -53,9 +115,10 @@
 					vec4 normalColor = texture2D(uPicture, vUv);
 					gl_FragColor = normalColor;
 					}
-				`
-			})
-		);
+					`
+		});
+
+		const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 2), planeMaterial);
 		scene.add(plane);
 
 		// Lights
@@ -116,35 +179,12 @@
 		const renderPass = new RenderPass(scene, camera);
 		effectComposer.addPass(renderPass);
 
-		const pixelAnimation = {
-			size: 100
-		};
-
-		const renderPixelatedPass = new RenderPixelatedPass(pixelAnimation.size, scene, camera);
+		const renderPixelatedPass = new RenderPixelatedPass(100, scene, camera);
 		renderPixelatedPass.enabled = true;
 		effectComposer.addPass(renderPixelatedPass);
+		renderPixelatedPassRef = renderPixelatedPass;
 
-		const triggerPixelAnimation = () => {
-			renderPixelatedPass.enabled = true;
-
-			const targetSize = 0;
-			const duration = 0.75; // Duration in seconds
-			const startTime = performance.now();
-
-			const animate = () => {
-				const elapsedTime = (performance.now() - startTime) / 1000; // Convert to seconds
-				const t = Math.min(elapsedTime / duration, 1); // Normalized time
-				pixelAnimation.size = THREE.MathUtils.lerp(100, targetSize, t);
-				renderPixelatedPass.setPixelSize(Math.max(1, pixelAnimation.size));
-
-				if (t < 1) {
-					requestAnimationFrame(animate);
-				}
-			};
-
-			animate();
-		};
-
+		// Initial animation
 		triggerPixelAnimation();
 
 		gui.add({ animate: triggerPixelAnimation }, 'animate').name('Trigger Pixel Animation');
@@ -168,24 +208,54 @@
 		return () => {
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+			renderPixelatedPassRef = null;
 		};
 	});
 </script>
 
-<div>
-	<canvas class="webgl"></canvas>
+<div class="container">
+	<canvas class="webgl border"></canvas>
+	<div class="controls">
+		<input type="file" accept="image/*" id="imageUpload" on:change={handleImageUpload} />
+		<label for="imageUpload" class="upload-btn">Choose Image</label>
+	</div>
 </div>
 
 <style>
-	div {
+	.container {
 		display: flex;
+		flex-direction: column;
 		justify-content: center;
 		align-items: center;
 		width: 100%;
 		height: 100%;
 	}
+
 	canvas {
 		display: block;
-		margin-top: 10rem;
+		margin-top: 2rem;
+	}
+
+	.controls {
+		margin-top: 1rem;
+		text-align: center;
+	}
+
+	input[type='file'] {
+		display: none;
+	}
+
+	.upload-btn {
+		display: inline-block;
+		padding: 10px 20px;
+		background-color: #4caf50;
+		color: white;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.3s;
+	}
+
+	.upload-btn:hover {
+		background-color: #45a049;
 	}
 </style>
