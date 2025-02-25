@@ -52,48 +52,44 @@
 
 		// Create a shared update function
 		const updateScene = (progress: number) => {
+			// Synchronize all effect values
 			effect1.uniforms['uProgress'].value = progress;
 			effect2.uniforms['opacity'].value = progress;
 			debugObject.uProgress = progress;
 			debugObject.yOffset = progress;
 			updatePlanePositions(progress);
 
+			// Calculate camera position
+			const newZ = THREE.MathUtils.lerp(debugObject.cameraStartZ, debugObject.cameraEndZ, progress);
+			camera.position.setZ(newZ);
+			debugObject.currentCameraZ = newZ;
+
 			// Update GUI displays
 			guiControllers.progress?.updateDisplay();
 			guiControllers.yOffset?.updateDisplay();
-
-			if (!gsap.isTweening(camera.position)) {
-				const newZ = THREE.MathUtils.lerp(
-					debugObject.cameraStartZ,
-					debugObject.cameraEndZ,
-					progress
-				);
-				camera.position.setZ(newZ);
-				debugObject.currentCameraZ = newZ;
-				guiControllers.currentCameraZ?.updateDisplay();
-			}
+			guiControllers.currentCameraZ?.updateDisplay();
 		};
 
 		const debugObject: DebugObject = {
-			yOffset: 1.0, // Changed from 0.0 to 1.0
-			uProgress: 1, // Changed from 0 to 1
+			yOffset: 1.0, // Start at max distortion
+			uProgress: 1, // Start at max distortion
 			uScale: 1.4,
 			uTimeSpeed: 0.15,
 			planesGap: 1.5,
-			cameraInitialZ: 6, // Add initial camera Z position
-			cameraStartZ: 4.6, // Add initial camera Z position
-			cameraEndZ: 3.15, // Add target camera Z position
-			currentCameraZ: 6, // Changed to match initial position
-			noiseOpacity: 1.0, // Changed from 0.0 to 1.0
+			cameraInitialZ: 3.15, // Start closer
+			cameraStartZ: 4.6, // Keep this value
+			cameraEndZ: 3.15, // Keep this value
+			currentCameraZ: 3.15, // Start closer
+			noiseOpacity: 1.0, // Start with full noise effect
 			animateProgress: () => {
 				const targetProgress = debugObject.uProgress === 0 ? 1 : 0;
+
+				// Create a single GSAP animation for smooth transition
 				gsap.to(debugObject, {
 					uProgress: targetProgress,
 					duration: 2,
 					ease: 'power2.inOut',
-					onUpdate: () => {
-						updateScene(debugObject.uProgress);
-					}
+					onUpdate: () => updateScene(debugObject.uProgress)
 				});
 			}
 		};
@@ -104,9 +100,9 @@
 		// Scene
 		const scene = new THREE.Scene();
 
-		const imgTexture1 = new THREE.TextureLoader().load('/pictures/galaxy-img.jpg');
-		const imgTexture2 = new THREE.TextureLoader().load('/pictures/galaxy-img2.jpg');
-		const imgTexture3 = new THREE.TextureLoader().load('/pictures/universe.jpg');
+		const imgTexture1 = new THREE.TextureLoader().load('/pictures/galaxy/galaxy-1.jpg');
+		const imgTexture2 = new THREE.TextureLoader().load('/pictures/galaxy/galaxy-2.jpg');
+		const imgTexture3 = new THREE.TextureLoader().load('/pictures/universe/universe-11.jpg');
 
 		// Store planes in an array
 		const planes: THREE.Mesh[] = [];
@@ -194,13 +190,13 @@
 		composer.addPass(new RenderPass(scene, camera));
 
 		const effect1 = new ShaderPass(CustomPass);
-		effect1.uniforms['uProgress'].value = debugObject.uProgress;
+		effect1.uniforms['uProgress'].value = 1; // Start at max distortion
 		effect1.uniforms['uScale'].value = debugObject.uScale;
 		effect1.uniforms['uTimeSpeed'].value = debugObject.uTimeSpeed;
 		composer.addPass(effect1);
 
 		const effect2 = new ShaderPass(DotScreenShader);
-		effect2.uniforms['opacity'].value = debugObject.noiseOpacity;
+		effect2.uniforms['opacity'].value = 1; // Start with full noise effect
 		composer.addPass(effect2);
 
 		// Controls - Disable orbit controls
@@ -213,15 +209,11 @@
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
-		gsap.to(camera.position, {
-			z: debugObject.cameraEndZ,
-			duration: 1,
-			delay: 0,
-			ease: 'power2.inOut',
-			onUpdate: () => {
-				debugObject.currentCameraZ = camera.position.z;
-			}
-		});
+		// Remove the separate camera animation and set initial position directly
+		camera.position.set(0, 0, debugObject.cameraInitialZ);
+
+		// Set initial state for all effects
+		updateScene(1); // Start at maximum distortion
 
 		// Handle click events
 		const handleClick = () => {

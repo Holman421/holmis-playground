@@ -2,7 +2,6 @@
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
-	import { DRACOLoader, GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js';
 	import vertexShader from './shaders/vertex.glsl';
 	import fragmentShader from './shaders/fragment.glsl';
 	import fragmentShader2 from './shaders/fragment2.glsl';
@@ -12,75 +11,27 @@
 	import fragmentShader6 from './shaders/fragment6.glsl';
 	import fragmentShader7 from './shaders/fragment7.glsl';
 	import fragmentShader8 from './shaders/fragment8.glsl';
+	import fragmentShader9 from './shaders/fragment9.glsl';
+	import {
+		createDefaultDebugObjects,
+		setupShader3GUI,
+		setupShader4GUI,
+		setupShader9GUI,
+		type ShaderDebugObjects
+	} from './utils/guiUtils';
+	import type {
+		BaseUniforms,
+		Shader1Uniforms,
+		Shader3Uniforms,
+		Shader4Uniforms,
+		Shader5Uniforms,
+		Shader6Uniforms,
+		ShaderMeshType
+	} from './types';
 
-	// Update interfaces to match Three.js IUniform structure
-	interface BaseUniforms {
-		[uniform: string]: THREE.IUniform<any>;
-		uTime: THREE.IUniform<number>;
-		uResolution: THREE.IUniform<THREE.Vector2>;
-	}
-
-	interface Shader1Uniforms {
-		[uniform: string]: THREE.IUniform<any>;
-		uTime: THREE.IUniform<number>;
-		uResolution: THREE.IUniform<THREE.Vector2>;
-		uColorA: THREE.IUniform<THREE.Color>;
-		uColorB: THREE.IUniform<THREE.Color>;
-	}
-
-	interface Shader3Uniforms {
-		[uniform: string]: THREE.IUniform<any>;
-		uTime: THREE.IUniform<number>;
-		uResolution: THREE.IUniform<THREE.Vector2>;
-		uTimeScale: THREE.IUniform<number>;
-		uNoiseScale: THREE.IUniform<number>;
-		uDistortScale: THREE.IUniform<number>;
-	}
-
-	interface Shader4Uniforms {
-		[uniform: string]: THREE.IUniform<any>;
-		uTime: THREE.IUniform<number>;
-		uResolution: THREE.IUniform<THREE.Vector2>;
-		uColorA: THREE.IUniform<THREE.Color>;
-		uColorB: THREE.IUniform<THREE.Color>;
-		uColorC: THREE.IUniform<THREE.Color>;
-		uSpeed: THREE.IUniform<number>;
-		uNoiseScale: THREE.IUniform<number>;
-		uEdgeIntensity: THREE.IUniform<number>;
-		uVignetteIntensity: THREE.IUniform<number>;
-		uHighlightColor: THREE.IUniform<THREE.Color>;
-		uHighlightIntensity: THREE.IUniform<number>;
-		uNormalInfluence: THREE.IUniform<number>;
-	}
-
-	interface Shader5Uniforms {
-		[uniform: string]: THREE.IUniform<any>;
-		uTime: THREE.IUniform<number>;
-		uResolution: THREE.IUniform<THREE.Vector2>;
-		uNoiseScale: THREE.IUniform<number>;
-	}
-
-	interface Shader6Uniforms {
-		[uniform: string]: THREE.IUniform<any>;
-		uTime: THREE.IUniform<number>;
-		uResolution: THREE.IUniform<THREE.Vector2>;
-		uBaseColor1: THREE.IUniform<THREE.Color>;
-		uBaseColor2: THREE.IUniform<THREE.Color>;
-		uAccentColor1: THREE.IUniform<THREE.Color>;
-		uAccentColor2: THREE.IUniform<THREE.Color>;
-		uAccentColor3: THREE.IUniform<THREE.Color>;
-		uAccentColor4: THREE.IUniform<THREE.Color>;
-		uNoiseScale: THREE.IUniform<number>;
-		uTimeScale: THREE.IUniform<number>;
-		uContrast: THREE.IUniform<number>;
-		uVignetteIntensity: THREE.IUniform<number>;
-	}
-
-	type ShaderMeshType = THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
-
-	let currentShader = $state(0);
-	let planes: ShaderMeshType[] = []; // Add this to track planes in component scope
-	let guiFolders: GUI[] = []; // Add this to track folders
+	let currentShader = $state(8);
+	let planes: ShaderMeshType[] = [];
+	let guiFolders: GUI[] = [];
 	const shaders = [
 		fragmentShader,
 		fragmentShader2,
@@ -89,8 +40,48 @@
 		fragmentShader5,
 		fragmentShader6,
 		fragmentShader7,
-		fragmentShader8
+		fragmentShader8,
+		fragmentShader9
 	];
+
+	let isMovingLeft = false;
+	let isMovingRight = false;
+	let isMovingUp = false;
+	let isMovingDown = false;
+	let moveSpeed = 0.5; // Units per second
+	let isPaused = false; // Add pause state
+	let lastElapsedTime = 0; // Store last time when paused
+	let wheelSensitivity = 0.15; // Adjusted wheel sensitivity
+
+	let isDragging = false;
+	let lastMouseX = 0;
+	let lastMouseY = 0;
+	// Adjust dragSensitivity base value
+	let dragSensitivity = 0.002; // Reduced base sensitivity
+
+	// Add control state
+	let controls: OrbitControls;
+
+	// Replace targetScale and currentScale with zoom-specific variables
+	let targetZoom = 1.0;
+	let currentZoom = 1.0;
+
+	// Add debugObjects to component scope
+	let debugObjects: ShaderDebugObjects = createDefaultDebugObjects();
+
+	// Add clock to component scope
+	let clock = new THREE.Clock();
+
+	// Modify time control variables
+	let shader9Time = 0;
+	let targetShader9Time = 0; // Add this line
+	const TIME_ADJUSTMENT_FACTOR = 0.2; // Reduced for finer control
+	const TIME_SMOOTHING = 0.1; // Add this line for smooth interpolation
+	let lastFrameTime = 0;
+
+	// Add these variables near the top with other state variables
+	let timeAdjustInterval: number | NodeJS.Timeout | null = null;
+	let timeAdjustDirection: 1 | -1 = 1;
 
 	// Move updateGUIVisibility to component scope
 	function updateGUIVisibility() {
@@ -103,59 +94,182 @@
 		});
 	}
 
+	// Replace the updateGUIValue function with this improved version
+	function updateGUIValue(folder: GUI | undefined, propertyPath: string, value: any) {
+		if (!folder) return;
+
+		// Find all controllers in the folder
+		const controllers = folder.controllers;
+		const controller = controllers.find((c) => c.property === propertyPath);
+
+		if (controller) {
+			// Update both the controller's value and the underlying object
+			(controller.object as Record<string, unknown>)[controller.property] = value;
+			controller.updateDisplay();
+		}
+	}
+
+	// Add movement animation
+	function updateMovement(debugObjects: ShaderDebugObjects) {
+		let lastTime = performance.now();
+		let animationFrameId: number;
+
+		function animate(currentTime: number) {
+			const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+			lastTime = currentTime;
+
+			if (currentShader === 8) {
+				// Only update for shader 9
+				let changed = false;
+				if (isMovingLeft) {
+					debugObjects.shader9.offsetX -= moveSpeed * deltaTime;
+					changed = true;
+				}
+				if (isMovingRight) {
+					debugObjects.shader9.offsetX += moveSpeed * deltaTime;
+					changed = true;
+				}
+				if (isMovingUp) {
+					debugObjects.shader9.offsetY += moveSpeed * deltaTime;
+					changed = true;
+				}
+				if (isMovingDown) {
+					debugObjects.shader9.offsetY -= moveSpeed * deltaTime;
+					changed = true;
+				}
+
+				if (changed && planes[8]) {
+					const material = planes[8].material as THREE.ShaderMaterial;
+					material.uniforms.uOffsetX.value = debugObjects.shader9.offsetX;
+					material.uniforms.uOffsetY.value = debugObjects.shader9.offsetY;
+					// Update GUI values
+					updateGUIValue(guiFolders[8], 'offsetX', debugObjects.shader9.offsetX);
+					updateGUIValue(guiFolders[8], 'offsetY', debugObjects.shader9.offsetY);
+				}
+			}
+
+			animationFrameId = requestAnimationFrame(animate);
+		}
+
+		animationFrameId = requestAnimationFrame(animate);
+		return () => cancelAnimationFrame(animationFrameId);
+	}
+
+	// Add time control functions
+	function togglePause() {
+		isPaused = !isPaused;
+		if (!isPaused) {
+			lastFrameTime = performance.now();
+		}
+	}
+
+	// Update adjustTime function to directly modify shader9Time
+	function adjustTime(direction: 1 | -1) {
+		if (isPaused) {
+			// Direct time adjustment when paused
+			targetShader9Time = shader9Time + direction * TIME_ADJUSTMENT_FACTOR;
+		} else {
+			// Speed adjustment when not paused
+			targetShader9Time += direction * TIME_ADJUSTMENT_FACTOR;
+		}
+	}
+
+	// Add these new functions
+	function startTimeAdjust(direction: 1 | -1) {
+		// Clear any existing interval
+		if (timeAdjustInterval) {
+			clearInterval(timeAdjustInterval);
+		}
+
+		// Set direction and do initial adjustment
+		timeAdjustDirection = direction;
+		adjustTime(direction);
+
+		// Start continuous adjustment
+		timeAdjustInterval = setInterval(() => {
+			adjustTime(direction);
+		}, 50); // Adjust every 50ms
+	}
+
+	function stopTimeAdjust() {
+		if (timeAdjustInterval) {
+			clearInterval(timeAdjustInterval);
+			timeAdjustInterval = null;
+		}
+	}
+
+	function handleMouseDown(event: MouseEvent) {
+		if (currentShader === 8) {
+			isDragging = true;
+			lastMouseX = event.clientX;
+			lastMouseY = event.clientY;
+		}
+	}
+
+	// Update the movement handler to be zoom-aware
+	function handleMouseMove(event: MouseEvent) {
+		if (isDragging && currentShader === 8 && planes[8]) {
+			const material = planes[8].material as THREE.ShaderMaterial;
+			const currentZoomValue = material.uniforms.uZoom.value;
+
+			// Scale sensitivity inversely with zoom level (divide by zoom instead of multiply)
+			const adjustedSensitivity = dragSensitivity / currentZoomValue;
+
+			const deltaX = (event.clientX - lastMouseX) * adjustedSensitivity;
+			const deltaY = (event.clientY - lastMouseY) * adjustedSensitivity;
+
+			const newOffsetX = material.uniforms.uOffsetX.value - deltaX;
+			const newOffsetY = material.uniforms.uOffsetY.value + deltaY;
+
+			// Rest of the existing function...
+			material.uniforms.uOffsetX.value = newOffsetX;
+			material.uniforms.uOffsetY.value = newOffsetY;
+			debugObjects.shader9.offsetX = newOffsetX;
+			debugObjects.shader9.offsetY = newOffsetY;
+			updateGUIValue(guiFolders[8], 'offsetX', newOffsetX);
+			updateGUIValue(guiFolders[8], 'offsetY', newOffsetY);
+
+			lastMouseX = event.clientX;
+			lastMouseY = event.clientY;
+		}
+	}
+
+	function handleMouseUp() {
+		isDragging = false;
+	}
+
+	// Add this helper function after other function declarations
+	function lerp(start: number, end: number, factor: number): number {
+		return start + (end - start) * factor;
+	}
+
+	// Update the wheel handler
+	function handleWheel(event: WheelEvent) {
+		if (currentShader === 8 && planes[8]) {
+			event.preventDefault();
+			const delta = event.deltaY > 0 ? 0.9 : 1.1; // Inverted for natural zoom direction
+			targetZoom *= delta;
+			// Update zoom limits from 10.0 to 50.0
+			targetZoom = Math.max(0.01, Math.min(targetZoom, 50.0));
+
+			if (planes[8]) {
+				const material = planes[8].material as THREE.ShaderMaterial;
+				currentZoom = lerp(currentZoom, targetZoom, wheelSensitivity);
+				material.uniforms.uZoom.value = currentZoom;
+
+				// Update debugObjects and GUI
+				debugObjects.shader9.zoom = currentZoom;
+				updateGUIValue(guiFolders[8], 'zoom', currentZoom);
+			}
+		}
+	}
+
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
-		const debugObjects = [
-			{
-				// Shader 1 uniforms
-				colorA: '#239f76',
-				colorB: '#ffbf59'
-			},
-			{
-				// Shader 2 uniforms
-				speed: 0.05,
-				noiseScale: 1.0
-			},
-			{
-				// Shader 3 uniforms
-				timeScale: 0.05,
-				noiseScale: 0.7,
-				distortScale: 4.0
-			},
-			{
-				// Shader 4 uniforms
-				colorA: '#239f76',
-				colorB: '#ffbf59',
-				colorC: '#145d58',
-				speed: 0.05,
-				noiseScale: 1.0,
-				edgeIntensity: 0.0,
-				vignetteIntensity: 0.0,
-				highlightColor: '#ffb399',
-				highlightIntensity: 1.0,
-				normalInfluence: 1.0
-			},
-			{
-				// Shader 5 uniforms
-				noiseScale: 1.0
-			},
-			{
-				// Shader 6 uniforms
-				shader6BaseColor1: '#1A6666',
-				shader6BaseColor2: '#80B300',
-				shader6AccentColor1: '#59001A',
-				shader6AccentColor2: '#0033FF',
-				shader6AccentColor3: '#4C0000',
-				shader6AccentColor4: '#008000',
-				shader6NoiseScale: 0.004,
-				shader6TimeScale: 0.007,
-				shader6Contrast: 2.0,
-				shader6VignetteIntensity: 0.65
-			},
-			{
-				// Shader 7 uniforms - if any
-			}
-		];
+		// Remove debugObjects initialization from here since it's now at component scope
+
+		// Add cleanup for movement animation
+		const cleanupMovement = updateMovement(debugObjects);
 
 		// Canvas
 		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
@@ -181,49 +295,63 @@
 			if (index === 0) {
 				uniforms = {
 					...baseUniforms,
-					uColorA: { value: new THREE.Color(debugObjects[0].colorA) },
-					uColorB: { value: new THREE.Color(debugObjects[0].colorB) }
+					uColorA: { value: new THREE.Color(debugObjects.shader1.colorA) },
+					uColorB: { value: new THREE.Color(debugObjects.shader1.colorB) }
 				} as Shader1Uniforms;
 			} else if (index === 2) {
 				uniforms = {
 					...baseUniforms,
-					uTimeScale: { value: debugObjects[2].timeScale },
-					uNoiseScale: { value: debugObjects[2].noiseScale },
-					uDistortScale: { value: debugObjects[2].distortScale }
+					uTimeScale: { value: debugObjects.shader3.timeScale },
+					uNoiseScale: { value: debugObjects.shader3.noiseScale },
+					uDistortScale: { value: debugObjects.shader3.distortScale }
 				} as Shader3Uniforms;
 			} else if (index === 3) {
 				uniforms = {
 					...baseUniforms,
-					uColorA: { value: new THREE.Color(debugObjects[3].colorA) },
-					uColorB: { value: new THREE.Color(debugObjects[3].colorB) },
-					uColorC: { value: new THREE.Color(debugObjects[3].colorC) },
-					uSpeed: { value: debugObjects[3].speed },
-					uNoiseScale: { value: debugObjects[3].noiseScale },
-					uEdgeIntensity: { value: debugObjects[3].edgeIntensity },
-					uVignetteIntensity: { value: debugObjects[3].vignetteIntensity },
-					uHighlightColor: { value: new THREE.Color(debugObjects[3].highlightColor) },
-					uHighlightIntensity: { value: debugObjects[3].highlightIntensity },
-					uNormalInfluence: { value: debugObjects[3].normalInfluence }
+					uColorA: { value: new THREE.Color(debugObjects.shader4.colorA) },
+					uColorB: { value: new THREE.Color(debugObjects.shader4.colorB) },
+					uColorC: { value: new THREE.Color(debugObjects.shader4.colorC) },
+					uSpeed: { value: debugObjects.shader4.speed },
+					uNoiseScale: { value: debugObjects.shader4.noiseScale },
+					uEdgeIntensity: { value: debugObjects.shader4.edgeIntensity },
+					uVignetteIntensity: { value: debugObjects.shader4.vignetteIntensity },
+					uHighlightColor: { value: new THREE.Color(debugObjects.shader4.highlightColor) },
+					uHighlightIntensity: { value: debugObjects.shader4.highlightIntensity },
+					uNormalInfluence: { value: debugObjects.shader4.normalInfluence }
 				} as Shader4Uniforms;
 			} else if (index === 4) {
 				uniforms = {
 					...baseUniforms,
-					uNoiseScale: { value: debugObjects[4].noiseScale }
+					uNoiseScale: { value: debugObjects.shader5.noiseScale }
 				} as Shader5Uniforms;
 			} else if (index === 5) {
 				uniforms = {
 					...baseUniforms,
-					uBaseColor1: { value: new THREE.Color(debugObjects[5].shader6BaseColor1) },
-					uBaseColor2: { value: new THREE.Color(debugObjects[5].shader6BaseColor2) },
-					uAccentColor1: { value: new THREE.Color(debugObjects[5].shader6AccentColor1) },
-					uAccentColor2: { value: new THREE.Color(debugObjects[5].shader6AccentColor2) },
-					uAccentColor3: { value: new THREE.Color(debugObjects[5].shader6AccentColor3) },
-					uAccentColor4: { value: new THREE.Color(debugObjects[5].shader6AccentColor4) },
-					uNoiseScale: { value: debugObjects[5].shader6NoiseScale },
-					uTimeScale: { value: debugObjects[5].shader6TimeScale },
-					uContrast: { value: debugObjects[5].shader6Contrast },
-					uVignetteIntensity: { value: debugObjects[5].shader6VignetteIntensity }
+					uBaseColor1: { value: new THREE.Color(debugObjects.shader6.shader6BaseColor1) },
+					uBaseColor2: { value: new THREE.Color(debugObjects.shader6.shader6BaseColor2) },
+					uAccentColor1: { value: new THREE.Color(debugObjects.shader6.shader6AccentColor1) },
+					uAccentColor2: { value: new THREE.Color(debugObjects.shader6.shader6AccentColor2) },
+					uAccentColor3: { value: new THREE.Color(debugObjects.shader6.shader6AccentColor3) },
+					uAccentColor4: { value: new THREE.Color(debugObjects.shader6.shader6AccentColor4) },
+					uNoiseScale: { value: debugObjects.shader6.shader6NoiseScale },
+					uTimeScale: { value: debugObjects.shader6.shader6TimeScale },
+					uContrast: { value: debugObjects.shader6.shader6Contrast },
+					uVignetteIntensity: { value: debugObjects.shader6.shader6VignetteIntensity }
 				} as Shader6Uniforms;
+			} else if (index === 8) {
+				uniforms = {
+					...baseUniforms,
+					uSpeed: { value: debugObjects.shader9.speed },
+					uNoiseScale: { value: debugObjects.shader9.noiseScale },
+					uOctaves: { value: debugObjects.shader9.uOctaves },
+					uColor1: { value: new THREE.Color(debugObjects.shader9.color1) },
+					uColor2: { value: new THREE.Color(debugObjects.shader9.color2) },
+					uColor3: { value: new THREE.Color(debugObjects.shader9.color3) },
+					uColor4: { value: new THREE.Color(debugObjects.shader9.color4) },
+					uOffsetX: { value: debugObjects.shader9.offsetX },
+					uOffsetY: { value: debugObjects.shader9.offsetY },
+					uZoom: { value: debugObjects.shader9.zoom } // Add this line
+				};
 			}
 
 			const plane = new THREE.Mesh(
@@ -239,124 +367,21 @@
 			return plane;
 		});
 
-		// Update folder creation to store in component scope
+		// Update folder creation with new utilities
 		guiFolders = shaders.map((_, index) => {
 			const folder = gui.addFolder(`Shader ${index + 1} Settings`);
-			folder.hide(); // Hide all folders initially
+			folder.hide();
+
+			// Setup GUI controls based on shader index
+			if (index === 2) {
+				setupShader3GUI({ folder, plane: planes[index], debugObject: debugObjects.shader3 });
+			} else if (index === 3) {
+				setupShader4GUI({ folder, plane: planes[index], debugObject: debugObjects.shader4 });
+			} else if (index === 8) {
+				setupShader9GUI({ folder, plane: planes[index], debugObject: debugObjects.shader9 });
+			}
+
 			return folder;
-		});
-
-		// Add GUI controls for shader 3
-		const shader3Folder = guiFolders[2];
-		shader3Folder.add(debugObjects[2], 'timeScale', 0.01, 2.0).onChange(() => {
-			(planes[2].material as THREE.ShaderMaterial).uniforms.uTimeScale.value =
-				debugObjects[2].timeScale;
-		});
-		shader3Folder.add(debugObjects[2], 'noiseScale', 0.1, 10.0).onChange(() => {
-			(planes[2].material as THREE.ShaderMaterial).uniforms.uNoiseScale.value =
-				debugObjects[2].noiseScale;
-		});
-		shader3Folder.add(debugObjects[2], 'distortScale', 1.0, 10.0).onChange(() => {
-			(planes[2].material as THREE.ShaderMaterial).uniforms.uDistortScale.value =
-				debugObjects[2].distortScale;
-		});
-
-		// Add GUI controls for shader 4
-		const shader4Folder = guiFolders[3];
-		shader4Folder.addColor(debugObjects[3], 'colorA').onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uColorA.value.set(
-				debugObjects[3].colorA
-			);
-		});
-		shader4Folder.addColor(debugObjects[3], 'colorB').onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uColorB.value.set(
-				debugObjects[3].colorB
-			);
-		});
-		shader4Folder.addColor(debugObjects[3], 'colorC').onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uColorC.value.set(
-				debugObjects[3].colorC
-			);
-		});
-		shader4Folder.add(debugObjects[3], 'speed', 0.01, 0.2).onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uSpeed.value = debugObjects[3].speed;
-		});
-		shader4Folder.add(debugObjects[3], 'noiseScale', 0.1, 20.0).onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uNoiseScale.value =
-				debugObjects[3].noiseScale;
-		});
-		shader4Folder.add(debugObjects[3], 'edgeIntensity', 0, 20).onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uEdgeIntensity.value =
-				debugObjects[3].edgeIntensity;
-		});
-		shader4Folder.add(debugObjects[3], 'vignetteIntensity', 0, 1).onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uVignetteIntensity.value =
-				debugObjects[3].vignetteIntensity;
-		});
-		shader4Folder.addColor(debugObjects[3], 'highlightColor').onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uHighlightColor.value.set(
-				debugObjects[3].highlightColor
-			);
-		});
-		shader4Folder.add(debugObjects[3], 'normalInfluence', 0, 1).onChange(() => {
-			(planes[3].material as THREE.ShaderMaterial).uniforms.uNormalInfluence.value =
-				debugObjects[3].normalInfluence;
-		});
-
-		// Add GUI controls for shader 5
-		const shader5Folder = guiFolders[4];
-		shader5Folder.add(debugObjects[4], 'noiseScale', 0.1, 15.0).onChange(() => {
-			(planes[4].material as THREE.ShaderMaterial).uniforms.uNoiseScale.value =
-				debugObjects[4].noiseScale;
-		});
-
-		// Add GUI controls for shader 6
-		const shader6Folder = guiFolders[5];
-		shader6Folder.addColor(debugObjects[5], 'shader6BaseColor1').onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uBaseColor1.value.set(
-				debugObjects[5].shader6BaseColor1
-			);
-		});
-		shader6Folder.addColor(debugObjects[5], 'shader6BaseColor2').onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uBaseColor2.value.set(
-				debugObjects[5].shader6BaseColor2
-			);
-		});
-		shader6Folder.addColor(debugObjects[5], 'shader6AccentColor1').onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uAccentColor1.value.set(
-				debugObjects[5].shader6AccentColor1
-			);
-		});
-		shader6Folder.addColor(debugObjects[5], 'shader6AccentColor2').onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uAccentColor2.value.set(
-				debugObjects[5].shader6AccentColor2
-			);
-		});
-		shader6Folder.addColor(debugObjects[5], 'shader6AccentColor3').onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uAccentColor3.value.set(
-				debugObjects[5].shader6AccentColor3
-			);
-		});
-		shader6Folder.addColor(debugObjects[5], 'shader6AccentColor4').onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uAccentColor4.value.set(
-				debugObjects[5].shader6AccentColor4
-			);
-		});
-		shader6Folder.add(debugObjects[5], 'shader6NoiseScale', 0.001, 0.01, 0.001).onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uNoiseScale.value =
-				debugObjects[5].shader6NoiseScale;
-		});
-		shader6Folder.add(debugObjects[5], 'shader6TimeScale', 0.001, 0.02, 0.001).onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uTimeScale.value =
-				debugObjects[5].shader6TimeScale;
-		});
-		shader6Folder.add(debugObjects[5], 'shader6Contrast', 0.1, 5.0, 0.1).onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uContrast.value =
-				debugObjects[5].shader6Contrast;
-		});
-		shader6Folder.add(debugObjects[5], 'shader6VignetteIntensity', 0.0, 1.0, 0.01).onChange(() => {
-			(planes[5].material as THREE.ShaderMaterial).uniforms.uVignetteIntensity.value =
-				debugObjects[5].shader6VignetteIntensity;
 		});
 
 		// Lights
@@ -393,8 +418,9 @@
 		scene.add(camera);
 
 		// Controls
-		const controls = new OrbitControls(camera, canvas);
+		controls = new OrbitControls(camera, canvas);
 		controls.enableDamping = true;
+		controls.enabled = currentShader !== 8; // Initially disable if on shader 9
 
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({
@@ -405,14 +431,43 @@
 		renderer.setPixelRatio(sizes.pixelRatio);
 
 		// Animate
-		const clock = new THREE.Clock();
 		let animationFrameId: number;
 		const tick = () => {
-			const elapsedTime = clock.getElapsedTime();
+			const currentTime = performance.now();
+			const deltaTime = (currentTime - lastFrameTime) / 1000;
+			lastFrameTime = currentTime;
+
+			// Update shader9Time with smooth interpolation
+			if (currentShader === 8) {
+				if (!isPaused) {
+					shader9Time = lerp(shader9Time, targetShader9Time, TIME_SMOOTHING);
+					targetShader9Time += deltaTime; // Continue automatic progression
+				} else {
+					// When paused, only interpolate to target without adding time
+					shader9Time = lerp(shader9Time, targetShader9Time, TIME_SMOOTHING);
+				}
+			}
+
+			// Update zoom interpolation
+			if (currentShader === 8 && planes[8]) {
+				currentZoom = lerp(currentZoom, targetZoom, wheelSensitivity);
+				const material = planes[8].material as THREE.ShaderMaterial;
+				material.uniforms.uZoom.value = currentZoom;
+
+				// Update debugObjects and GUI
+				debugObjects.shader9.zoom = currentZoom;
+				updateGUIValue(guiFolders[8], 'zoom', currentZoom);
+			}
 
 			// Update shader uniforms
-			planes.forEach((plane) => {
-				(plane.material as THREE.ShaderMaterial).uniforms.uTime.value = elapsedTime;
+			planes.forEach((plane, index) => {
+				const material = plane.material as THREE.ShaderMaterial;
+				// Use shader9Time only for shader 9, regular time for others
+				if (index === 8) {
+					material.uniforms.uTime.value = shader9Time;
+				} else {
+					material.uniforms.uTime.value = clock.getElapsedTime();
+				}
 			});
 
 			controls.update();
@@ -422,21 +477,28 @@
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
+		lastFrameTime = performance.now();
 		tick();
 		return () => {
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+			cleanupMovement();
 			planes = []; // Clean up planes reference
 			guiFolders = []; // Clean up folders reference
 		};
 	});
 
-	// Update visibility when shader changes
+	// Update visibility and controls when shader changes
 	$effect(() => {
 		planes.forEach((plane, index) => {
 			plane.visible = index === currentShader;
 		});
 		updateGUIVisibility();
+
+		// Disable/enable controls based on shader
+		if (controls) {
+			controls.enabled = currentShader !== 8;
+		}
 	});
 
 	function switchShader(index: number) {
@@ -445,72 +507,95 @@
 </script>
 
 <div>
-	<canvas class="webgl"></canvas>
+	<canvas
+		class="webgl"
+		onmousedown={handleMouseDown}
+		onmousemove={handleMouseMove}
+		onmouseup={handleMouseUp}
+		onmouseleave={handleMouseUp}
+		onwheel={handleWheel}
+	></canvas>
 	<div class="absolute top-0 h-[calc(100vh-56px)] flex items-end">
 		<div class="absolute bottom-0 flex flex-col gap-2 left-4 bg-black p-2">
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 0}
-				onclick={() => switchShader(0)}
-			>
-				Shader 1
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 1}
-				onclick={() => switchShader(1)}
-			>
-				Shader 2
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 2}
-				onclick={() => switchShader(2)}
-			>
-				Shader 3
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 3}
-				onclick={() => switchShader(3)}
-			>
-				Shader 4
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 4}
-				onclick={() => switchShader(4)}
-			>
-				Shader 5
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 5}
-				onclick={() => switchShader(5)}
-			>
-				Shader 6
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 6}
-				onclick={() => switchShader(6)}
-			>
-				Shader 7
-			</button>
-			<button
-				class="whitespace-nowrap border py-1 px-2"
-				class:active={currentShader === 7}
-				onclick={() => switchShader(7)}
-			>
-				Shader 8
-			</button>
+			{#each shaders as _, index}
+				<button
+					class="whitespace-nowrap border py-1 px-2"
+					class:active={currentShader === index}
+					onclick={() => switchShader(index)}
+				>
+					Shader {index + 1}
+				</button>
+			{/each}
 		</div>
 	</div>
+	{#if currentShader === 8}
+		<!-- <button
+			class="bg-black border size-10 absolute top-24 flex justify-center items-center left-1/2"
+			onmousedown={() => (isMovingUp = true)}
+			onmouseup={() => (isMovingUp = false)}
+			onmouseleave={() => (isMovingUp = false)}
+		>
+			↑
+		</button>
+		<button
+			class="bg-black border size-10 flex justify-center items-center absolute top-1/2 left-[26%]"
+			onmousedown={() => (isMovingLeft = true)}
+			onmouseup={() => (isMovingLeft = false)}
+			onmouseleave={() => (isMovingLeft = false)}
+		>
+			←
+		</button>
+		<button
+			class="bg-black border size-10 flex justify-center items-center absolute bottom-10 left-1/2"
+			onmousedown={() => (isMovingDown = true)}
+			onmouseup={() => (isMovingDown = false)}
+			onmouseleave={() => (isMovingDown = false)}
+		>
+			↓
+		</button>
+		<button
+			class="bg-black border size-10 flex justify-center items-center absolute top-1/2 right-[26%]"
+			onmousedown={() => (isMovingRight = true)}
+			onmouseup={() => (isMovingRight = false)}
+			onmouseleave={() => (isMovingRight = false)}
+		>
+			→
+		</button> -->
+		<button
+			class="bg-black border size-10 flex justify-center items-center absolute top-24 right-[29%]"
+			onclick={togglePause}
+		>
+			{isPaused ? '▶' : '⏸'}
+		</button>
+		<button
+			class="bg-black border size-10 flex justify-center items-center absolute top-24 right-[26%]"
+			onmousedown={() => startTimeAdjust(1)}
+			onmouseup={stopTimeAdjust}
+			onmouseleave={stopTimeAdjust}
+		>
+			+
+		</button>
+		<button
+			class="bg-black border size-10 flex justify-center items-center absolute top-24 right-[32%]"
+			onmousedown={() => startTimeAdjust(-1)}
+			onmouseup={stopTimeAdjust}
+			onmouseleave={stopTimeAdjust}
+		>
+			-
+		</button>
+	{/if}
 </div>
 
 <style>
 	.active {
 		background: #444;
 		color: white;
+	}
+	:global(.webgl) {
+		cursor: default;
+	}
+	:global(.shader9-active .webgl) {
+		cursor: move;
+		overscroll-behavior: none;
 	}
 </style>

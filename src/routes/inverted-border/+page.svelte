@@ -4,16 +4,18 @@
 	import GUI from 'lil-gui';
 </script>
 
-<div class="flex-1 relative bg-gray-900">
+<div class="flex-1 relative bg-black">
 	<div class="card_wrapper">
 		<div class="card">
 			<div class="card-image-with-svg-mask"></div>
 			<h1
-				class="absolute top-0 left-1/2 -translate-x-1/2 rounded-2xl bg-blue-500 font-bold text-4xl px-[3.25rem] py-4"
+				class="uppercase absolute top-0 left-1/2 pb-5 -translate-x-1/2 rounded-2xl bg-blue-800 font-bold text-3xl px-[3.25rem] py-4"
 			>
 				Earth
 			</h1>
-			<p class="absolute top-5 right-5 w-[18.5rem] font-mono">
+			<p
+				class="absolute top-1/2 -translate-y-1/2 left-8 w-[18.5rem] font-mono bg-black/20 p-4 rounded-3xl"
+			>
 				Earth, our remarkable blue planet, orbits the Sun at an average distance of 93 million
 				miles. As the only known world to harbor life, it completes one rotation on its axis every
 				24 hours while performing its yearly dance around our star.
@@ -42,7 +44,7 @@
 	}
 
 	.card-image-with-svg-mask {
-		background-image: url('/pictures/planet-img.jpg');
+		background-image: url('/pictures/earth/earth-1.jpg');
 		width: 100%;
 		height: 100%;
 		background-position: 0%;

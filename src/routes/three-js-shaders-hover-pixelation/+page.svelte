@@ -11,18 +11,18 @@
 		const gui = new GUI({ width: 325 });
 		type ImageOptionKeys = keyof typeof imageOptions;
 		const debugObject = {
-			pixelSize: 32, // Base pixel size
-			maxDistance: 8,
+			pixelSize: 26, // Base pixel size
+			maxDistance: 6,
 			decaySpeed: 0.95,
-			selectedImage: 'planet' as ImageOptionKeys, // Add default image selection
-			distortionStrength: 8 // Add new parameter
+			selectedImage: 'Universe' as ImageOptionKeys, // Add default image selection
+			distortionStrength: 4 // Add new parameter
 		};
 
 		// Add image options
 		const imageOptions = {
-			planet: '/pictures/planet-img.jpg',
-			galaxy: '/pictures/galaxy-img.jpg',
-			Space: '/pictures/galaxy-img2.jpg',
+			Universe: '/pictures/universe/universe-8.jpg',
+			Galaxy: '/pictures/galaxy/galaxy-1.jpg',
+			Earth: '/pictures/earth/earth-1.jpg',
 			Grid: '/pictures/grid.jpg'
 		};
 
