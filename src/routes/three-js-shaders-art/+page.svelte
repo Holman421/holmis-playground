@@ -12,6 +12,7 @@
 	import fragmentShader7 from './shaders/fragment7.glsl';
 	import fragmentShader8 from './shaders/fragment8.glsl';
 	import fragmentShader9 from './shaders/fragment9.glsl';
+	import fragmentShader10 from './shaders/fragment10.glsl';
 	import {
 		createDefaultDebugObjects,
 		setupShader3GUI,
@@ -29,7 +30,7 @@
 		ShaderMeshType
 	} from './types';
 
-	let currentShader = $state(8);
+	let currentShader = $state(9);
 	let planes: ShaderMeshType[] = [];
 	let guiFolders: GUI[] = [];
 	const shaders = [
@@ -41,7 +42,8 @@
 		fragmentShader6,
 		fragmentShader7,
 		fragmentShader8,
-		fragmentShader9
+		fragmentShader9,
+		fragmentShader10
 	];
 
 	let isMovingLeft = false;
@@ -50,7 +52,6 @@
 	let isMovingDown = false;
 	let moveSpeed = 0.5; // Units per second
 	let isPaused = false; // Add pause state
-	let lastElapsedTime = 0; // Store last time when paused
 	let wheelSensitivity = 0.15; // Adjusted wheel sensitivity
 
 	let isDragging = false;
@@ -352,6 +353,12 @@
 					uOffsetY: { value: debugObjects.shader9.offsetY },
 					uZoom: { value: debugObjects.shader9.zoom } // Add this line
 				};
+			} else if (index === 9) {
+				// shader 10
+				uniforms = {
+					...baseUniforms,
+					uCameraPosition: { value: new THREE.Vector3(3.0, 0.8, 0.0) } // Add this line
+				};
 			}
 
 			const plane = new THREE.Mesh(
@@ -465,6 +472,9 @@
 				// Use shader9Time only for shader 9, regular time for others
 				if (index === 8) {
 					material.uniforms.uTime.value = shader9Time;
+				} else if (index === 9) {
+					// Static camera position for shader 10
+					material.uniforms.uCameraPosition.value = new THREE.Vector3(3.0, 0.8, 0.0);
 				} else {
 					material.uniforms.uTime.value = clock.getElapsedTime();
 				}
@@ -497,7 +507,7 @@
 
 		// Disable/enable controls based on shader
 		if (controls) {
-			controls.enabled = currentShader !== 8;
+			controls.enabled = currentShader !== 8 && currentShader !== 9;
 		}
 	});
 
@@ -529,38 +539,6 @@
 		</div>
 	</div>
 	{#if currentShader === 8}
-		<!-- <button
-			class="bg-black border size-10 absolute top-24 flex justify-center items-center left-1/2"
-			onmousedown={() => (isMovingUp = true)}
-			onmouseup={() => (isMovingUp = false)}
-			onmouseleave={() => (isMovingUp = false)}
-		>
-			↑
-		</button>
-		<button
-			class="bg-black border size-10 flex justify-center items-center absolute top-1/2 left-[26%]"
-			onmousedown={() => (isMovingLeft = true)}
-			onmouseup={() => (isMovingLeft = false)}
-			onmouseleave={() => (isMovingLeft = false)}
-		>
-			←
-		</button>
-		<button
-			class="bg-black border size-10 flex justify-center items-center absolute bottom-10 left-1/2"
-			onmousedown={() => (isMovingDown = true)}
-			onmouseup={() => (isMovingDown = false)}
-			onmouseleave={() => (isMovingDown = false)}
-		>
-			↓
-		</button>
-		<button
-			class="bg-black border size-10 flex justify-center items-center absolute top-1/2 right-[26%]"
-			onmousedown={() => (isMovingRight = true)}
-			onmouseup={() => (isMovingRight = false)}
-			onmouseleave={() => (isMovingRight = false)}
-		>
-			→
-		</button> -->
 		<button
 			class="bg-black border size-10 flex justify-center items-center absolute top-24 right-[29%]"
 			onclick={togglePause}

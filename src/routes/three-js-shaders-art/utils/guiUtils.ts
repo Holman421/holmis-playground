@@ -66,6 +66,8 @@ export interface Shader9Debug {
 	zoom: number; // Add this line
 }
 
+export interface Shader10Debug {}
+
 export interface ShaderDebugObjects {
 	shader1: Shader1Debug;
 	shader2: Shader2Debug;
@@ -76,6 +78,7 @@ export interface ShaderDebugObjects {
 	shader7: Shader7Debug;
 	shader8: Shader8Debug;
 	shader9: Shader9Debug;
+	shader10: Shader10Debug;
 }
 
 export function createDefaultDebugObjects(): ShaderDebugObjects {
@@ -133,7 +136,8 @@ export function createDefaultDebugObjects(): ShaderDebugObjects {
 			offsetX: 0,
 			offsetY: 0,
 			zoom: 1.0 // Add this line
-		}
+		},
+		shader10: {}
 	};
 }
 
@@ -240,7 +244,7 @@ export function setupShader9GUI({ folder, plane, debugObject }: ShaderGuiConfig<
 		material.uniforms.uSpeed.value = value;
 	});
 
-	folder.add(debugObject, 'noiseScale', 0.01, 10.0).onChange((value: number) => {
+	folder.add(debugObject, 'noiseScale', 0.01, 4.0).onChange((value: number) => {
 		material.uniforms.uNoiseScale.value = value;
 	});
 

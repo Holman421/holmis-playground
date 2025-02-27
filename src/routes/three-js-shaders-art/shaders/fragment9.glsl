@@ -37,7 +37,7 @@ float fbm(vec2 x, float H) {
     float a = 1.0;
     float t = 0.0;
     for(int i = 0; i < uOctaves; i++) {
-        t += a * noise(f * x);
+        t += a * noise(f * x * 1.5);
         x = mtx * x; // Apply rotation matrix to distort domain
         f *= 2.0;
         a *= G * 0.75;
