@@ -472,9 +472,6 @@
 				// Use shader9Time only for shader 9, regular time for others
 				if (index === 8) {
 					material.uniforms.uTime.value = shader9Time;
-				} else if (index === 9) {
-					// Static camera position for shader 10
-					material.uniforms.uCameraPosition.value = new THREE.Vector3(3.0, 0.8, 0.0);
 				} else {
 					material.uniforms.uTime.value = clock.getElapsedTime();
 				}
