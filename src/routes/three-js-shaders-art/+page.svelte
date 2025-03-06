@@ -18,6 +18,7 @@
 		setupShader3GUI,
 		setupShader4GUI,
 		setupShader9GUI,
+		setupShader10GUI,
 		type ShaderDebugObjects
 	} from './utils/guiUtils';
 	import type {
@@ -84,6 +85,49 @@
 	let timeAdjustInterval: number | NodeJS.Timeout | null = null;
 	let timeAdjustDirection: 1 | -1 = 1;
 
+	// Add raycaster for proper mouse position tracking
+	const raycaster = new THREE.Raycaster();
+	const mouse = new THREE.Vector2();
+
+	// Add mouse position tracking for shader 10
+	let mouseX = -10.0; // Initialize way off-screen instead of 0.5
+	let mouseY = -10.0; // Initialize way off-screen instead of 0.5
+
+	// Reference to camera for raycaster
+	let camera: THREE.PerspectiveCamera;
+
+	// Add FBM movement state for shader 10
+	let isFbmMovingLeft = false;
+	let isFbmMovingRight = false;
+	let isFbmMovingUp = false;
+	let isFbmMovingDown = false;
+
+	function handleMouseMoveForShader10(event: MouseEvent) {
+		if (currentShader === 9 && planes[9]) {
+			// Shader 10 has index 9
+			// Get the canvas element
+			const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+			if (!canvas) return;
+
+			// Calculate normalized device coordinates (-1 to +1)
+			const rect = canvas.getBoundingClientRect();
+			mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+			mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+			// Update the raycaster with camera and mouse position
+			raycaster.setFromCamera(mouse, camera);
+
+			// Calculate intersection with the shader 10 plane
+			const intersects = raycaster.intersectObject(planes[9]);
+
+			if (intersects.length > 0 && intersects[0].uv) {
+				// Get exact UV coordinates from intersection point
+				mouseX = intersects[0].uv.x;
+				mouseY = intersects[0].uv.y;
+			}
+		}
+	}
+
 	// Move updateGUIVisibility to component scope
 	function updateGUIVisibility() {
 		guiFolders.forEach((folder, index) => {
@@ -102,7 +146,6 @@
 		// Find all controllers in the folder
 		const controllers = folder.controllers;
 		const controller = controllers.find((c) => c.property === propertyPath);
-
 		if (controller) {
 			// Update both the controller's value and the underlying object
 			(controller.object as Record<string, unknown>)[controller.property] = value;
@@ -120,7 +163,6 @@
 			lastTime = currentTime;
 
 			if (currentShader === 8) {
-				// Only update for shader 9
 				let changed = false;
 				if (isMovingLeft) {
 					debugObjects.shader9.offsetX -= moveSpeed * deltaTime;
@@ -215,10 +257,8 @@
 
 			// Scale sensitivity inversely with zoom level (divide by zoom instead of multiply)
 			const adjustedSensitivity = dragSensitivity / currentZoomValue;
-
 			const deltaX = (event.clientX - lastMouseX) * adjustedSensitivity;
 			const deltaY = (event.clientY - lastMouseY) * adjustedSensitivity;
-
 			const newOffsetX = material.uniforms.uOffsetX.value - deltaX;
 			const newOffsetY = material.uniforms.uOffsetY.value + deltaY;
 
@@ -229,7 +269,6 @@
 			debugObjects.shader9.offsetY = newOffsetY;
 			updateGUIValue(guiFolders[8], 'offsetX', newOffsetX);
 			updateGUIValue(guiFolders[8], 'offsetY', newOffsetY);
-
 			lastMouseX = event.clientX;
 			lastMouseY = event.clientY;
 		}
@@ -257,10 +296,97 @@
 				const material = planes[8].material as THREE.ShaderMaterial;
 				currentZoom = lerp(currentZoom, targetZoom, wheelSensitivity);
 				material.uniforms.uZoom.value = currentZoom;
-
 				// Update debugObjects and GUI
 				debugObjects.shader9.zoom = currentZoom;
 				updateGUIValue(guiFolders[8], 'zoom', currentZoom);
+			}
+		}
+	}
+
+	// Add keydown and keyup event handlers for shader 10 FBM movement
+	function handleKeyDown(event: KeyboardEvent) {
+		if (currentShader === 9) {
+			// Shader 10 has index 9
+			switch (event.key) {
+				case 'ArrowLeft':
+					isFbmMovingLeft = true;
+					event.preventDefault();
+					break;
+				case 'ArrowRight':
+					isFbmMovingRight = true;
+					event.preventDefault();
+					break;
+				case 'ArrowUp':
+					isFbmMovingUp = true;
+					event.preventDefault();
+					break;
+				case 'ArrowDown':
+					isFbmMovingDown = true;
+					event.preventDefault();
+					break;
+			}
+		}
+	}
+
+	function handleKeyUp(event: KeyboardEvent) {
+		if (currentShader === 9) {
+			// Shader 10 has index 9
+			switch (event.key) {
+				case 'ArrowLeft':
+					isFbmMovingLeft = false;
+					event.preventDefault();
+					break;
+				case 'ArrowRight':
+					isFbmMovingRight = false;
+					event.preventDefault();
+					break;
+				case 'ArrowUp':
+					isFbmMovingUp = false;
+					event.preventDefault();
+					break;
+				case 'ArrowDown':
+					isFbmMovingDown = false;
+					event.preventDefault();
+					break;
+			}
+		}
+	}
+
+	// Add a function to update FBM offset
+	function updateFbmOffset(deltaTime: number) {
+		if (currentShader === 9 && planes[9]) {
+			let changed = false;
+
+			// Get speed directly from debugObjects
+			const moveSpeed = debugObjects.shader10.fbmMoveSpeed;
+
+			// Apply movement based on key state
+			if (isFbmMovingLeft) {
+				debugObjects.shader10.fbmOffsetX -= moveSpeed * deltaTime;
+				changed = true;
+			}
+			if (isFbmMovingRight) {
+				debugObjects.shader10.fbmOffsetX += moveSpeed * deltaTime;
+				changed = true;
+			}
+			if (isFbmMovingUp) {
+				debugObjects.shader10.fbmOffsetY += moveSpeed * deltaTime;
+				changed = true;
+			}
+			if (isFbmMovingDown) {
+				debugObjects.shader10.fbmOffsetY -= moveSpeed * deltaTime;
+				changed = true;
+			}
+
+			// Update shader uniforms if changed
+			if (changed) {
+				const material = planes[9].material as THREE.ShaderMaterial;
+				material.uniforms.uFbmOffset.value.x = debugObjects.shader10.fbmOffsetX;
+				material.uniforms.uFbmOffset.value.y = debugObjects.shader10.fbmOffsetY;
+
+				// Update GUI values
+				updateGUIValue(guiFolders[9], 'fbmOffsetX', debugObjects.shader10.fbmOffsetX);
+				updateGUIValue(guiFolders[9], 'fbmOffsetY', debugObjects.shader10.fbmOffsetY);
 			}
 		}
 	}
@@ -284,6 +410,11 @@
 
 		// Scene
 		const scene = new THREE.Scene();
+
+		// Camera (needs to be initialized before planes for raycasting setup)
+		camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
+		camera.position.set(-0, 0, 4);
+		scene.add(camera);
 
 		// Store planes in component scope
 		planes = shaders.map((shader, index) => {
@@ -357,7 +488,9 @@
 				// shader 10
 				uniforms = {
 					...baseUniforms,
-					uCameraPosition: { value: new THREE.Vector3(3.0, 0.8, 0.0) } // Add this line
+					uCameraPosition: { value: new THREE.Vector3(3.0, 0.8, 0.0) },
+					uMouse: { value: new THREE.Vector2(0.5, 0.5) }, // Initialize mouse position at center
+					uFbmOffset: { value: new THREE.Vector2(0.0, 0.0) } // Add FBM offset uniform
 				};
 			}
 
@@ -374,7 +507,6 @@
 			return plane;
 		});
 
-		// Update folder creation with new utilities
 		guiFolders = shaders.map((_, index) => {
 			const folder = gui.addFolder(`Shader ${index + 1} Settings`);
 			folder.hide();
@@ -386,6 +518,9 @@
 				setupShader4GUI({ folder, plane: planes[index], debugObject: debugObjects.shader4 });
 			} else if (index === 8) {
 				setupShader9GUI({ folder, plane: planes[index], debugObject: debugObjects.shader9 });
+			} else if (index === 9) {
+				// Add GUI controls for shader 10
+				setupShader10GUI({ folder, plane: planes[index], debugObject: debugObjects.shader10 });
 			}
 
 			return folder;
@@ -419,11 +554,6 @@
 			});
 		});
 
-		// Camera
-		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(-0, 0, 4);
-		scene.add(camera);
-
 		// Controls
 		controls = new OrbitControls(camera, canvas);
 		controls.enableDamping = true;
@@ -437,6 +567,12 @@
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
 
+		// Add key event listeners
+		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener('keyup', handleKeyUp);
+
+		// No more fbmSpeedChanged event listener
+
 		// Animate
 		let animationFrameId: number;
 		const tick = () => {
@@ -444,8 +580,8 @@
 			const deltaTime = (currentTime - lastFrameTime) / 1000;
 			lastFrameTime = currentTime;
 
-			// Update shader9Time with smooth interpolation
 			if (currentShader === 8) {
+				// Update shader9Time with smooth interpolation
 				if (!isPaused) {
 					shader9Time = lerp(shader9Time, targetShader9Time, TIME_SMOOTHING);
 					targetShader9Time += deltaTime; // Continue automatic progression
@@ -460,11 +596,13 @@
 				currentZoom = lerp(currentZoom, targetZoom, wheelSensitivity);
 				const material = planes[8].material as THREE.ShaderMaterial;
 				material.uniforms.uZoom.value = currentZoom;
-
 				// Update debugObjects and GUI
 				debugObjects.shader9.zoom = currentZoom;
 				updateGUIValue(guiFolders[8], 'zoom', currentZoom);
 			}
+
+			// Update FBM offset for shader 10
+			updateFbmOffset(deltaTime);
 
 			// Update shader uniforms
 			planes.forEach((plane, index) => {
@@ -472,6 +610,10 @@
 				// Use shader9Time only for shader 9, regular time for others
 				if (index === 8) {
 					material.uniforms.uTime.value = shader9Time;
+				} else if (index === 9) {
+					// For shader 10, update both time and mouse position
+					material.uniforms.uTime.value = clock.getElapsedTime();
+					material.uniforms.uMouse.value.set(mouseX, mouseY);
 				} else {
 					material.uniforms.uTime.value = clock.getElapsedTime();
 				}
@@ -480,22 +622,23 @@
 			controls.update();
 
 			renderer.render(scene, camera);
-
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
 		lastFrameTime = performance.now();
 		tick();
+
 		return () => {
 			if (gui) gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 			cleanupMovement();
 			planes = []; // Clean up planes reference
 			guiFolders = []; // Clean up folders reference
+			window.removeEventListener('keydown', handleKeyDown);
+			window.removeEventListener('keyup', handleKeyUp);
 		};
 	});
 
-	// Update visibility and controls when shader changes
 	$effect(() => {
 		planes.forEach((plane, index) => {
 			plane.visible = index === currentShader;
@@ -505,6 +648,12 @@
 		// Disable/enable controls based on shader
 		if (controls) {
 			controls.enabled = currentShader !== 8 && currentShader !== 9;
+		}
+
+		// Reset mouse position to off-screen when switching to shader 10
+		if (currentShader === 9) {
+			mouseX = -10.0;
+			mouseY = -10.0;
 		}
 	});
 
@@ -517,9 +666,16 @@
 	<canvas
 		class="webgl"
 		onmousedown={handleMouseDown}
-		onmousemove={handleMouseMove}
+		onmousemove={(e) => {
+			handleMouseMove(e);
+			handleMouseMoveForShader10(e);
+		}}
 		onmouseup={handleMouseUp}
-		onmouseleave={handleMouseUp}
+		onmouseleave={(e) => {
+			handleMouseUp();
+			// Don't reset mouse position when mouse leaves canvas
+			// Remove or comment out the reset code that was here
+		}}
 		onwheel={handleWheel}
 	></canvas>
 	<div class="absolute top-0 h-[calc(100vh-56px)] flex items-end">
@@ -558,6 +714,14 @@
 		>
 			-
 		</button>
+	{/if}
+	<!-- Add instruction text for shader 10 -->
+	{#if currentShader === 9}
+		<div
+			class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 p-2 text-white text-sm"
+		>
+			Use arrow keys to move the pattern
+		</div>
 	{/if}
 </div>
 

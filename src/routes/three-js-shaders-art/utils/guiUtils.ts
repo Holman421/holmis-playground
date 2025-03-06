@@ -66,7 +66,11 @@ export interface Shader9Debug {
 	zoom: number; // Add this line
 }
 
-export interface Shader10Debug {}
+export interface Shader10Debug {
+	fbmOffsetX: number;
+	fbmOffsetY: number;
+	fbmMoveSpeed: number;
+}
 
 export interface ShaderDebugObjects {
 	shader1: Shader1Debug;
@@ -137,7 +141,11 @@ export function createDefaultDebugObjects(): ShaderDebugObjects {
 			offsetY: 0,
 			zoom: 1.0 // Add this line
 		},
-		shader10: {}
+		shader10: {
+			fbmOffsetX: 0.0,
+			fbmOffsetY: 0.0,
+			fbmMoveSpeed: 0.5 // Changed from 0.05 to 1.5
+		}
 	};
 }
 
@@ -275,4 +283,16 @@ export function setupShader9GUI({ folder, plane, debugObject }: ShaderGuiConfig<
 	folder.add(debugObject, 'offsetY', -20, 20, 0.01).onChange((value: number) => {
 		material.uniforms.uOffsetY.value = value;
 	});
+}
+
+export function setupShader10GUI({ folder, plane, debugObject }: ShaderGuiConfig<Shader10Debug>) {
+	folder.add(debugObject, 'fbmOffsetX', -10.0, 10.0, 0.01).onChange((value: number) => {
+		(plane.material as THREE.ShaderMaterial).uniforms.uFbmOffset.value.x = value;
+	});
+
+	folder.add(debugObject, 'fbmOffsetY', -10.0, 10.0, 0.01).onChange((value: number) => {
+		(plane.material as THREE.ShaderMaterial).uniforms.uFbmOffset.value.y = value;
+	});
+
+	folder.add(debugObject, 'fbmMoveSpeed', 0.01, 1.5, 0.01).name('Movement Speed');
 }
