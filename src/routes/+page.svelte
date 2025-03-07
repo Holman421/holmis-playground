@@ -54,7 +54,7 @@
 	});
 </script>
 
-<div class="w-full flex justify-center mt-10 gap-5 flex-wrap">
+<div class="w-full flex justify-center mt-10 gap-5 flex-col sm:flex-row items-center relative">
 	<Button
 		variant={showAllProjects ? 'active' : 'default'}
 		onClick={() => {
@@ -85,9 +85,19 @@
 	>
 		New projects
 	</Button>
+	<div class="absolute top-auto -bottom-10 lg:top-1/2 translate-x-1/2 right-1/2">
+		Project Counter: {currentProjects().length}
+	</div>
 </div>
-<div class="text-black mx-auto mt-10 flex gap-8 flex-wrap w-full justify-center p-4">
-	{#each currentProjects() as { href, title, description, technologies, imgSrc }}
-		<ProjectCard {href} {title} {description} {technologies} {imgSrc} />
+<div class="text-black mx-auto mt-16 flex gap-8 flex-wrap w-full justify-center p-4">
+	{#each currentProjects() as { href, title, description, technologies, imgSrc, usedInRealProject }}
+		<ProjectCard
+			{href}
+			{title}
+			{description}
+			{technologies}
+			{imgSrc}
+			usedInRealProject={usedInRealProject ?? false}
+		/>
 	{/each}
 </div>

@@ -71,7 +71,7 @@
 
 		// Add pixelation slider
 		gui
-			.add(pixelationConfig, 'minPixelSize', 1, 32, 1)
+			.add(pixelationConfig, 'minPixelSize', 1, 150, 1)
 			.name('Pixelation Level')
 			.onChange((value: number) => {
 				if (renderPixelatedPassRef) {
@@ -95,7 +95,7 @@
 		// Plane
 		planeMaterial = new THREE.ShaderMaterial({
 			uniforms: {
-				uPicture: { value: new THREE.TextureLoader().load('/pictures/galaxy-img.jpg') }
+				uPicture: { value: new THREE.TextureLoader().load('/pictures/galaxy/galaxy-1.jpg') }
 			},
 			vertexShader: `
 				varying vec2 vUv;

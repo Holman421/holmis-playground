@@ -380,7 +380,7 @@ export const projects = [
 		description: 'Cool image relevation effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/boxed-image-relevation.png'
 	},
 	{
@@ -389,7 +389,7 @@ export const projects = [
 		description: 'Cool button hover effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/button-hover.png'
 	},
 	{
@@ -398,7 +398,7 @@ export const projects = [
 		description: 'Rotating scene around Rome column',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/roman-column.png'
 	},
 	{
@@ -407,7 +407,7 @@ export const projects = [
 		description: 'Scene with detailed gateway and animated portal effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/portal-gateway.png'
 	},
 	{
@@ -422,28 +422,47 @@ export const projects = [
 	{
 		href: '/inverted-border',
 		title: 'Css inverted border',
-		description: '',
+		description: 'Shapes with inverted borders using svg masks',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/inverted-border.png'
 	},
 	{
 		href: '/three-js-postprocesing-scroll',
 		title: 'Warped gallery',
-		description: '',
+		description: 'Photo gallery with warping effect on scroll',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/galery-warp.png'
 	},
 	{
 		href: '/three-js-shaders-art',
 		title: 'Noise gradients',
-		description: '',
+		description: 'Collection of noise gradient shaders',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: false,
+		imgSrc: '/projectThumbnails/noice-gradient.png'
+	},
+	{
+		href: '/three-js-shaders-radar',
+		title: 'Submarine Radar',
+		description: 'Advanced radar simulation demo with shaders',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
-		imgSrc: '/projectThumbnails/noice-gradient.png'
+		imgSrc: '/projectThumbnails/radar.png'
+	},
+	{
+		href: '/three-js-shaders-studio-chain',
+		title: 'Chain Studio',
+		description: 'Pixelated, animated effect used for background and mouse cursor',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: true,
+		imgSrc: '/projectThumbnails/studio-chain.png'
 	}
 ];

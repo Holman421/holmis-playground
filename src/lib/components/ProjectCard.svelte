@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { gsap } from 'gsap';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 
-	const { title, description, href, technologies, imgSrc } = $props<{
+	const { title, description, href, technologies, imgSrc, usedInRealProject } = $props<{
 		title: string;
 		description: string;
 		href: string;
 		technologies: string[];
 		imgSrc: string;
+		usedInRealProject: boolean;
 	}>();
 
 	let cardElement: HTMLDivElement;
@@ -122,6 +122,11 @@
 							</div>
 						</div>
 					</div>
+					{#if usedInRealProject}
+						<div class="absolute bottom-2 left-10 right-0 bg-opacity-50 text-white text-xs">
+							Used in real project
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>
