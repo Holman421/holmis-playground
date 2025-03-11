@@ -76,7 +76,7 @@ void main() {
     // vec3 finalColor = mix(bgColor, vec3(1.0), trailColorFinal);
 
     // Use pixelated coordinates for the circle to match the overall pixelation effect
-    float circle = noisyCircle(samplePoint, vec2(-0.05, 1.05), 0.6, 4.0, 30.0, 0.0);
+    float circle = noisyCircle(samplePoint, vec2(0.0, 1.0), 0.6, 4.0, 30.0, 0.0);
     float circle1Opacity = 1.1 * (1.0 - uScrollProgress * 2.0);
     circle1Opacity = clamp(circle1Opacity, 0.0, 1.0);
     circle *= circle1Opacity;

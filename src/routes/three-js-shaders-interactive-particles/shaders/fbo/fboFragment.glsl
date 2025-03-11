@@ -10,6 +10,14 @@ float PI = 3.1415926535897932384626433832795;
 
 void main() {
     vec4 pos = texture2D(uPositions, vUv);
-    pos.xy += vec2(0.01);
-    gl_FragColor = pos;
+
+    float radius = length(pos.xy);
+    float angle = atan(pos.y, pos.x);
+
+    vec3 targetPos = vec3(cos(angle + uTime * 0.5) * radius, sin(angle + uTime * 0.5) * radius, pos.z);
+
+    // pos.xy += (targetPos.xy - pos.xy) * 0.1;
+
+    // pos.xy += vec2(0.01);
+    gl_FragColor = vec4(pos.xy, 1.0, 1.0);
 }

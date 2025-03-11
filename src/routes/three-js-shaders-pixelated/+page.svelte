@@ -71,7 +71,7 @@
 
 		// Add pixelation slider
 		gui
-			.add(pixelationConfig, 'minPixelSize', 1, 150, 1)
+			.add(pixelationConfig, 'minPixelSize', 1, 256, 1)
 			.name('Pixelation Level')
 			.onChange((value: number) => {
 				if (renderPixelatedPassRef) {

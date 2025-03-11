@@ -464,5 +464,15 @@ export const projects = [
 		isForNextTuesday: true,
 		usedInRealProject: true,
 		imgSrc: '/projectThumbnails/studio-chain.png'
+	},
+	{
+		href: '/three-js-shaders-interactive-particles',
+		title: 'Interactive Particles',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: true,
+		imgSrc: '/projectThumbnails/studio-chain.png'
 	}
 ];

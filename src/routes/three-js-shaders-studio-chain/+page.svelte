@@ -102,9 +102,9 @@
 	// Add GUI settings object
 	const settings = {
 		pixelation: true,
-		pixelSize: PERFORMANCE.HIGH.pixelSize, // Change to HIGH pixelSize
+		pixelSize: 40,
 		debugMode: false,
-		performance: 'HIGH', // Change to HIGH
+		performance: 'MEDIUM',
 		// Add new settings
 		distortion: true,
 		distortionAmount: 1.0,
@@ -129,7 +129,7 @@
 			});
 
 		effectsFolder
-			.add(settings, 'pixelSize', 10, 100, 1)
+			.add(settings, 'pixelSize', 1, 100, 1)
 			.name('Pixel Size')
 			.onChange((value: number) => {
 				if (shaderPass) {

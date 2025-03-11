@@ -131,8 +131,8 @@
 
 			controls.update();
 
-			fboMaterial.uniforms.uPositions.value = fbo1;
-			particleMaterial.uniforms.uPositions.value = fbo2;
+			fboMaterial.uniforms.uPositions.value = fbo2.texture;
+			particleMaterial.uniforms.uPositions.value = fbo1.texture;
 
 			renderer.setRenderTarget(fbo1);
 			renderer.render(fboScene, fboCamera);

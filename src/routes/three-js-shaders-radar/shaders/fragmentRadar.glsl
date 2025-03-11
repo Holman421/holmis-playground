@@ -2,19 +2,13 @@ varying vec2 vUv;
 uniform float uTime;
 uniform vec2 uMouse; // Mouse position uniform
 uniform vec2 uFbmOffset; // Add new uniform for FBM offset control
+uniform float uPulses[30]; // [pulse1X, pulse1Y, pulse1TimeOffset, pulse2X, pulse2Y, pulse2TimeOffset, ...]
+uniform int uPulseCount;  // Add pulse count uniform
 
 #define PI 3.1415926535897932384626433832795
 #define OCTAVES 4
-
-float rand(float n) {
-    return fract(sin(n) * 43758.5453123);
-}
-
-float noise(float p) {
-    float fl = floor(p);
-    float fc = fract(p);
-    return mix(rand(fl), rand(fl + 1.0), fc);
-}
+#define MAX_PULSES 10
+#define DELETION_FLASH_DURATION 0.5
 
 float rand(vec2 n) {
     return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
@@ -30,41 +24,34 @@ float noise(vec2 p) {
 }
 
 // Function declarations moved up before they're used
-float calculateInteractiveWave(vec2 uv, vec2 mousePos, vec2 objectCenter, float objectRadius, float time) {
-    // Check if mouse is out of bounds (default -10,-10)
-    // If mouse is way off-screen, return minimal effect
-    if(mousePos.x < -5.0 || mousePos.y < -5.0) {
-        return 0.0001; // Just return minimal base effect
-    }
+float calculateInteractiveWave(vec2 uv, vec2 pulsesPos[MAX_PULSES], vec2 objectCenter, float objectRadius, float time) {
+    float closestPulseDist = 1000.0;
 
-    // Calculate distance from mouse to object's edge
-    float mouseToObject = length(mousePos - objectCenter) - objectRadius;
+    // Find closest pulse
+    for(int i = 0; i < 10; i++) { // WebGL1 requires constant loop bounds
+        if(i >= uPulseCount)
+            break;
+        float dist = length(pulsesPos[i] - objectCenter);
+        closestPulseDist = min(closestPulseDist, dist);
+    }
 
     // Calculate distance from current fragment to object's edge
     float distToObject = length(uv - objectCenter) - objectRadius;
 
-    // Maximum distance at which the effect starts to fade (reduced for more focused effect)
+    // Maximum distance at which the effect starts to fade
     float maxDistance = 0.15;
 
-    // Create a field that is strongest at the object's edge and diminishes both inside and outside
+    // Create a field that is strongest at the object's edge
     float distFactor = 1.0 - smoothstep(0.0, maxDistance, abs(distToObject));
 
-    // Calculate a proximity factor based on mouse position relative to the object
-    float mouseProximity = 1.0 - smoothstep(0.0, maxDistance, abs(mouseToObject));
+    // Calculate proximity factor based on closest pulse
+    float pulseProximity = 1.0 - smoothstep(0.0, maxDistance, closestPulseDist);
+    pulseProximity = pow(pulseProximity, 2.0);
 
-    // Enhance the effect with a power curve to make it more concentrated
-    mouseProximity = pow(mouseProximity, 2.0);
-
-    // Base strength when mouse is far from object
     float baseWaveStrength = 0.0005;
-
-    // Maximum additional wave strength when mouse is on object edge
     float maxAddedStrength = 0.0075;
 
-    // Final wave strength combines base level and mouse-proximity effect
-    float waveStrength = baseWaveStrength + (maxAddedStrength * mouseProximity * distFactor);
-
-    // Add time-based animation
+    float waveStrength = baseWaveStrength + (maxAddedStrength * pulseProximity * distFactor);
     waveStrength *= (sin(time * 25.0) * 0.5 + 0.5);
 
     return waveStrength;
@@ -110,12 +97,13 @@ vec2 applyWaveDistortion(vec2 uv, float waveStrength, float waveFrequency, float
 }
 
 // Enhanced circle function that includes wave distortion
-vec3 circle(vec2 uv, vec2 center, float radius, float width, vec3 color, vec2 mousePos, float time, vec2 fbmOffset) {
+vec3 circle(vec2 uv, vec2 center, float radius, float width, vec3 color, vec2 pulsesPos[MAX_PULSES], float time, vec2 fbmOffset) {
     // Calculate wave strength using our encapsulated function
-    float waveStrength = calculateInteractiveWave(uv, mousePos, center, radius, time);
+    float waveStrength = calculateInteractiveWave(uv, pulsesPos, center, radius, time);
+    waveStrength *= 1.25;
 
     // Apply wave distortion
-    float waveFrequency = 200.0;
+    float waveFrequency = 250.0;
     vec2 wavyUv = applyWaveDistortion(uv, waveStrength, waveFrequency, time);
 
     // Draw the circle with the distorted coordinates
@@ -131,7 +119,7 @@ vec3 _cross(vec2 uv, vec2 center, float radius, vec3 color) {
     float r = length(d);         // Calculate distance from center
 
     if(r > radius)
-    return vec3(0.0);   // Outside the circle radius
+        return vec3(0.0);   // Outside the circle radius
 
     // Create thin lines along x=y and x=-y
     float lineWidth = 0.0025;
@@ -173,18 +161,23 @@ vec2 wave(vec2 uv) {
 }
 
 // Refactored pulseCircle function with adjusted intensity
-vec3 pulseCircle(vec2 uv, vec3 color, float time, vec2 offset, float waveIntensity) {
+vec4 pulseCircle(vec2 uv, vec3 color, float time, vec2 offset, float waveIntensity) {
     // Apply the offset to the uv coordinates
-    vec2 center = uv + offset * 0.05;
+    vec2 center = uv + offset * 0.005;
 
-    // Rest of the function stays the same
-    float pulse = step(0.0, sin(time * 15.0));
+    // Reduce pulse animation speed from 15.0 to 5.0
+    float pulse = step(0.0, sin(time * 5.0));
     float innerCircle = length(center);
     innerCircle = smoothstep(0.015, 0.02, innerCircle);
-    vec3 outerRing = circle(center, vec2(0.0), 0.03, 0.0025, color, vec2(-10.0), time, vec2(0.0));
+
+    vec2 dummyPulses[MAX_PULSES];
+    for(int i = 0; i < MAX_PULSES; i++) {
+        dummyPulses[i] = vec2(-10.0);
+    }
+
+    vec3 outerRing = circle(center, vec2(0.0), 0.03, 0.0025, color, dummyPulses, time, vec2(0.0));
     float outerRingValue = outerRing.r;
 
-    // Calculate wave and extract time fragment
     float waveMaxDistance = 0.35;
     float timeFragment = mod(time * 0.2, waveMaxDistance) / waveMaxDistance;
 
@@ -196,7 +189,6 @@ vec3 pulseCircle(vec2 uv, vec3 color, float time, vec2 offset, float waveIntensi
 
     float waveOpacity = 1.0 - smoothstep(0.8, 1.0, timeFragment);
 
-    // Apply the opacity to the wave
     pulseWave *= waveOpacity;
 
     innerCircle = 1.0 - innerCircle;
@@ -205,8 +197,8 @@ vec3 pulseCircle(vec2 uv, vec3 color, float time, vec2 offset, float waveIntensi
     // Scale down intensity for better visual balance when using addition
     intensity *= 0.65;
 
-    // Return color multiplied by intensity
-    return color * intensity;
+    // Return vec4 with center position and intensity
+    return vec4(center, intensity, 0.0);
 }
 
 mat2 rotate2d(float _angle) {
@@ -226,19 +218,87 @@ vec3 triangle(vec2 uv, float radius, float width) {
     return vec3(1.0 - smoothstep(.02, .025, d));
 }
 
+// Domain warping function to create swirling, flowing patterns
+vec2 warp(vec2 pos, float time) {
+    vec2 offset = vec2(noise(pos * 0.5 + vec2(time * 0.1, 0.0)), noise(pos * 0.5 + vec2(0.0, time * 0.1)));
+    return pos + offset * 0.8;
+}
+
+// Ridge noise for creating ridge-like features
+float ridge(float n) {
+    return 1.0 - abs(n * 2.0 - 1.0); // Transform noise into ridges
+}
+
+// Enhanced fbm function for ocean floor terrain
 float fbm(vec2 st) {
     // Initial values
     float value = 0.0;
-    float amplitude = .5;
-    float frequency = 0.;
-    //
+    float amplitude = 0.25;
+    float frequency = 1.5;
+    float lacunarity = 2.2;  // Controls how quickly frequency increases (> 2.0 creates more detail)
+    float gain = 0.5;        // Controls how quickly amplitude decreases (< 0.5 creates deeper valleys)
+    float ridgeOffset = 0.9; // Blend factor for ridge noise
+
+    // Warp the coordinates slightly to create more organic patterns
+    vec2 warpedSt = warp(st, uTime * 0.05);
+
     // Loop of octaves
     for(int i = 0; i < OCTAVES; i++) {
-        value += amplitude * noise(st);
-        st *= 2.;
-        amplitude *= .5;
+        // Standard noise
+        float n = noise(warpedSt * frequency);
+
+        // Ridge noise component
+        float ridgeN = ridge(n * 2.0 - 0.3);
+
+        // Blend standard noise with ridge noise
+        float blended = mix(n, ridgeN, ridgeOffset);
+
+        value += blended * amplitude;
+
+        // Domain turbulence - slightly warp coordinates for next octave
+        warpedSt = warpedSt + vec2(n * 0.15, n * 0.15);
+
+        // Increase frequency and decrease amplitude for next octave
+        frequency *= lacunarity;
+        amplitude *= gain;
     }
-    return value;
+
+    // Add very low frequency undulation to simulate large seafloor features
+    value += noise(st * 0.3) * 0.4;
+
+    // Add some small scale details for texture
+    value += noise(st * 5.0) * 0.1;
+
+    // Normalize to 0-1 range and add subtle depth variations
+    value = value * 0.6 + 0.4;
+
+    // Create occasional deeper trenches
+    float trench = pow(noise(st * 0.5), 0.25) * 0.4;
+    value -= trench;
+
+    return clamp(value, 0.0, 1.0);
+}
+
+vec3 sectorCircle(vec2 uv, vec2 center, float radius, float width, float targetAngle, vec3 color) {
+    vec2 p = uv - center;
+    float dist = length(p);
+
+    // Get angle in range [0, 2PI]
+    float angle = atan(p.y, p.x) + PI;
+
+    // Create sector centered around target angle
+    float sectorWidth = PI * 0.02; // Narrow beam
+    float angleDiff = mod(angle - targetAngle, 2.0 * PI);
+    float inSector = 1.0 - step(sectorWidth, angleDiff);
+
+    // Draw thin ring
+    float ring = smoothstep(radius - width, radius, dist);
+    ring *= 1.0 - smoothstep(radius, radius, dist);
+
+    // Pulse the intensity
+    ring *= sin(uTime * 5.0) * 0.5 + 0.5;
+
+    return color * ring * inSector;
 }
 
 void main() {
@@ -266,31 +326,67 @@ void main() {
     float waveHalfIntensity = waveValues.x; // 0-0.5 range for color mixing
     float waveFullIntensity = waveValues.y; // 0-1 range for pulse masking
 
-    // Define two pulse positions
-    vec2 pulse1Position = offsetUv - vec2(0.25, 0.25);
-    vec2 pulse2Position = offsetUv - vec2(-0.25, -0.25);
+    // Create array of pulse positions
+    vec2 pulsePositions[MAX_PULSES];
+    float pulseIntensities[MAX_PULSES];
+    float deletionEffects[MAX_PULSES];
 
-    // Calculate distance to both pulses
-    float distanceToPulse1 = distance(vec2(0.0, 0.0), -vec2(0.75, 0.75) + uFbmOffset);
-    float distanceToPulse2 = distance(vec2(0.0, 0.0), vec2(0.75, 0.75) + uFbmOffset);
+    // Initialize arrays
+    for(int i = 0; i < MAX_PULSES; i++) {
+        pulsePositions[i] = vec2(-10.0);
+        pulseIntensities[i] = 0.0;
+        deletionEffects[i] = 0.0;
+    }
 
-    // Use the minimum distance for determining triangle color
-    float distanceToPulse = min(distanceToPulse1, distanceToPulse2);
+    // Process all pulses
+    for(int i = 0; i < MAX_PULSES; i++) {
+        if(i >= uPulseCount)
+            break;
+        int idx = i * 4; // Updated stride to include deletion time
+        pulsePositions[i] = offsetUv - vec2(uPulses[idx], uPulses[idx + 1]);
+
+        // Calculate deletion effect (flash) intensity
+        float deletionTime = uPulses[idx + 3];
+        if(deletionTime > 0.0) {
+            float timeSinceDeletion = uTime - deletionTime;
+            if(timeSinceDeletion < DELETION_FLASH_DURATION) {
+                deletionEffects[i] = 1.0 - (timeSinceDeletion / DELETION_FLASH_DURATION);
+            }
+        }
+
+        vec4 pulse = pulseCircle(pulsePositions[i], vec3(1.0), uTime + uPulses[idx + 2], scaledFbmOffset, waveFullIntensity);
+        pulseIntensities[i] = pulse.z;
+    }
+
+    // Find minimum distance to center for triangle coloring
+    float minDist = 1000.0;
+    for(int i = 0; i < MAX_PULSES; i++) {
+        if(i >= uPulseCount)
+            break;
+        int idx = i * 4;  // Fix: Changed from 3 to 4 to match correct stride
+        float dist = length(vec2(uPulses[idx], uPulses[idx + 1]));
+        minDist = min(minDist, dist);
+    }
+
+    // Calculate triangle color based on minimum distance
+    float distanceToPulse = smoothstep(0.1, 0.3, minDist);
     distanceToPulse = 1.0 - distanceToPulse;
-    distanceToPulse = smoothstep(0.3, 1.0, distanceToPulse);
     distanceToPulse = clamp(distanceToPulse, 0.0, 1.0);
 
-    // Get the pulse intensities directly instead of full vec3 colors
-    float pulse1Intensity = length(pulseCircle(pulse1Position, vec3(1.0), uTime, scaledFbmOffset, waveFullIntensity));
-    float pulse2Intensity = length(pulseCircle(pulse2Position, vec3(1.0), uTime + 10.0, scaledFbmOffset, waveFullIntensity));
-
     // Create colored circles using the enhanced circle function
-    vec3 circle1 = circle(offsetUv, vec2(0.0, 0.0), 0.025, 0.001, colorBlue, mousePos, uTime, scaledFbmOffset);
-    vec3 circle2 = circle(offsetUv, vec2(0.0, 0.0), 0.3, 0.001, colorBlue, mousePos, uTime, scaledFbmOffset);
-    vec3 circle3 = circle(offsetUv, vec2(0.0, 0.0), 0.5, 0.001, colorBlue, mousePos, uTime, scaledFbmOffset);
-    vec3 circle4 = circle(offsetUv, vec2(0.0, 0.0), 0.7, 0.003, colorBlue, mousePos, uTime, scaledFbmOffset);
-    vec3 circle5 = circle(offsetUv, vec2(0.0), 0.75, 0.003, colorBlueDark, vec2(-10.0), uTime, vec2(0.0));
-    vec3 circle6 = circle(offsetUv, vec2(0.0), 0.85, 0.006, colorWhite, vec2(-10.0), uTime, vec2(0.0));
+    vec3 circle1 = circle(offsetUv, vec2(0.0, 0.0), 0.025, 0.001, colorBlue, pulsePositions, uTime, scaledFbmOffset);
+    vec3 circle2 = circle(offsetUv, vec2(0.0, 0.0), 0.3, 0.001, colorBlue, pulsePositions, uTime, scaledFbmOffset);
+    vec3 circle3 = circle(offsetUv, vec2(0.0, 0.0), 0.5, 0.001, colorBlue, pulsePositions, uTime, scaledFbmOffset);
+    vec3 circle4 = circle(offsetUv, vec2(0.0, 0.0), 0.7, 0.003, colorBlue, pulsePositions, uTime, scaledFbmOffset);
+
+    // Create dummy array for static circles
+    vec2 dummyPulses[MAX_PULSES];
+    for(int i = 0; i < MAX_PULSES; i++) {
+        dummyPulses[i] = vec2(-10.0);
+    }
+
+    vec3 circle5 = circle(offsetUv, vec2(0.0), 0.75, 0.003, colorBlueDark, dummyPulses, uTime, vec2(0.0));
+    vec3 circle6 = circle(offsetUv, vec2(0.0), 0.85, 0.006, colorWhite, dummyPulses, uTime, vec2(0.0));
 
     vec3 cross = _cross(offsetUv, vec2(0.0), 0.7, colorGray);
 
@@ -350,12 +446,50 @@ void main() {
 
     // Start with a base composition of the static elements
     vec3 color = circle1 + circle2 + circle3 + circle4 +
-    circle5 + circle6 + cross + triangleValue1 + triangleValue2 +
-    triangleValue3 + triangleValue4 + circleBgColor + waveColor;
+        circle5 + circle6 + cross + triangleValue1 + triangleValue2 +
+        triangleValue3 + triangleValue4 + circleBgColor + waveColor;
 
-    // Apply both pulses to the color using mix()
-    color = mix(color, colorOrange, pulse1Intensity * 0.7);
-    color = mix(color, colorOrange, pulse2Intensity * 0.7);
+    // Add sector circles for each pulse
+    vec3 sectorEffects = vec3(0.0);
+    for(int i = 0; i < MAX_PULSES; i++) {
+        if(i >= uPulseCount)
+            break;
+
+        int idx = i * 4;
+        vec2 pulsePos = vec2(uPulses[idx], uPulses[idx + 1]);
+        float pulseDistFromCenter = length(pulsePos);
+
+        // Only show sector for pulses far from center and not deleted
+        if(pulseDistFromCenter > 0.7 && uPulses[idx + 3] < 0.0) {
+            // Calculate angle towards pulse
+            float targetAngle = atan(pulsePos.y, pulsePos.x) + PI;
+            vec3 sectorEffect = sectorCircle(offsetUv, vec2(0.0), 0.7, 0.04, targetAngle, colorOrange);
+            sectorEffects += sectorEffect;
+        }
+    }
+
+    // Add sector effects to final color
+    color += sectorEffects;
+
+    // Apply all pulse intensities
+    for(int i = 0; i < MAX_PULSES; i++) {
+        if(i >= uPulseCount)
+            break;
+        color = mix(color, colorOrange, pulseIntensities[i] * 0.7);
+    }
+
+    // Apply deletion flash effect with green color
+    vec3 flashColor = vec3(0.0, 1.0, 0.2); // Bright green flash
+    float totalFlashEffect = 0.0;
+
+    for(int i = 0; i < MAX_PULSES; i++) {
+        if(i >= uPulseCount)
+            break;
+        totalFlashEffect = max(totalFlashEffect, deletionEffects[i]);
+    }
+
+    // Apply the brightest flash effect
+    color = mix(color, flashColor, totalFlashEffect * 0.7);
 
     gl_FragColor = vec4(color, 1.0);
 }

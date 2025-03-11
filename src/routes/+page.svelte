@@ -85,7 +85,7 @@
 	>
 		New projects
 	</Button>
-	<div class="absolute top-auto -bottom-10 lg:top-1/2 translate-x-1/2 right-1/2">
+	<div class="absolute top-auto -bottom-10 translate-x-1/2 right-1/2">
 		Project Counter: {currentProjects().length}
 	</div>
 </div>

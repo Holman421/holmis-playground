@@ -12,6 +12,7 @@
 	import fragmentShader7 from './shaders/fragment7.glsl';
 	import fragmentShader8 from './shaders/fragment8.glsl';
 	import fragmentShader9 from './shaders/fragment9.glsl';
+	import fragmentShader10 from './shaders/fragment10.glsl';
 	import {
 		createDefaultDebugObjects,
 		setupShader3GUI,
@@ -30,7 +31,7 @@
 		ShaderMeshType
 	} from './types';
 
-	let currentShader = $state(0);
+	let currentShader = $state(9);
 	let planes: ShaderMeshType[] = [];
 	let guiFolders: GUI[] = [];
 	const shaders = [
@@ -42,7 +43,8 @@
 		fragmentShader6,
 		fragmentShader7,
 		fragmentShader8,
-		fragmentShader9
+		fragmentShader9,
+		fragmentShader10
 	];
 
 	let isMovingLeft = false;
