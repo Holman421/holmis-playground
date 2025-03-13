@@ -474,5 +474,15 @@ export const projects = [
 		isForNextTuesday: true,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/studio-chain.png'
+	},
+	{
+		href: '/three-js-glass-text',
+		title: 'Interactive Particles',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: false,
+		imgSrc: '/projectThumbnails/studio-chain.png'
 	}
 ];

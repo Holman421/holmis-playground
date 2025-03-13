@@ -63,7 +63,7 @@
 			metalness: 0,
 			roughness: 0.5,
 			color: '#ffffff',
-			transmission: 0,
+			transmission: 0.0,
 			ior: 1.5,
 			thickness: 1.5,
 			transparent: true,
@@ -109,7 +109,7 @@
 				});
 		};
 
-		// initTweaks();
+		initTweaks();
 
 		// Geometry
 		let geometry = new THREE.IcosahedronGeometry(2.5, 75);
