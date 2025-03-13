@@ -16,8 +16,21 @@
 	let isFbmMovingUp = false;
 	let isFbmMovingDown = false;
 
-	// Debug object for GUI controls
-	let debugObject = createRadarDebugObject();
+	// Update debug object creation to include FBM parameters
+	let debugObject = {
+		...createRadarDebugObject(),
+		fbmAmplitude: 0.25,
+		fbmFrequency: 1.5,
+		fbmLacunarity: 2.2,
+		fbmGain: 0.5,
+		fbmRidgeOffset: 0.9,
+		fbmOctaves: 4,
+		fbmScale: 3.0,
+		waveSpeed: 5.0,
+		pulseSpeed: 5.0,
+		circleWaveStrength: 0.0005,
+		maxCircleWaveStrength: 0.0075
+	};
 
 	// Raycaster for proper mouse position tracking
 	const raycaster = new THREE.Raycaster();
@@ -65,7 +78,7 @@
 
 	// Add timer state
 	let elapsedTime = 0;
-	let timerInterval: NodeJS.Timer;
+	let timerInterval: NodeJS.Timeout;
 	let finalTime = 0;
 
 	function handleMouseMove(event: MouseEvent) {
@@ -281,6 +294,52 @@
 		fbmFolder.add(debugObject, 'fbmOffsetY', -2, 2, 0.01).name('FBM Offset Y');
 		fbmFolder.add(debugObject, 'fbmMoveSpeed', 0.1, 2, 0.1).name('FBM Move Speed');
 
+		// Add FBM controls
+		const fbmSettingsFolder = folder.addFolder('FBM Settings');
+		fbmSettingsFolder
+			.add(debugObject, 'fbmAmplitude', 0.1, 1.0, 0.05)
+			.name('Amplitude')
+			.onChange((value: number) => (material.uniforms.uFbmAmplitude.value = value));
+		fbmSettingsFolder
+			.add(debugObject, 'fbmFrequency', 0.5, 5.0, 0.1)
+			.name('Frequency')
+			.onChange((value: number) => (material.uniforms.uFbmFrequency.value = value));
+		fbmSettingsFolder
+			.add(debugObject, 'fbmLacunarity', 1.0, 4.0, 0.1)
+			.name('Lacunarity')
+			.onChange((value: number) => (material.uniforms.uFbmLacunarity.value = value));
+		fbmSettingsFolder
+			.add(debugObject, 'fbmGain', 0.1, 1.0, 0.05)
+			.name('Gain')
+			.onChange((value: number) => (material.uniforms.uFbmGain.value = value));
+		fbmSettingsFolder
+			.add(debugObject, 'fbmRidgeOffset', 0.0, 1.0, 0.05)
+			.name('Ridge Offset')
+			.onChange((value: number) => (material.uniforms.uFbmRidgeOffset.value = value));
+		fbmSettingsFolder
+			.add(debugObject, 'fbmScale', 1.0, 10.0, 0.5)
+			.name('Scale')
+			.onChange((value: number) => (material.uniforms.uFbmScale.value = value));
+
+		// Add Wave controls
+		const waveFolder = folder.addFolder('Wave Settings');
+		waveFolder
+			.add(debugObject, 'waveSpeed', 1.0, 10.0, 0.5)
+			.name('Wave Speed')
+			.onChange((value: number) => (material.uniforms.uWaveSpeed.value = value));
+		waveFolder
+			.add(debugObject, 'pulseSpeed', 1.0, 10.0, 0.5)
+			.name('Pulse Speed')
+			.onChange((value: number) => (material.uniforms.uPulseSpeed.value = value));
+		waveFolder
+			.add(debugObject, 'circleWaveStrength', 0.0001, 0.001, 0.0001)
+			.name('Wave Base Strength')
+			.onChange((value: number) => (material.uniforms.uCircleWaveStrength.value = value));
+		waveFolder
+			.add(debugObject, 'maxCircleWaveStrength', 0.001, 0.01, 0.001)
+			.name('Wave Max Strength')
+			.onChange((value: number) => (material.uniforms.uMaxCircleWaveStrength.value = value));
+
 		// Color controls could be added here if needed
 
 		return folder;
@@ -327,7 +386,18 @@
 				uPulseCount: { value: INITIAL_PULSES.length }, // Add pulse count
 				uPulses: {
 					value: pulsesToArray(INITIAL_PULSES.map((p) => ({ ...p, deletionTime: -1 })))
-				}
+				},
+				uFbmAmplitude: { value: debugObject.fbmAmplitude },
+				uFbmFrequency: { value: debugObject.fbmFrequency },
+				uFbmLacunarity: { value: debugObject.fbmLacunarity },
+				uFbmGain: { value: debugObject.fbmGain },
+				uFbmRidgeOffset: { value: debugObject.fbmRidgeOffset },
+				uFbmOctaves: { value: debugObject.fbmOctaves },
+				uFbmScale: { value: debugObject.fbmScale },
+				uWaveSpeed: { value: debugObject.waveSpeed },
+				uPulseSpeed: { value: debugObject.pulseSpeed },
+				uCircleWaveStrength: { value: debugObject.circleWaveStrength },
+				uMaxCircleWaveStrength: { value: debugObject.maxCircleWaveStrength }
 			}
 		});
 

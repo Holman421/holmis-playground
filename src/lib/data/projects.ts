@@ -452,7 +452,7 @@ export const projects = [
 		description: 'Advanced radar simulation demo with shaders',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/radar.png'
 	},
 	{
@@ -472,7 +472,7 @@ export const projects = [
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
-		usedInRealProject: true,
+		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/studio-chain.png'
 	}
 ];

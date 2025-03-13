@@ -7,36 +7,26 @@
 	import fragmentShader from './fragment.glsl';
 	// Constants from original file
 	const CANVAS_HEIGHT = 200;
-	const TRAIL_WIDTH_CLICK = 12;
-	const TRAIL_WIDTH_AUTO = 10;
+	let TRAIL_WIDTH_CLICK = 12;
+	let TRAIL_WIDTH_AUTO = 10;
 	const FADE_DURATION_MS = 500;
 	const POINTS_THRESHOLD = 8;
 	const MIN_POINT_DISTANCE = 2;
 	const LINE_SMOOTHING = true;
+	let title: HTMLElement | null = null;
 
-	// Performance settings from original file
-	const PERFORMANCE = {
-		LOW: {
-			pixelSize: 60,
-			maxTrails: 10,
-			canvasScale: 0.5,
-			throttleTime: 40,
-			interpolationDistance: 8
-		},
-		MEDIUM: {
-			pixelSize: 40,
-			maxTrails: 15,
-			canvasScale: 0.75,
-			throttleTime: 25,
-			interpolationDistance: 5
-		},
-		HIGH: {
-			pixelSize: 30,
-			maxTrails: 20,
-			canvasScale: 1.0,
-			throttleTime: 16,
-			interpolationDistance: 4
-		}
+	const settings = {
+		pixelation: true,
+		pixelSize: 10,
+		debugMode: false,
+		distortion: true,
+		distortionAmount: 1.0,
+		distortionSpeed: 1.0,
+		distortionScale: 1.0, // Add new setting
+		trailColor: '#82d39d', // Add color setting
+		colorOpacity: 1.0,
+		uStepEnabled: true,
+		trailSize: 5 // Add new trail size setting
 	};
 
 	// Custom shader from original file
@@ -45,14 +35,21 @@
 			tDiffuse: { value: null },
 			uTrailTexture: { value: null },
 			uTime: { value: 0 },
-			uPixelSize: { value: PERFORMANCE.HIGH.pixelSize },
+			uPixelSize: { value: settings.pixelSize },
 			uResolution: { value: new THREE.Vector2(1, 1) },
 			uScrollProgress: { value: 0 },
 			uIsMobile: { value: false },
 			uPixelationEnabled: { value: true }, // Add new uniform
 			uDistortionEnabled: { value: true },
 			uDistortionAmount: { value: 1.0 },
-			uDistortionSpeed: { value: 1.0 }
+			uDistortionSpeed: { value: 1.0 },
+			uDistortionScale: { value: 1.0 }, // Add new uniform
+			uTrailColor: { value: new THREE.Color(settings.trailColor) },
+			uColorOpacity: { value: settings.colorOpacity },
+			uStepEnabled: { value: true },
+			uRippleCenter: { value: new THREE.Vector2(0.5, 0.5) },
+			uRippleProgress: { value: 0.0 },
+			uRippleActive: { value: false }
 		},
 		vertexShader: `
 			varying vec2 vUv;
@@ -92,31 +89,54 @@
 	let canvasTexture: THREE.Texture | null = null;
 
 	// State management
-	let performanceMode: keyof typeof PERFORMANCE = 'HIGH';
 	let paintHistory: Trail[] = [];
 	let currentTrail: Trail | null = null;
 	let lastPosition = { x: 0, y: 0 };
 	let trailPool: Trail[] = [];
 	let pointPool: TrailPoint[] = [];
 
-	// Add GUI settings object
-	const settings = {
-		pixelation: true,
-		pixelSize: 40,
-		debugMode: false,
-		performance: 'MEDIUM',
-		// Add new settings
-		distortion: true,
-		distortionAmount: 1.0,
-		distortionSpeed: 1.0
-	};
+	// Add ripple state management
+	let rippleActive = false;
+	let rippleStart = 0;
+	let rippleDuration = 500; // Shorter duration (0.8 seconds)
 
 	onMount(() => {
 		if (!browser) return;
 
+		// Add sizes management
+		const sizes = {
+			width: window.innerWidth,
+			height: window.innerHeight,
+			pixelRatio: Math.min(window.devicePixelRatio, 2)
+		};
+
+		const handleResize = () => {
+			sizes.width = window.innerWidth;
+			sizes.height = window.innerHeight;
+			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
+
+			if (camera) {
+				camera.aspect = sizes.width / sizes.height;
+				camera.updateProjectionMatrix();
+			}
+
+			if (renderer) {
+				renderer.setSize(sizes.width, sizes.height);
+				renderer.setPixelRatio(sizes.pixelRatio);
+			}
+
+			if (composer) {
+				composer.setSize(sizes.width, sizes.height);
+				composer.setPixelRatio(sizes.pixelRatio);
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+
 		// Add GUI setup
 		const gui = new GUI();
 		const effectsFolder = gui.addFolder('Effects');
+		title = document.getElementById('title');
 
 		effectsFolder
 			.add(settings, 'pixelation')
@@ -129,12 +149,47 @@
 			});
 
 		effectsFolder
-			.add(settings, 'pixelSize', 1, 100, 1)
+			.add(settings, 'uStepEnabled')
+			.name('Enable Step')
+			.onChange((value: boolean) => {
+				if (shaderPass) {
+					shaderPass.uniforms.uStepEnabled.value = value;
+				}
+			});
+
+		effectsFolder
+			.add(settings, 'pixelSize', 1, 50, 1)
 			.name('Pixel Size')
 			.onChange((value: number) => {
 				if (shaderPass) {
 					shaderPass.uniforms.uPixelSize.value = value;
 				}
+			});
+
+		effectsFolder
+			.addColor(settings, 'trailColor')
+			.name('Trail Color')
+			.onChange((value: string) => {
+				if (shaderPass) {
+					const color = new THREE.Color(value);
+					shaderPass.uniforms.uTrailColor.value = color;
+				}
+			});
+
+		effectsFolder
+			.add(settings, 'colorOpacity', 0, 1, 0.01)
+			.name('Color Opacity')
+			.onChange((value: number) => {
+				if (shaderPass) {
+					shaderPass.uniforms.uColorOpacity.value = value;
+				}
+			});
+
+		effectsFolder
+			.add(settings, 'trailSize', 1, 30, 1)
+			.name('Trail Size')
+			.onChange((value: number) => {
+				TRAIL_WIDTH_CLICK = value + 2;
 			});
 
 		const distortionFolder = effectsFolder.addFolder('Distortion');
@@ -166,22 +221,21 @@
 				}
 			});
 
+		distortionFolder
+			.add(settings, 'distortionScale', 0.1, 5)
+			.name('Distortion Scale')
+			.onChange((value: number) => {
+				if (shaderPass) {
+					shaderPass.uniforms.uDistortionScale.value = value;
+				}
+			});
+
 		const debugFolder = gui.addFolder('Debug');
 		debugFolder
 			.add(settings, 'debugMode')
 			.name('Show Debug View')
 			.onChange((value: boolean) => {
 				debugMode = value;
-			});
-
-		debugFolder
-			.add(settings, 'performance', ['LOW', 'MEDIUM', 'HIGH'])
-			.name('Performance Mode')
-			.onChange((value: string) => {
-				performanceMode = value as keyof typeof PERFORMANCE;
-				if (shaderPass) {
-					shaderPass.uniforms.uPixelSize.value = PERFORMANCE[performanceMode].pixelSize;
-				}
 			});
 
 		effectsFolder.open();
@@ -222,19 +276,17 @@
 		if (sceneCanvas) {
 			renderer = new THREE.WebGLRenderer({
 				canvas: sceneCanvas,
-				antialias: performanceMode !== 'LOW',
+				antialias: true,
 				alpha: false,
 				powerPreference: 'high-performance',
-				precision: performanceMode === 'LOW' ? 'lowp' : 'mediump',
+				precision: 'mediump',
 				stencil: false,
 				depth: false
 			});
 
 			renderer.setClearColor(new THREE.Color('#171615'), 1);
 			renderer.setSize(window.innerWidth, window.innerHeight);
-			renderer.setPixelRatio(
-				Math.min(window.devicePixelRatio, performanceMode === 'LOW' ? 1 : 1.5)
-			);
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 			// Set up scene
 			scene = new THREE.Scene();
@@ -252,29 +304,30 @@
 			}
 			shaderPass.uniforms.uResolution.value.x = window.innerWidth;
 			shaderPass.uniforms.uResolution.value.y = window.innerHeight;
-			shaderPass.uniforms.uPixelSize.value = PERFORMANCE[performanceMode].pixelSize;
+			shaderPass.uniforms.uPixelSize.value = settings.pixelSize;
 			shaderPass.uniforms.uIsMobile.value = window.innerWidth < 768;
 			shaderPass.renderToScreen = true;
 			composer.addPass(shaderPass);
 
 			// Start animation loops
 			const clock = new THREE.Clock();
-			let lastRenderTime = 0;
 
 			function animate(timestamp: number) {
-				const delta = timestamp - lastRenderTime;
-				const interval = 1000 / (performanceMode === 'LOW' ? 30 : 60);
-
-				if (performanceMode === 'LOW' && delta < interval) {
-					requestAnimationFrame(animate);
-					return;
-				}
-
-				lastRenderTime = timestamp;
-
 				if (shaderPass && canvasTexture) {
 					shaderPass.uniforms.uTime.value = clock.getElapsedTime();
 					shaderPass.uniforms.uTrailTexture.value = canvasTexture;
+				}
+
+				// Update ripple animation
+				if (rippleActive && shaderPass) {
+					const progress = (timestamp - rippleStart) / rippleDuration;
+					if (progress >= 1.0) {
+						rippleActive = false;
+						shaderPass.uniforms.uRippleActive.value = false;
+						shaderPass.uniforms.uRippleProgress.value = 0.0;
+					} else {
+						shaderPass.uniforms.uRippleProgress.value = progress;
+					}
 				}
 
 				if (composer) {
@@ -340,33 +393,17 @@
 				}
 
 				if (!isTooCloseToExisting) {
-					createNewTrail(position, TRAIL_WIDTH_AUTO);
+					createNewTrail(position, settings.trailSize);
 				}
 
-				// Limit the number of trails based on performance settings
-				const performanceSettings = PERFORMANCE[performanceMode];
-				const maxTrails = performanceSettings.maxTrails;
-
-				while (paintHistory.length > maxTrails) {
+				while (paintHistory.length > 20) {
+					// Use high quality value
 					const oldTrail = paintHistory.shift();
 					if (oldTrail) {
 						oldTrail.points.forEach((point) => recyclePoint(point));
 						recycleTrail(oldTrail);
 					}
 				}
-			}
-		}
-
-		// Throttled version of handleAutoTrail
-		let lastTrailTime = 0;
-		function throttledAutoTrail(event: MouseEvent) {
-			const now = performance.now();
-			const performanceSettings = PERFORMANCE[performanceMode];
-			const throttleTime = performanceSettings.throttleTime;
-
-			if (now - lastTrailTime > throttleTime) {
-				handleAutoTrail(event);
-				lastTrailTime = now;
 			}
 		}
 
@@ -377,6 +414,23 @@
 			};
 			createNewTrail(position, TRAIL_WIDTH_CLICK);
 			lastPosition = position;
+
+			// Add ripple effect with proper pixelation
+			if (shaderPass && sceneCanvas) {
+				const rect = sceneCanvas.getBoundingClientRect();
+				const x = (event.clientX - rect.left) / rect.width;
+				const y = 1.0 - (event.clientY - rect.top) / rect.height;
+
+				// Use pixelated coordinates for ripple center
+				const pixelSize = settings.pixelSize / Math.min(window.innerWidth, window.innerHeight);
+				const pixelatedX = Math.floor(x / pixelSize) * pixelSize + pixelSize * 0.5;
+				const pixelatedY = Math.floor(y / pixelSize) * pixelSize + pixelSize * 0.5;
+
+				shaderPass.uniforms.uRippleCenter.value.set(pixelatedX, pixelatedY);
+				shaderPass.uniforms.uRippleActive.value = true;
+				rippleActive = true;
+				rippleStart = performance.now();
+			}
 		}
 
 		function handleMouseUp() {
@@ -385,7 +439,7 @@
 
 		// Add event listeners with the locally defined handlers
 		window.addEventListener('mousemove', handleMouseMove, { passive: true });
-		window.addEventListener('mousemove', throttledAutoTrail, { passive: true });
+		window.addEventListener('mousemove', handleAutoTrail, { passive: true });
 		window.addEventListener('mousedown', handleMouseDown, { passive: true });
 		window.addEventListener('mouseup', handleMouseUp, { passive: true });
 
@@ -403,10 +457,11 @@
 			gui.destroy();
 			// Cleanup
 			window.removeEventListener('mousemove', handleMouseMove);
-			window.removeEventListener('mousemove', throttledAutoTrail);
+			window.removeEventListener('mousemove', handleAutoTrail);
 			window.removeEventListener('mousedown', handleMouseDown);
 			window.removeEventListener('mouseup', handleMouseUp);
 			window.removeEventListener('scroll', handleScroll);
+			window.removeEventListener('resize', handleResize);
 
 			if (composer) {
 				composer.passes.forEach((pass) => {
@@ -421,313 +476,6 @@
 			}
 		};
 	});
-
-	function updateCanvasDimensions() {
-		if (!browser) return;
-		const screenAspect = window.innerWidth / window.innerHeight;
-		canvasWidth = Math.round(CANVAS_HEIGHT * screenAspect);
-		isMobile = window.innerWidth < 768;
-
-		if (trailCanvas) {
-			trailCanvas.width = canvasWidth;
-			trailCanvas.height = CANVAS_HEIGHT;
-		}
-	}
-
-	function initializePools() {
-		// Initialize object pools as in original file
-	}
-
-	function setupScene() {
-		if (!browser || !sceneCanvas) return;
-
-		// Create renderer
-		renderer = new THREE.WebGLRenderer({
-			canvas: sceneCanvas,
-			antialias: performanceMode !== 'LOW',
-			alpha: false,
-			powerPreference: 'high-performance',
-			precision: performanceMode === 'LOW' ? 'lowp' : 'mediump',
-			stencil: false,
-			depth: false
-		});
-
-		renderer.setClearColor(new THREE.Color('#171615'), 1);
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		renderer.setPixelRatio(
-			Math.min(
-				window.devicePixelRatio,
-				performanceMode === 'LOW' ? 1 : performanceMode === 'MEDIUM' ? 1.5 : 2
-			)
-		);
-
-		// Create scene and camera
-		scene = new THREE.Scene();
-		camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-		camera.position.z = 1;
-
-		// Setup post-processing
-		composer = new EffectComposer(renderer);
-		const renderPass = new RenderPass(scene, camera);
-		composer.addPass(renderPass);
-
-		// Add custom shader pass
-		shaderPass = new ShaderPass(textureShader);
-		if (canvasTexture) {
-			shaderPass.uniforms.uTrailTexture.value = canvasTexture;
-		}
-		shaderPass.uniforms.uResolution.value.x = window.innerWidth;
-		shaderPass.uniforms.uResolution.value.y = window.innerHeight;
-		shaderPass.uniforms.uPixelSize.value = PERFORMANCE[performanceMode].pixelSize;
-		shaderPass.uniforms.uIsMobile.value = isMobile;
-		shaderPass.renderToScreen = true;
-		composer.addPass(shaderPass);
-	}
-
-	function setupEventListeners() {
-		if (!browser) return;
-
-		// Handle debug mode toggle
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'd') {
-				debugMode = !debugMode;
-			} else if (e.key === 'p') {
-				// Cycle through performance modes
-				const modes: Array<keyof typeof PERFORMANCE> = ['LOW', 'MEDIUM', 'HIGH'];
-				const currentIndex = modes.indexOf(performanceMode);
-				performanceMode = modes[(currentIndex + 1) % modes.length];
-				updateCanvasDimensions();
-			}
-		};
-
-		// Always create trails on mouse move, not just when pressing
-		const handleAutoTrail = (event: MouseEvent) => {
-			if (!currentTrail || currentTrail.points.length > POINTS_THRESHOLD) {
-				const position = { x: event.clientX, y: event.clientY };
-				const scaledPos = scaleCoordinates(position.x, position.y);
-
-				let isTooCloseToExisting = false;
-				if (paintHistory.length > 0) {
-					const lastTrail = paintHistory[paintHistory.length - 1];
-					if (lastTrail.points.length > 0) {
-						const lastPoint = lastTrail.points[lastTrail.points.length - 1];
-						isTooCloseToExisting = isTooClose(lastPoint, scaledPos);
-					}
-				}
-
-				if (!isTooCloseToExisting) {
-					createNewTrail(position, TRAIL_WIDTH_AUTO);
-				}
-
-				const performanceSettings = PERFORMANCE[performanceMode];
-				const maxTrails = performanceSettings.maxTrails;
-
-				while (paintHistory.length > maxTrails) {
-					const oldTrail = paintHistory.shift();
-					if (oldTrail) {
-						oldTrail.points.forEach((point) => recyclePoint(point));
-						recycleTrail(oldTrail);
-					}
-				}
-			}
-		};
-
-		// Throttled version of handleAutoTrail
-		let lastTrailTime = 0;
-		const throttledAutoTrail = (event: MouseEvent) => {
-			const now = performance.now();
-			const performanceSettings = PERFORMANCE[performanceMode];
-			const throttleTime = performanceSettings.throttleTime;
-
-			if (now - lastTrailTime > throttleTime) {
-				handleAutoTrail(event);
-				lastTrailTime = now;
-			}
-		};
-
-		// Handle mouse down to start painting
-		const handleMouseDown = (event: MouseEvent) => {
-			const position = {
-				x: event.clientX,
-				y: event.clientY
-			};
-			createNewTrail(position, TRAIL_WIDTH_CLICK);
-			lastPosition = position;
-		};
-
-		// Handle mouse up to stop painting
-		const handleMouseUp = () => {
-			currentTrail = null;
-		};
-
-		// Calculate scroll progress for shader
-		const handleScroll = () => {
-			const scrollTop = window.scrollY || document.documentElement.scrollTop;
-			const scrollHeight =
-				document.documentElement.scrollHeight - document.documentElement.clientHeight;
-			const progress = Math.min(Math.max(scrollTop / (scrollHeight || 1), 0), 1);
-
-			if (shaderPass) {
-				shaderPass.uniforms.uScrollProgress.value = progress;
-			}
-		};
-
-		// Handle window resize
-		const handleResize = () => {
-			updateCanvasDimensions();
-			const newIsMobile = window.innerWidth < 768;
-			isMobile = newIsMobile;
-
-			if (shaderPass) {
-				shaderPass.uniforms.uResolution.value.x = window.innerWidth;
-				shaderPass.uniforms.uResolution.value.y = window.innerHeight;
-				shaderPass.uniforms.uIsMobile.value = newIsMobile;
-			}
-		};
-
-		// Throttled resize handler
-		let resizeTimeout: number | null = null;
-		const throttledResize = () => {
-			if (resizeTimeout === null) {
-				resizeTimeout = window.setTimeout(() => {
-					handleResize();
-					resizeTimeout = null;
-				}, 200);
-			}
-		};
-
-		// Add all event listeners
-		window.addEventListener('mousemove', handleMouseMove, { passive: true });
-		window.addEventListener('mousemove', throttledAutoTrail, { passive: true });
-		window.addEventListener('mousedown', handleMouseDown, { passive: true });
-		window.addEventListener('mouseup', handleMouseUp, { passive: true });
-		window.addEventListener('resize', throttledResize);
-		window.addEventListener('keydown', handleKeyDown);
-		window.addEventListener('scroll', handleScroll, { passive: true });
-
-		// Use ResizeObserver for more reliable resize detection
-		const resizeObserver = new ResizeObserver(handleResize);
-		if (sceneCanvas) {
-			resizeObserver.observe(sceneCanvas);
-		}
-
-		// Store cleanup function
-		const cleanup = () => {
-			window.removeEventListener('mousemove', handleMouseMove);
-			window.removeEventListener('mousemove', throttledAutoTrail);
-			window.removeEventListener('mousedown', handleMouseDown);
-			window.removeEventListener('mouseup', handleMouseUp);
-			window.removeEventListener('resize', throttledResize);
-			window.removeEventListener('keydown', handleKeyDown);
-			window.removeEventListener('scroll', handleScroll);
-			resizeObserver.disconnect();
-		};
-
-		return cleanup;
-	}
-
-	function startAnimationLoops() {
-		if (!browser) return;
-
-		const clock = new THREE.Clock();
-		let lastRenderTime = 0;
-		let animationFrameId: number;
-
-		// Main render loop
-		function animate(timestamp: number) {
-			const delta = timestamp - lastRenderTime;
-			const interval = 1000 / (performanceMode === 'LOW' ? 30 : 60);
-
-			if (performanceMode === 'LOW' && delta < interval) {
-				animationFrameId = requestAnimationFrame(animate);
-				return;
-			}
-
-			lastRenderTime = timestamp;
-			const elapsedTime = clock.getElapsedTime();
-
-			// Update shader uniforms
-			if (shaderPass && canvasTexture) {
-				shaderPass.uniforms.uTime.value = elapsedTime;
-				shaderPass.uniforms.uTrailTexture.value = canvasTexture;
-			}
-
-			// Render scene
-			if (composer) {
-				composer.render();
-			}
-
-			animationFrameId = requestAnimationFrame(animate);
-		}
-
-		// Trail rendering loop
-		function renderTrails() {
-			const now = performance.now();
-
-			if (trailCanvas) {
-				const ctx = trailCanvas.getContext('2d', { willReadFrequently: true });
-				if (ctx) {
-					ctx.fillStyle = '#000000';
-					ctx.fillRect(0, 0, canvasWidth, CANVAS_HEIGHT);
-					ctx.imageSmoothingEnabled = LINE_SMOOTHING;
-					ctx.imageSmoothingQuality = 'high';
-
-					// Update and render trails
-					paintHistory = paintHistory.filter((trail) => {
-						trail.points = trail.points.filter((point) => {
-							const age = now - point.creationTime;
-							return age < FADE_DURATION_MS;
-						});
-
-						if (trail.points.length > 0) {
-							trail.points.forEach((point) => {
-								const age = now - point.creationTime;
-								const opacity = Math.max(0, 1 - age / FADE_DURATION_MS);
-								drawGradientCircle(ctx, point.x, point.y, trail.size, opacity);
-							});
-							return true;
-						}
-						return false;
-					});
-
-					if (canvasTexture) {
-						canvasTexture.needsUpdate = true;
-					}
-				}
-			}
-
-			requestAnimationFrame(renderTrails);
-		}
-
-		// Start both animation loops
-		animate(0);
-		renderTrails();
-
-		// Store animation frame ID for cleanup
-		return () => {
-			cancelAnimationFrame(animationFrameId);
-		};
-	}
-
-	function cleanup() {
-		if (!browser) return;
-
-		if (composer) {
-			composer.passes.forEach((pass: any) => {
-				if (pass.dispose) pass.dispose();
-			});
-		}
-
-		if (renderer) {
-			renderer.dispose();
-		}
-
-		if (canvasTexture) {
-			canvasTexture.dispose();
-		}
-
-		// Event listeners will be cleaned up by the function returned from setupEventListeners
-	}
 
 	function drawGradientCircle(
 		ctx: CanvasRenderingContext2D,
@@ -844,8 +592,7 @@
 			const dy = currentPosition.y - prevPos.y;
 			const distance = Math.sqrt(dx * dx + dy * dy);
 
-			const performanceSettings = PERFORMANCE[performanceMode];
-			const interpolationDistance = performanceSettings.interpolationDistance;
+			const interpolationDistance = 5;
 
 			if (distance > interpolationDistance * 1.2) {
 				const steps = Math.min(
@@ -896,6 +643,9 @@
 	// Handle scroll event to update shader uniform
 	function handleScroll() {
 		const progress = calculateScrollProgress();
+		if (title) {
+			title.style.opacity = Math.max(1.5 - progress * 6, 0).toString();
+		}
 		if (shaderPass) {
 			shaderPass.uniforms.uScrollProgress.value = progress;
 		}
@@ -905,9 +655,15 @@
 <div class="top-0 left-0 w-full h-[200vh] z-[0]">
 	<canvas
 		bind:this={sceneCanvas}
-		class="w-full h-[200vh]"
+		class="w-full h-[300vh]"
 		style="position: fixed; top: 0; left: 0; touch-action: none; transform: translate3d(0,0,0); will-change: transform;"
 	></canvas>
+	<h1
+		id="title"
+		class="fixed top-[35%] tracking-[-4px] left-[22%] text-black text-[40px] z-10 silkscreen-regular"
+	>
+		Wonder Makers
+	</h1>
 	<canvas
 		bind:this={trailCanvas}
 		class={`pointer-events-none ${debugMode ? 'fixed bottom-4 right-4' : 'fixed top-0 left-0 opacity-0'}`}

@@ -4,6 +4,16 @@ uniform vec2 uMouse; // Mouse position uniform
 uniform vec2 uFbmOffset; // Add new uniform for FBM offset control
 uniform float uPulses[30]; // [pulse1X, pulse1Y, pulse1TimeOffset, pulse2X, pulse2Y, pulse2TimeOffset, ...]
 uniform int uPulseCount;  // Add pulse count uniform
+uniform float uFbmAmplitude;
+uniform float uFbmFrequency;
+uniform float uFbmLacunarity;
+uniform float uFbmGain;
+uniform float uFbmRidgeOffset;
+uniform float uFbmScale;
+uniform float uWaveSpeed;
+uniform float uPulseSpeed;
+uniform float uCircleWaveStrength;
+uniform float uMaxCircleWaveStrength;
 
 #define PI 3.1415926535897932384626433832795
 #define OCTAVES 4
@@ -48,11 +58,11 @@ float calculateInteractiveWave(vec2 uv, vec2 pulsesPos[MAX_PULSES], vec2 objectC
     float pulseProximity = 1.0 - smoothstep(0.0, maxDistance, closestPulseDist);
     pulseProximity = pow(pulseProximity, 2.0);
 
-    float baseWaveStrength = 0.0005;
-    float maxAddedStrength = 0.0075;
+    float baseWaveStrength = uCircleWaveStrength;
+    float maxAddedStrength = uMaxCircleWaveStrength;
 
     float waveStrength = baseWaveStrength + (maxAddedStrength * pulseProximity * distFactor);
-    waveStrength *= (sin(time * 25.0) * 0.5 + 0.5);
+    waveStrength *= (sin(time * uPulseSpeed) * 0.5 + 0.5);
 
     return waveStrength;
 }
@@ -131,7 +141,7 @@ vec3 _cross(vec2 uv, vec2 center, float radius, vec3 color) {
 
 vec2 wave(vec2 uv) {
     float angle = atan(uv.y, uv.x);
-    angle = mod(angle + uTime * 1.5, 2.0 * PI);
+    angle = mod(angle + uTime * uWaveSpeed * 0.3, 2.0 * PI);
 
     // Create a half-circle wide gradient (PI/2 width)
     float halfCircle = PI / 1.0;
@@ -231,48 +241,30 @@ float ridge(float n) {
 
 // Enhanced fbm function for ocean floor terrain
 float fbm(vec2 st) {
-    // Initial values
     float value = 0.0;
-    float amplitude = 0.25;
-    float frequency = 1.5;
-    float lacunarity = 2.2;  // Controls how quickly frequency increases (> 2.0 creates more detail)
-    float gain = 0.5;        // Controls how quickly amplitude decreases (< 0.5 creates deeper valleys)
-    float ridgeOffset = 0.9; // Blend factor for ridge noise
+    float amplitude = uFbmAmplitude;
+    float frequency = uFbmFrequency;
 
     // Warp the coordinates slightly to create more organic patterns
     vec2 warpedSt = warp(st, uTime * 0.05);
 
     // Loop of octaves
     for(int i = 0; i < OCTAVES; i++) {
-        // Standard noise
         float n = noise(warpedSt * frequency);
-
-        // Ridge noise component
         float ridgeN = ridge(n * 2.0 - 0.3);
-
-        // Blend standard noise with ridge noise
-        float blended = mix(n, ridgeN, ridgeOffset);
+        float blended = mix(n, ridgeN, uFbmRidgeOffset);
 
         value += blended * amplitude;
 
-        // Domain turbulence - slightly warp coordinates for next octave
         warpedSt = warpedSt + vec2(n * 0.15, n * 0.15);
-
-        // Increase frequency and decrease amplitude for next octave
-        frequency *= lacunarity;
-        amplitude *= gain;
+        frequency *= uFbmLacunarity;
+        amplitude *= uFbmGain;
     }
 
-    // Add very low frequency undulation to simulate large seafloor features
     value += noise(st * 0.3) * 0.4;
-
-    // Add some small scale details for texture
     value += noise(st * 5.0) * 0.1;
-
-    // Normalize to 0-1 range and add subtle depth variations
     value = value * 0.6 + 0.4;
 
-    // Create occasional deeper trenches
     float trench = pow(noise(st * 0.5), 0.25) * 0.4;
     value -= trench;
 
@@ -438,7 +430,7 @@ void main() {
     // Apply FBM with the offset uniform 
     float circleBg = length(offsetUv) - 0.0;
     circleBg = step(abs(circleBg), 0.7);
-    float fbmValue = fbm(offsetUv * 3.0 + uFbmOffset);
+    float fbmValue = fbm(offsetUv * uFbmScale + uFbmOffset);
     vec3 circleBgColor = colorBlue * circleBg * fbmValue;
 
     // Create green wave color component

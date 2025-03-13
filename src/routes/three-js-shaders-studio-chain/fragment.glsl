@@ -1,16 +1,34 @@
+// Core uniforms
 uniform sampler2D tDiffuse;
 uniform sampler2D uTrailTexture;
 uniform float uTime;
-uniform float uPixelSize;
 uniform vec2 uResolution;
-uniform float uScrollProgress; // New uniform for scroll progress
-uniform bool uIsMobile; // New uniform for mobile detection
-uniform bool uPixelationEnabled; // Add new uniform
+
+// Add ripple uniforms
+uniform vec2 uRippleCenter;
+uniform float uRippleProgress;
+uniform bool uRippleActive;
+
+// Effect toggles
+uniform bool uPixelationEnabled;
 uniform bool uDistortionEnabled;
+uniform bool uStepEnabled;
+
+// Effect parameters
+uniform float uPixelSize;
 uniform float uDistortionAmount;
 uniform float uDistortionSpeed;
+uniform float uDistortionScale; // Add new uniform
+uniform float uColorOpacity;
+
+// Visual properties
+uniform vec3 uTrailColor;
+uniform float uScrollProgress;
+uniform bool uIsMobile;
+
 varying vec2 vUv;
 
+// -------- Noise functions --------
 float rand(vec2 n) {
     return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
 }
@@ -24,85 +42,172 @@ float noise(vec2 p) {
     return res * res;
 }
 
-// Function to create a distorted circle with noise
-float noisyCircle(vec2 uv, vec2 center, float radius, float noiseAmount, float noiseScale, float timeOffset) {
-    // Add time-based animation to the noise with controllable speed
-    float t = uTime * (uDistortionEnabled ? uDistortionSpeed * 0.025 : 0.0) + timeOffset;
+// -------- Effect functions --------
+vec2 calculatePixelation(vec2 uv) {
+    if(!uPixelationEnabled)
+    return uv;
 
-    // Calculate standard distance from center
+    vec2 pixelSize = vec2(uPixelSize / uResolution.x, uPixelSize / uResolution.y);
+
+    vec2 pixelCoord = floor(uv / pixelSize) * pixelSize;
+    return pixelCoord + pixelSize * 0.5;
+}
+
+float calculateDistortion(vec2 uv, float baseRadius, float noiseAmount, float noiseScale) {
+    if(!uDistortionEnabled)
+    return 0.0;
+
+    float t = uTime * uDistortionSpeed * 0.025;
+    return noise(uv * noiseScale * uDistortionScale + vec2(sin(t), cos(t))) * noiseAmount * uDistortionAmount;
+}
+
+float createNoisyCircle(vec2 uv, vec2 center, float radius, float noiseAmount, float noiseScale) {
     vec2 distVec = uv - center;
-
-    // Apply noise distortion to the distance vector with proper scaling
-    float noiseVal = 0.0;
-    if(uDistortionEnabled) {
-        noiseVal = noise(uv * noiseScale + vec2(sin(t), cos(t))) * noiseAmount * uDistortionAmount;
-    }
+    float noiseVal = calculateDistortion(uv, radius, noiseAmount, noiseScale);
     float dist = length(distVec) + noiseVal * radius * 0.4;
 
-    // Create soft falloff from center
     return 1.0 - smoothstep(0.0, radius * (1.0 + noiseVal * 0.2), dist);
 }
 
+float createNoisyRectangle(vec2 uv, vec2 center, vec2 dimensions, float cornerRadius, float noiseAmount, float noiseScale) {
+    vec2 distVec = abs(uv - center);
+    float scaledNoise = noiseScale * 2.5;
+    float noiseVal = calculateDistortion(uv, max(dimensions.x, dimensions.y), noiseAmount, scaledNoise);
+
+    // Calculate rounded rectangle
+    vec2 roundedDist = distVec - dimensions * 0.5 + cornerRadius;
+    float outsideDistance = length(max(roundedDist, 0.0)) + min(max(roundedDist.x, roundedDist.y), 0.0) - cornerRadius;
+
+    // Add noise to the edges
+    outsideDistance += noiseVal * 0.015;
+
+    return 1.0 - smoothstep(0.0, 0.1, outsideDistance);
+}
+
+float applyStep(float value, float threshold1, float threshold2) {
+    if(!uStepEnabled) {
+        return value;
+    }
+
+    // Apply three-level stepping
+    if(value > threshold1) {
+        return 1.0;    // High intensity
+    } else if(value > threshold2) {
+        return 0.5;    // Medium intensity
+    } else {
+        return 0.0;    // Low intensity
+    }
+}
+
+// -------- Circle calculations --------
+float calculateCircle1(vec2 samplePoint) {
+    // Get trail influence
+    vec4 trailSample = texture2D(uTrailTexture, samplePoint);
+    float trailInfluence = smoothstep(0.0, 1.0, trailSample.r) * 0.3;
+
+    // Modify circle position based on trail
+    vec2 circleCenter = vec2(1.0, 1.0) + trailInfluence * vec2(sin(uTime), cos(uTime));
+    float radius = 0.6 + trailInfluence * 0.2;
+
+    float circle = createNoisyCircle(samplePoint, circleCenter, radius, 4.0 + trailInfluence * 8.0, 30.0);
+    float opacity = 1.1 * (1.0 - uScrollProgress * 2.0);
+    return circle * opacity;
+}
+
+float calculateCircle2(vec2 samplePoint) {
+    // Get trail influence
+    vec4 trailSample = texture2D(uTrailTexture, samplePoint);
+    float trailInfluence = smoothstep(0.0, 1.0, trailSample.r) * 0.25;
+
+    float distortionAmount = 2.0 - uScrollProgress * 2.0;
+    float radius = 1.7 * (uScrollProgress * 1.25) + trailInfluence;
+    vec2 circleCenter = vec2(0.5, 0.5) + trailInfluence * vec2(cos(uTime * 0.5), sin(uTime * 0.5));
+
+    float circle = createNoisyCircle(samplePoint, circleCenter, radius, distortionAmount + trailInfluence * 4.0, 30.0);
+    circle = smoothstep(0.0, 1.0, circle);
+
+    float opacity = uIsMobile ? 0.75 * (uScrollProgress * 1.5 - 0.015) : 0.75 * (uScrollProgress * 0.5 + 0.2);
+    return circle * opacity;
+}
+
+float calculateRipple(vec2 uv) {
+    if(!uRippleActive)
+    return 0.0;
+
+    float dist = length(uv - uRippleCenter);
+    float maxRadius = 0.2; // Maximum radius of the ripple
+    float rippleWidth = 0.025; // Thinner ring
+    float rippleFront = uRippleProgress * maxRadius;
+    float rippleEdge = max(0.0, rippleFront - rippleWidth);
+
+    // Power loss over distance
+    float powerFalloff = 1.0 - smoothstep(0.0, maxRadius, rippleFront);
+
+    // Create ring effect with power falloff
+    float ring = smoothstep(rippleFront, rippleEdge, dist) *
+    smoothstep(rippleEdge - rippleWidth, rippleEdge, dist) *
+    powerFalloff;
+
+    // Add subtle fade at the end of animation
+    float fadeOut = 1.0 - smoothstep(0.8, 1.0, uRippleProgress);
+
+    ring = applyStep(ring, 0.5, 0.3);
+
+    return ring * fadeOut * 0.8; // Slightly reduce overall intensity
+}
+
+float calculateRectangle(vec2 samplePoint) {
+    // Get trail influence
+    vec4 trailSample = texture2D(uTrailTexture, samplePoint);
+    float trailInfluence = smoothstep(0.0, 1.0, trailSample.r) * 0.2;
+
+    // Make rectangle react to trail
+    vec2 rectCenter = vec2(0.3, 0.6) + trailInfluence * vec2(cos(uTime * 0.7), sin(uTime * 0.7));
+    float viewportAspectRatio = uResolution.x / uResolution.y;
+    vec2 rectDimensions = vec2(0.3 / viewportAspectRatio + trailInfluence * 0.1, 0.1 + trailInfluence * 0.05);
+    float cornerRadius = 0.02 + trailInfluence * 0.03;
+
+    float rect = createNoisyRectangle(samplePoint, rectCenter, rectDimensions, cornerRadius, 2.0 + trailInfluence * 4.0, 20.0);
+
+    float opacity = 1.0 - smoothstep(0.0, 0.3, uScrollProgress);
+    return rect * opacity;
+}
+
 void main() {
-    // Get absolute pixel size in screen space
-    float pixelSizeInPixels = uPixelSize;
+    // Calculate pixelated sampling point
+    vec2 samplePoint = calculatePixelation(vUv);
 
-    // Calculate normalized pixel size (different for x and y to ensure square pixels)
-    vec2 pixelSize;
-    pixelSize.y = pixelSizeInPixels / uResolution.y;
-    pixelSize.x = pixelSizeInPixels / uResolution.x;
-
-    // Sample coordinates based on pixelation setting
-    vec2 samplePoint;
-    if(uPixelationEnabled) {
-        // This ensures the pixels are square in screen space
-        vec2 pixelCoord = floor(vUv / pixelSize) * pixelSize;
-        // Sample from center of each square
-        samplePoint = pixelCoord + pixelSize * 0.5;
-    } else {
-        samplePoint = vUv;
-    }
-
-    // Sample the trail texture at the pixelated coordinate
+    // Process trail
     vec4 trailColor = texture2D(uTrailTexture, samplePoint);
-    float trailColorFinal = trailColor.r;
-    trailColorFinal = step(0.5, trailColorFinal);
-    trailColorFinal *= 0.07;
+    // trailColor = smoothstep(-0.5, 1.0, trailColor);
+    float trailColorFinal = applyStep(trailColor.r, 0.9, 0.5) * uColorOpacity;
+    // trailColorFinal = pow(trailColorFinal, 2.0);
 
-    // Set up static background color (#171615)
-    vec3 bgColor = vec3(0.09, 0.086, 0.082); // #171615 in RGB
+    // Process circles and rectangle
+    float circle1 = calculateCircle1(samplePoint);
+    float circle2 = calculateCircle2(samplePoint);
+    float rectangle = calculateRectangle(samplePoint);
 
-    // Mix the background with white based on the trail intensity
-    // vec3 finalColor = mix(bgColor, vec3(1.0), trailColorFinal);
-
-    // Use pixelated coordinates for the circle to match the overall pixelation effect
-    float circle = noisyCircle(samplePoint, vec2(0.0, 1.0), 0.6, 4.0, 30.0, 0.0);
-    float circle1Opacity = 1.1 * (1.0 - uScrollProgress * 2.0);
-    circle1Opacity = clamp(circle1Opacity, 0.0, 1.0);
-    circle *= circle1Opacity;
-    circle = step(0.2, circle) * 0.075; 
-
-    // Adjust the opacity calculation based on mobile view
-    float circle2Opacity;
-    if(uIsMobile) {
-        // On mobile, make the circle appear earlier and fade in faster
-        circle2Opacity = 0.75 * (uScrollProgress * 2.5 - 0.015);
-    } else {
-        // Original calculation for larger screens
-        circle2Opacity = 0.75 * (uScrollProgress * 2.0 - 0.5);
+    if(uStepEnabled) {
+        circle1 = applyStep(circle1, 0.55, 0.3) * uColorOpacity;
+        circle2 = applyStep(circle2, 0.4, 0.3) * uColorOpacity;
+        rectangle = applyStep(rectangle, 0.6, 0.3) * uColorOpacity;
     }
 
-    float circle2 = noisyCircle(samplePoint, vec2(0.5, 0.5), 0.7, 2.0, 30.0, 0.0);
-    circle2 = smoothstep(0.0, 1.0, circle2);
-    circle2Opacity = clamp(circle2Opacity, 0.0, 1.0);
-    circle2 *= circle2Opacity;
-    circle2 = step(0.2, circle2) * 0.075;
+    // Combine effects
+    float circles = max(max(circle1 + circle2, rectangle), trailColorFinal);
 
-    float circles = circle + circle2;
-    circles = max(circles, trailColorFinal);
+    // Add ripple effect
+    float ripple = calculateRipple(samplePoint);
+    circles = max(circles, ripple);
 
-    // Mix the circles with the existing color based on their scroll-dependent opacities
-    vec3 finalColor = mix(bgColor, vec3(1.0), circles);
+    // Create color variations
+    vec3 bgColor = vec3(0.09, 0.086, 0.082);
+    vec3 brightColor = uTrailColor * 1.2;
+    vec3 darkColor = uTrailColor * 0.7;
+
+    // Final color mixing
+    vec3 finalColor = mix(bgColor, mix(darkColor, brightColor, step(0.75, circles)), circles);
 
     gl_FragColor = vec4(finalColor, 1.0);
 }
