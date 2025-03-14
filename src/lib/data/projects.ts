@@ -483,6 +483,6 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/studio-chain.png'
+		imgSrc: '/projectThumbnails/glass-text.png'
 	}
 ];
