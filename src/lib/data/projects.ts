@@ -477,8 +477,8 @@ export const projects = [
 	},
 	{
 		href: '/three-js-glass-text',
-		title: 'Interactive Particles',
-		description: '',
+		title: 'WM Glass text',
+		description: 'Torus with glass material and perlin noise metalness animation with text inside',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
