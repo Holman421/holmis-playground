@@ -26,5 +26,36 @@ export const setupCameraGUI = (camera: PerspectiveCamera, gui: GUI) => {
 			camera.updateProjectionMatrix();
 		});
 
+	// Print camera values button with improved copying
+	cameraFolder
+		.add(
+			{
+				printCameraValues: () => {
+					const cameraValues = {
+						fov: camera.fov,
+						position: {
+							x: parseFloat(camera.position.x.toFixed(2)),
+							y: parseFloat(camera.position.y.toFixed(2)),
+							z: parseFloat(camera.position.z.toFixed(2))
+						},
+						rotation: {
+							x: parseFloat(camera.rotation.x.toFixed(2)),
+							y: parseFloat(camera.rotation.y.toFixed(2)),
+							z: parseFloat(camera.rotation.z.toFixed(2))
+						}
+					};
+					// Also log as JavaScript object format
+					console.log('Copy-paste format:');
+					console.log(`{
+  fov: ${cameraValues.fov},
+  position: { x: ${cameraValues.position.x}, y: ${cameraValues.position.y}, z: ${cameraValues.position.z} },
+  rotation: { x: ${cameraValues.rotation.x}, y: ${cameraValues.rotation.y}, z: ${cameraValues.rotation.z} }
+}`);
+				}
+			},
+			'printCameraValues'
+		)
+		.name('Print Camera Values');
+
 	return cameraFolder;
 };
