@@ -2,13 +2,25 @@ import * as THREE from 'three';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/examples/jsm/Addons.js';
 import type GUI from 'lil-gui';
+import gsap from 'gsap/all';
 
-export const addTorus = (scene: THREE.Scene, debugObject: any) => {
-	const torusGeometry = new THREE.TorusGeometry(2.5, 0.4, 16, 100);
+export type GlassTextState = 'idle' | 'active';
+
+export const addTorus = (
+	scene: THREE.Scene,
+	debugObject: any,
+	position: THREE.Vector3 = new THREE.Vector3(0, 0, 0),
+	rotation: THREE.Euler = new THREE.Euler(Math.PI * 0.5, 0, 0)
+) => {
+	// Create two geometries - high and low quality
+	const torusGeometryHQ = new THREE.TorusGeometry(2.5, 0.4, 32, 200);
+	const torusGeometryLQ = new THREE.TorusGeometry(2.5, 0.4, 8, 25);
+	// Start with low quality
+	const torusGeometry = torusGeometryLQ;
 	const uniforms = {
 		uTime: { value: 0 },
 		uMetalnessSpeed: { value: 1.0 },
-		uMetalnessStrength: { value: 0.0 } // Changed initial value to 0
+		uMetalnessStrength: { value: 0.0 }
 	};
 
 	const torusMaterial = new THREE.MeshPhysicalMaterial({
@@ -155,10 +167,11 @@ export const addTorus = (scene: THREE.Scene, debugObject: any) => {
 	};
 
 	const torus = new THREE.Mesh(torusGeometry, torusMaterial);
-	torus.rotation.x = Math.PI * 0.5;
+	torus.position.copy(position);
+	torus.rotation.copy(rotation);
 	scene.add(torus);
 
-	return { torus, torusMaterial, uniforms };
+	return { torus, torusMaterial, uniforms, torusGeometryHQ, torusGeometryLQ };
 };
 
 export const setupTorusGUI = (
@@ -257,7 +270,12 @@ export const setupTorusGUI = (
 	});
 };
 
-export const addText = (scene: THREE.Scene, debugObject: any) => {
+export const addText = async (
+	scene: THREE.Scene,
+	debugObject: any,
+	text: string = 'Wonder Makers  Wonder Makers  Wonder Makers',
+	position: THREE.Vector3 = new THREE.Vector3(0, -0.15, 0)
+) => {
 	const loader = new FontLoader();
 	const uniforms = {
 		uTime: { value: 0 }
@@ -266,7 +284,7 @@ export const addText = (scene: THREE.Scene, debugObject: any) => {
 	return new Promise<{ textMesh: THREE.Mesh; uniforms: { uTime: { value: number } } }>(
 		(resolve) => {
 			loader.load('fonts/helvetiker_regular.typeface.json', function (font) {
-				const geometry = new TextGeometry('Wonder Makers  Wonder Makers  Wonder Makers', {
+				const geometry = new TextGeometry(text, {
 					font: font,
 					size: 0.4,
 					depth: 0.005,
@@ -323,11 +341,223 @@ export const addText = (scene: THREE.Scene, debugObject: any) => {
 				};
 
 				const textMesh = new THREE.Mesh(geometry, material);
-				textMesh.position.set(-0, -0.15, 0);
+				textMesh.position.copy(position);
 				scene.add(textMesh);
 
 				resolve({ textMesh, uniforms });
 			});
 		}
 	);
+};
+
+export const createGlassTextDisplay = async (
+	scene: THREE.Scene,
+	gui: GUI,
+	options = {
+		id: 1, // Add id to options
+		text: 'Wonder Makers  Wonder Makers  Wonder Makers',
+		startPosition: { x: -10, y: 17.5, z: -75 },
+		startRotation: { x: 1.5, y: 0, z: 0 },
+		targetPosition: { x: 0, y: 0, z: 0 },
+		targetRotation: { x: 0.3, y: 0, z: 0 }
+	}
+) => {
+	const group = new THREE.Group();
+	scene.add(group);
+
+	let currentRotation = { ...options.startRotation };
+	let continuousRotationY = 0;
+
+	const debugObject = {
+		torusColor: '#aaaaaa',
+		textColor: '#e1fc06',
+		metalness: 0.0,
+		roughness: 0.0,
+		transmission: 1.0,
+		thickness: 0.6,
+		clearcoat: 1.0,
+		clearcoatRoughness: 0.3,
+		ior: 1.05,
+		wireframe: false,
+		anisotropy: 0,
+		dispersion: 0.0,
+		iridescence: 1.0,
+		text: options.text,
+		scale: 1.0
+	};
+
+	const {
+		torus,
+		torusMaterial,
+		uniforms: torusUniforms,
+		torusGeometryHQ,
+		torusGeometryLQ
+	} = addTorus(
+		scene,
+		debugObject,
+		new THREE.Vector3(0, 0, 0),
+		new THREE.Euler(Math.PI * 0.5, 0, 0)
+	);
+
+	const textResult = await addText(
+		scene,
+		debugObject,
+		options.text,
+		new THREE.Vector3(0, -0.15, 0)
+	);
+
+	group.add(torus);
+	group.add(textResult.textMesh);
+
+	group.position.set(options.startPosition.x, options.startPosition.y, options.startPosition.z);
+	group.rotation.set(options.startRotation.x, options.startRotation.y, options.startRotation.z);
+
+	// Setup GUI controls as before
+	// const displayFolder = gui.addFolder('Glass Text Display');
+
+	// Text controls
+	// const textControls = displayFolder.addFolder('Text');
+	// textControls.add(debugObject, 'text').onChange(async () => {
+	// 	scene.remove(textResult.textMesh);
+	// 	const newText = await addText(
+	// 		scene,
+	// 		debugObject,
+	// 		debugObject.text,
+	// 		new THREE.Vector3(0, -0.15, 0)
+	// 	);
+	// 	Object.assign(textResult, newText);
+	// });
+	// textControls.addColor(debugObject, 'textColor').onChange(() => {
+	// 	(textResult.textMesh.material as THREE.MeshStandardMaterial).color.set(debugObject.textColor);
+	// });
+
+	// Torus controls
+	// setupTorusGUI(displayFolder, torusMaterial, debugObject);
+
+	// Group controls
+	// const groupControls = displayFolder.addFolder('Group');
+	// groupControls.add(debugObject, 'scale', 0.1, 2, 0.1).onChange((value: number) => {
+	// 	torus.scale.setScalar(value);
+	// 	textResult.textMesh.scale.setScalar(value);
+	// });
+
+	let state: GlassTextState = 'idle';
+	let currentAnimation: gsap.core.Timeline | null = null;
+	let currentHoverAnimation: any;
+	const getBaseRotation = () => ({ ...currentRotation });
+
+	const animate = (targetState: GlassTextState) => {
+		if (currentAnimation) currentAnimation.kill();
+		if (currentHoverAnimation) currentHoverAnimation.kill();
+
+		const prevState = state;
+		state = targetState;
+
+		// Reset any mouse-based rotation before starting animation
+		if (prevState === 'active' && state === 'idle') {
+			group.rotation.set(currentRotation.x, currentRotation.y, currentRotation.z);
+		}
+
+		const timeline = gsap.timeline({ defaults: { duration: 2, ease: 'power2.inOut' } });
+
+		if (state === 'active') {
+			// Switch to high quality geometry
+			torus.geometry.dispose();
+			torus.geometry = torusGeometryHQ;
+
+			// Enhance material quality
+			torusMaterial.roughness = 0.0;
+			torusMaterial.transmission = 1.0;
+			torusMaterial.clearcoat = 1.0;
+			torusMaterial.clearcoatRoughness = 0.3;
+
+			timeline
+				.to(group.position, options.targetPosition)
+				.to(
+					group.rotation,
+					{
+						x: options.targetRotation.x,
+						y: options.targetRotation.y,
+						z: options.targetRotation.z,
+						onUpdate: () => {
+							currentRotation.x = group.rotation.x;
+							currentRotation.y = group.rotation.y;
+							currentRotation.z = group.rotation.z;
+						}
+					},
+					'<'
+				)
+				.to(torusUniforms.uMetalnessStrength, { value: 1.0 }, '<');
+		} else {
+			// Switch to low quality geometry
+			torus.geometry.dispose();
+			torus.geometry = torusGeometryLQ;
+
+			// Reduce material quality
+			torusMaterial.roughness = 0.2;
+			torusMaterial.transmission = 1;
+			torusMaterial.clearcoat = 0.5;
+			torusMaterial.clearcoatRoughness = 0.5;
+
+			timeline
+				.to(group.position, options.startPosition)
+				.to(
+					group.rotation,
+					{
+						x: options.startRotation.x,
+						y: options.startRotation.y,
+						z: options.startRotation.z,
+						onUpdate: () => {
+							currentRotation.x = group.rotation.x;
+							currentRotation.y = group.rotation.y;
+							currentRotation.z = group.rotation.z;
+						}
+					},
+					'<'
+				)
+				.to(torusUniforms.uMetalnessStrength, { value: 0.0 }, '<');
+		}
+
+		currentAnimation = timeline;
+	};
+
+	const update = (elapsedTime: number, mouseX: number, mouseY: number, rotationSpeed: number) => {
+		// Always apply continuous rotation to text, regardless of state
+		continuousRotationY -= rotationSpeed * 0.01;
+		textResult.textMesh.rotation.y = continuousRotationY;
+
+		// Only apply mouse-based rotation when group is active
+		if (state === 'active') {
+			group.rotation.x = currentRotation.x + mouseY * 0.075;
+			group.rotation.y = currentRotation.y;
+			group.rotation.z = currentRotation.z + mouseX * 0.075;
+		}
+
+		if (textResult.uniforms) textResult.uniforms.uTime.value = elapsedTime;
+		if (torusUniforms) torusUniforms.uTime.value = elapsedTime;
+	};
+
+	torus.userData.groupId = options.id; // Add id to torus
+	textResult.textMesh.userData.groupId = options.id; // Add id to text
+
+	// Add pointer cursor to meshes
+	torus.userData.cursor = 'pointer';
+	textResult.textMesh.userData.cursor = 'pointer';
+
+	return {
+		id: options.id, // Add id to return value
+		group,
+		torus,
+		textMesh: textResult.textMesh,
+		torusMaterial,
+		torusUniforms,
+		textUniforms: textResult.uniforms,
+		animate,
+		update,
+		currentHoverAnimation,
+		getBaseRotation,
+		get state() {
+			return state;
+		}
+	};
 };

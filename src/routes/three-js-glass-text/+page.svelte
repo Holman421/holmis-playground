@@ -1,277 +1,426 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import GUI from 'lil-gui';
-	import { addTorus, setupTorusGUI, addText } from './utils';
 	import { setupCameraGUI } from '$lib/utils/cameraGUI';
 	import gsap from 'gsap';
+	import { createGlassTextDisplay } from './utils';
+
+	let isAnimatedIn = $state(false);
+	let isLoading = $state(true);
+	let activeGroupId = $state<number | null>(null);
+	let glassText1: Awaited<ReturnType<typeof createGlassTextDisplay>>;
+	let glassText2: Awaited<ReturnType<typeof createGlassTextDisplay>>;
+	let glassText3: Awaited<ReturnType<typeof createGlassTextDisplay>>;
+	let animationFrameId: number;
+
+	let heading1: HTMLElement;
+	let heading2: HTMLElement;
+	let heading3: HTMLElement;
+
+	let isHovered = false;
+
+	const hoverAnimation = {
+		startHover: (material: THREE.MeshPhysicalMaterial) => {
+			if (!isHovered) {
+				isHovered = true;
+				gsap.to(material, {
+					thickness: 2.5,
+					duration: 0.3,
+					ease: 'power2.inOut'
+				});
+			}
+		},
+		endHover: (material: THREE.MeshPhysicalMaterial) => {
+			if (isHovered) {
+				isHovered = false;
+				gsap.to(material, {
+					thickness: 0.6,
+					duration: 0.3,
+					ease: 'power2.inOut'
+				});
+			}
+		}
+	};
+
+	const handleGroupClick = (glass: Awaited<ReturnType<typeof createGlassTextDisplay>>) => {
+		const glassGroups = [glassText1, glassText2, glassText3];
+		const headings = [heading1, heading2, heading3];
+
+		if (glass.state === 'idle') {
+			const activeGroup = glassGroups.find((g) => g.state === 'active');
+			if (activeGroup) {
+				activeGroup.animate('idle');
+				// Reset active heading position using direct reference
+				const activeHeading = headings[activeGroup.id - 1];
+				if (activeHeading) {
+					gsap.to(activeHeading, {
+						xPercent: 0, // Back to original position
+						duration: 0.5,
+						ease: 'power2.out'
+					});
+				}
+			}
+			glass.animate('active');
+			activeGroupId = glass.id;
+			// Update URL without reload
+			const url = new URL(window.location.href);
+			url.searchParams.set('section', glass.id.toString());
+			window.history.replaceState({}, '', url);
+			// Move heading using direct reference
+			const clickedHeading = headings[glass.id - 1];
+			if (clickedHeading) {
+				gsap.to(clickedHeading, {
+					xPercent: 5, // Just move it a tiny bit right
+					duration: 0.5,
+					ease: 'power2.out'
+				});
+			}
+		} else {
+			glass.animate('idle');
+			activeGroupId = null;
+			// Remove section from URL
+			const url = new URL(window.location.href);
+			url.searchParams.delete('section');
+			window.history.replaceState({}, '', url);
+			// Reset heading position using direct reference
+			const currentHeading = headings[glass.id - 1];
+			if (currentHeading) {
+				gsap.to(currentHeading, {
+					xPercent: 0, // Back to original position
+					duration: 0.5,
+					ease: 'power2.out'
+				});
+			}
+		}
+	};
+
+	const handleDivHover = (glassId: number, isEntering: boolean) => {
+		const glass = [glassText1, glassText2, glassText3][glassId - 1];
+		const heading = [heading1, heading2, heading3][glassId - 1];
+
+		if (glass && glass.state !== 'active') {
+			if (isEntering) {
+				// Kill any existing hover animation
+				if (glass.currentHoverAnimation) {
+					glass.currentHoverAnimation.kill();
+				}
+
+				hoverAnimation.startHover(glass.torusMaterial);
+				gsap.to(heading, {
+					xPercent: 10,
+					duration: 0.3,
+					ease: 'power2.out'
+				});
+
+				// Store base rotation before starting animation
+				const baseRotation = glass.getBaseRotation();
+
+				// Store the animation reference
+				(glass.currentHoverAnimation as any) = gsap.to(glass.group.rotation, {
+					y: baseRotation.y + Math.PI * 2,
+					duration: 0.6,
+					ease: 'power2.inOut',
+					onComplete: () => {
+						// Reset to base rotation after complete
+						glass.group.rotation.y = baseRotation.y;
+						glass.currentHoverAnimation = null;
+					}
+				});
+			} else {
+				hoverAnimation.endHover(glass.torusMaterial);
+				gsap.to(heading, {
+					xPercent: 0,
+					duration: 0.3,
+					ease: 'power2.out'
+				});
+			}
+		}
+	};
+
+	// Add button click handler
+	const handleButtonClick = (glassId: number) => {
+		const glass = [glassText1, glassText2, glassText3][glassId - 1];
+		if (glass) {
+			handleGroupClick(glass);
+		}
+	};
 
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
-		const debugObject: any = {
-			torusColor: '#aaaaaa',
-			textColor: '#e1fc06',
-			rotationSpeed: 0.5,
-			metalness: 0.0,
-			roughness: 0.0,
-			transmission: 1.0,
-			thickness: 0.6,
-			clearcoat: 1.0,
-			clearcoatRoughness: 0.3,
-			ior: 1.05,
-			wireframe: false,
-			anisotropy: 0,
-			dispersion: 0.0,
-			iridescence: 1.0
-		};
+		const setup = async () => {
+			const debugObject = {
+				rotationSpeed: 0.5
+			};
 
-		gui.hide();
+			const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+			const scene = new THREE.Scene();
+			heading1 = document.getElementById('1heading')!;
+			heading2 = document.getElementById('2heading')!;
+			heading3 = document.getElementById('3heading')!;
 
-		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-		const scene = new THREE.Scene();
+			// Add environment map
+			const textureLoader = new THREE.TextureLoader();
+			const environmentMap = textureLoader.load(
+				'/environmentMaps/blockadesLabsSkybox/digital_painting_neon_city_night_orange_lights_.jpg'
+			);
+			environmentMap.mapping = THREE.EquirectangularReflectionMapping;
+			environmentMap.colorSpace = THREE.SRGBColorSpace;
+			scene.environment = environmentMap;
+			scene.environmentIntensity = 1;
 
-		// Add environment map
-		const textureLoader = new THREE.TextureLoader();
-		const environmentMap = textureLoader.load(
-			'/environmentMaps/blockadesLabsSkybox/digital_painting_neon_city_night_orange_lights_.jpg'
-		);
-		environmentMap.mapping = THREE.EquirectangularReflectionMapping;
-		environmentMap.colorSpace = THREE.SRGBColorSpace;
-		// scene.background = environmentMap;
-		scene.environment = environmentMap;
-		scene.environmentIntensity = 1;
+			// Create glass text display
+			glassText1 = await createGlassTextDisplay(scene, gui, {
+				id: 1, // Add ID for identification
+				text: 'Wonder Makers  Wonder Makers  Wonder Makers',
+				startPosition: { x: -15, y: 17.5, z: -75 },
+				startRotation: { x: 1.5, y: 0, z: -0.75 },
+				targetPosition: { x: 0, y: 0, z: 0 },
+				targetRotation: { x: 0.3, y: 0, z: 0 }
+			});
 
-		// Add environment controls to GUI
-		// const envFolder = gui.addFolder('Environment');
-		// envFolder.add(scene, 'environmentIntensity').min(0).max(10).step(0.001);
+			glassText2 = await createGlassTextDisplay(scene, gui, {
+				id: 2, // Add ID for identification
+				text: 'About us  About us  About us  About us  About us',
+				startPosition: { x: 0, y: 17.5, z: -75 },
+				startRotation: { x: 1.5, y: 0, z: -0.65 },
+				targetPosition: { x: 0, y: 0, z: 0 },
+				targetRotation: { x: 0.3, y: 0, z: 0 }
+			});
 
-		const { torus, torusMaterial, uniforms: torusUniforms } = addTorus(scene, debugObject);
-		// setupTorusGUI(gui, torusMaterial, debugObject);
+			glassText3 = await createGlassTextDisplay(scene, gui, {
+				id: 3, // Fix: Change ID from 2 to 3
+				text: 'Our Work Our Work  Our Work  Our Work  Our Work',
+				startPosition: { x: 15, y: 17.5, z: -75 },
+				startRotation: { x: 1.5, y: 0, z: -0.55 },
+				targetPosition: { x: 0, y: 0, z: 0 },
+				targetRotation: { x: 0.3, y: 0, z: 0 }
+			});
 
-		let textMesh: THREE.Mesh;
-		let uniforms: { uTime: { value: number } };
+			isLoading = false;
 
-		addText(scene, debugObject).then((result) => {
-			textMesh = result.textMesh;
-			uniforms = result.uniforms;
+			// Lights
+			const directionalLight1 = new THREE.DirectionalLight('#e1fc06', 2.5);
+			directionalLight1.position.set(1.6, -8.6, -5.2);
+			scene.add(directionalLight1);
 
-			// Add GUI for text
-			const textFolder = gui.addFolder('Text');
-		});
+			const directionalLight2 = new THREE.DirectionalLight('#00fac8', 9.3);
+			directionalLight2.position.set(-2.1, 2.3, 0.3);
+			scene.add(directionalLight2);
 
-		// Lights
-		const directionalLight1 = new THREE.DirectionalLight('#e1fc06', 2.5);
-		directionalLight1.position.set(1.6, -8.6, -5.2);
-		scene.add(directionalLight1);
+			const ambientLight = new THREE.AmbientLight('#ffffff', 10.5);
+			scene.add(ambientLight);
 
-		const directionalLight2 = new THREE.DirectionalLight('#00fac8', 9.3);
-		directionalLight2.position.set(-2.1, 2.3, 0.3);
-		scene.add(directionalLight2);
+			// Sizes
+			const sizes = {
+				width: window.innerWidth,
+				height: window.innerHeight - 56,
+				pixelRatio: Math.min(window.devicePixelRatio, 2)
+			};
 
-		const ambientLight = new THREE.AmbientLight('#ffffff', 10.5);
-		scene.add(ambientLight);
+			window.addEventListener('resize', () => {
+				sizes.width = window.innerWidth;
+				sizes.height = window.innerHeight - 56;
+				sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
-		// Setup light GUI
-		// setupLightGUI(directionalLight1, gui, 'Directional Light');
-		// setupLightGUI(directionalLight2, gui, 'Directional Light');
+				camera.aspect = sizes.width / sizes.height;
+				camera.updateProjectionMatrix();
 
-		// // Add rotation controls
-		// const rotationFolder = gui.addFolder('Rotation Animation');
-		// rotationFolder.add(debugObject, 'rotationSpeed').min(0).max(2).step(0.1).name('Speed');
+				renderer.setSize(sizes.width, sizes.height);
+				renderer.setPixelRatio(sizes.pixelRatio);
+			});
 
-		// Sizes
-		const sizes = {
-			width: window.innerWidth,
-			height: window.innerHeight - 56,
-			pixelRatio: Math.min(window.devicePixelRatio, 2)
-		};
+			const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
+			camera.position.set(0, 0, 17);
+			camera.lookAt(0, 0, 0);
+			scene.add(camera);
+			// setupCameraGUI(camera, gui);
 
-		window.addEventListener('resize', () => {
-			// Update sizes
-			sizes.width = window.innerWidth;
-			sizes.height = window.innerHeight - 56;
-			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
+			const axesHelper = new THREE.AxesHelper(5);
+			// scene.add(axesHelper);
 
-			// Update camera
-			camera.aspect = sizes.width / sizes.height;
-			camera.updateProjectionMatrix();
+			const mouse = {
+				x: 0,
+				y: 0,
+				target: { x: 0, y: 0 }
+			};
 
-			// Update renderer
+			const raycaster = new THREE.Raycaster();
+			raycaster.params.Line.threshold = 0.1;
+			const pointer = new THREE.Vector2();
+			let isHovered = false;
+
+			window.addEventListener('mousemove', (event) => {
+				mouse.target.x = (event.clientX / sizes.width - 0.5) * 2;
+				mouse.target.y = -(event.clientY / sizes.height - 0.5) * 2;
+
+				pointer.x = (event.clientX / sizes.width) * 2 - 1;
+				pointer.y = -((event.clientY - 56) / sizes.height) * 2 + 1;
+			});
+
+			const renderer = new THREE.WebGLRenderer({
+				canvas: canvas,
+				antialias: true
+			});
 			renderer.setSize(sizes.width, sizes.height);
 			renderer.setPixelRatio(sizes.pixelRatio);
-		});
 
-		// Camera
-		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
-		camera.position.set(-0, 20, 0);
-		// setupCameraGUI(camera, gui);
-		scene.add(camera);
+			const clock = new THREE.Clock();
 
-		// Camera animation function
-		const animateCamera = () => {
-			// Disable controls during animation
-			controls.enabled = false;
+			window.addEventListener('click', () => {
+				raycaster.setFromCamera(pointer, camera);
+				const glassGroups = [glassText1, glassText2, glassText3];
 
-			// Target camera values
-			const targetPosition = { x: 0.64, y: 2.75, z: 12 };
-			const targetRotation = { x: -0.25, y: 0.06, z: 0.02 };
-
-			// Animate metalness strength
-			gsap.to(torusUniforms.uMetalnessStrength, {
-				value: 1.0,
-				duration: 2,
-				ease: 'power2.inOut'
-			});
-
-			// Animate camera position
-			gsap.to(camera.position, {
-				duration: 2,
-				x: targetPosition.x,
-				y: targetPosition.y,
-				z: targetPosition.z,
-				ease: 'power2.inOut'
-			});
-
-			// Animate camera rotation
-			gsap.to(camera.rotation, {
-				duration: 2,
-				x: targetRotation.x,
-				y: targetRotation.y,
-				z: targetRotation.z,
-				ease: 'power2.inOut',
-				onComplete: () => {
-					// Re-enable controls after animation
-					controls.enabled = true;
+				for (const glass of glassGroups) {
+					// Check intersections for all elements, not just active ones
+					const intersects = raycaster.intersectObjects([glass.torus, glass.textMesh]);
+					if (intersects.length > 0) {
+						handleGroupClick(glass);
+						break;
+					}
 				}
 			});
-		};
 
-		// Add camera animation button to GUI
-		// gui.add({ animateCamera }, 'animateCamera').name('Animate Camera');
+			const tick = () => {
+				const elapsedTime = clock.getElapsedTime();
 
-		const button = document.getElementById('animate')!;
-		button.addEventListener('click', animateCamera);
+				mouse.x += (mouse.target.x - mouse.x) * 0.1;
+				mouse.y += (mouse.target.y - mouse.y) * 0.1;
 
-		// Controls
-		const controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
+				glassText1?.update(elapsedTime, mouse.x, mouse.y, debugObject.rotationSpeed);
+				glassText2?.update(elapsedTime, mouse.x, mouse.y, debugObject.rotationSpeed);
+				glassText3?.update(elapsedTime, mouse.x, mouse.y, debugObject.rotationSpeed);
 
-		// Add mouse tracking
-		const mouse = {
-			x: 0,
-			y: 0,
-			target: { x: 0, y: 0 }
-		};
+				// Restore raycaster checks for active groups
+				raycaster.setFromCamera(pointer, camera);
+				const glassGroups = [glassText1, glassText2, glassText3].filter(Boolean);
+				let isAnyHovered = false;
 
-		// Adjust raycaster precision
-		const raycaster = new THREE.Raycaster();
-		raycaster.params.Line.threshold = 0.1; // Increase precision
-		const pointer = new THREE.Vector2();
-		let isHovered = false;
+				for (const glass of glassGroups) {
+					if (glass.state === 'active') {
+						const intersects = raycaster.intersectObjects([glass.torus, glass.textMesh]);
+						if (intersects.length > 0) {
+							isAnyHovered = true;
+							document.body.style.cursor = 'pointer';
+							hoverAnimation.startHover(glass.torusMaterial);
+							break;
+						}
+					}
+				}
 
-		window.addEventListener('mousemove', (event) => {
-			// Update mouse target for camera movement
-			mouse.target.x = (event.clientX / sizes.width - 0.5) * 2;
-			mouse.target.y = -(event.clientY / sizes.height - 0.5) * 2;
-
-			// Update pointer for raycasting
-			pointer.x = (event.clientX / sizes.width) * 2 - 1;
-			pointer.y = -(event.clientY / sizes.height) * 2 + 1;
-		});
-
-		// Create hover animation with adjusted values
-		const hoverAnimation = {
-			startHover: () => {
-				if (!isHovered) {
-					isHovered = true;
-					gsap.to(torusMaterial, {
-						thickness: 2.5,
-						duration: 0.3,
-						ease: 'power2.inOut'
+				if (!isAnyHovered) {
+					document.body.style.cursor = 'default';
+					glassGroups.forEach((glass) => {
+						if (glass.state === 'active' && glass.torusMaterial.thickness > 0.6) {
+							hoverAnimation.endHover(glass.torusMaterial);
+						}
 					});
 				}
-			},
-			endHover: () => {
-				if (isHovered) {
-					isHovered = false;
-					gsap.to(torusMaterial, {
-						thickness: 0.6,
-						duration: 0.3,
-						ease: 'power2.inOut'
-					});
-				}
-			}
+
+				renderer.render(scene, camera);
+				animationFrameId = window.requestAnimationFrame(tick);
+			};
+
+			// Add event listeners for div hovers
+			[1, 2, 3].forEach((id) => {
+				const div = document.getElementById(`${id}div`);
+				div?.addEventListener('mouseenter', () => handleDivHover(id, true));
+				div?.addEventListener('mouseleave', () => handleDivHover(id, false));
+			});
+
+			tick();
 		};
 
-		// Renderer
-		const renderer = new THREE.WebGLRenderer({
-			canvas: canvas,
-			antialias: true
-		});
-		renderer.setSize(sizes.width, sizes.height);
-		renderer.setPixelRatio(sizes.pixelRatio);
+		setup();
 
-		// Animate
-		const clock = new THREE.Clock();
-		let animationFrameId: number;
-		const tick = () => {
-			const elapsedTime = clock.getElapsedTime();
-
-			// Smooth mouse movement
-			mouse.x += (mouse.target.x - mouse.x) * 0.1;
-			mouse.y += (mouse.target.y - mouse.y) * 0.1;
-
-			if (textMesh) {
-				textMesh.rotation.y -= debugObject.rotationSpeed * 0.01;
-				// Add subtle tilt based on mouse position
-				textMesh.rotation.x = mouse.y * 0.075;
-				// textMesh.rotation.z = mouse.x * 0.1;
-			}
-
-			if (torus) {
-				// Add subtle movement to torus
-				torus.rotation.x = Math.PI * 0.5 + mouse.y * 0.075;
-				torus.rotation.z = mouse.x * 0.075;
-			}
-
-			if (uniforms) {
-				uniforms.uTime.value = elapsedTime;
-			}
-
-			// Update torus uniforms
-			if (torusUniforms) {
-				torusUniforms.uTime.value = elapsedTime;
-			}
-
-			// Update raycaster with adjusted logic
-			raycaster.setFromCamera(pointer, camera);
-			const intersects = raycaster.intersectObject(torus);
-
-			// Check for more precise intersection
-			if (intersects.length > 0 && intersects[0].distance < 20) {
-				hoverAnimation.startHover();
-			} else {
-				hoverAnimation.endHover();
-			}
-
-			controls.update();
-			renderer.render(scene, camera);
-			animationFrameId = window.requestAnimationFrame(tick);
-		};
-
-		tick();
 		return () => {
-			if (gui) gui.destroy();
+			gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 		};
+	});
+
+	// Add URL state handling
+	$effect(() => {
+		const url = new URL(window.location.href);
+		const section = url.searchParams.get('section');
+
+		if (!isLoading && section) {
+			const sectionId = parseInt(section);
+			if (sectionId >= 1 && sectionId <= 3) {
+				const glass = [glassText1, glassText2, glassText3][sectionId - 1];
+				if (glass && glass.state === 'idle') {
+					handleGroupClick(glass);
+				}
+			}
+		}
 	});
 </script>
 
 <div>
+	{#if isLoading}
+		<div class="absolute inset-0 flex items-center justify-center">Loading...</div>
+	{/if}
 	<button
 		id="animate"
 		class="absolute left-1/2 cursor-pointer -translate-x-1/2 top-[10%] border rounded-md px-3 py-1"
-		>Animate</button
+		disabled={isLoading}
 	>
+		{isAnimatedIn ? 'Animate Out' : 'Animate In'}
+	</button>
+	<button
+		id="1div"
+		class="top-[185px] left-1/2 -translate-x-[265px] absolute w-fit cursor-pointer py-5 pl-10"
+		onmouseenter={() => handleDivHover(1, true)}
+		onmouseleave={() => handleDivHover(1, false)}
+		onclick={() => handleButtonClick(1)}
+	>
+		<h2
+			id="1heading"
+			class="text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
+			class:opacity-0={activeGroupId === 1}
+		>
+			Home
+		</h2>
+	</button>
+	<button
+		class="top-[185px] left-1/2 -translate-x-[40px] absolute w-fit cursor-pointer py-5 pl-10"
+		id="2div"
+		onmouseenter={() => handleDivHover(2, true)}
+		onmouseleave={() => handleDivHover(2, false)}
+		onclick={() => handleButtonClick(2)}
+	>
+		<h2
+			id="2heading"
+			class="text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
+			class:opacity-0={activeGroupId === 2}
+		>
+			About
+		</h2>
+	</button>
+	<button
+		class="top-[185px] left-1/2 translate-x-[180px] absolute w-fit cursor-pointer py-5 pl-10"
+		id="3div"
+		onmouseenter={() => handleDivHover(3, true)}
+		onmouseleave={() => handleDivHover(3, false)}
+		onclick={() => handleButtonClick(3)}
+	>
+		<h2
+			id="3heading"
+			class="text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
+			class:opacity-0={activeGroupId === 3}
+		>
+			Work
+		</h2>
+	</button>
 	<canvas class="webgl"></canvas>
 </div>
+
+<style>
+	:global(body) {
+		cursor: default;
+		transition: cursor 0.1s ease-out;
+	}
+
+	[id$='heading'] {
+		color: white;
+	}
+</style>

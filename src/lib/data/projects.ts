@@ -191,7 +191,7 @@ export const projects = [
 		title: 'Earth globe',
 		description: 'Scene with 3D earth model and atmosphere effect made with shaders',
 		technologies: ['THREE.js', 'Shaders', 'Texture'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/earth-globe.png'
 	},
 	{
@@ -223,7 +223,7 @@ export const projects = [
 		title: 'Sliced model',
 		description: 'Scene with 3d model with customizable slice area',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/sliced-model.png'
 	},
 	{
@@ -239,7 +239,7 @@ export const projects = [
 		title: 'Model deformation',
 		description: 'Scene with 3D model with deformation effect',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/model-deformation.png'
 	},
 	{
@@ -371,7 +371,7 @@ export const projects = [
 		title: 'Mobius text',
 		description: 'Text with mobius strip effect',
 		technologies: ['THREE.js'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/text-mobius.png'
 	},
 	{
@@ -479,6 +479,16 @@ export const projects = [
 		href: '/three-js-glass-text',
 		title: 'WM Glass text',
 		description: 'Torus with glass material and perlin noise metalness animation with text inside',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: false,
+		imgSrc: '/projectThumbnails/glass-text.png'
+	},
+	{
+		href: '/three-js-sponsors',
+		title: 'Sponsor idea',
+		description: '',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,

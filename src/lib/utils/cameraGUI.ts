@@ -6,9 +6,9 @@ export const setupCameraGUI = (camera: PerspectiveCamera, gui: GUI) => {
 
 	// Position controls
 	const positionFolder = cameraFolder.addFolder('Position');
-	positionFolder.add(camera.position, 'x').min(-20).max(20).step(0.1).listen();
-	positionFolder.add(camera.position, 'y').min(-20).max(20).step(0.1).listen();
-	positionFolder.add(camera.position, 'z').min(-20).max(20).step(0.1).listen();
+	positionFolder.add(camera.position, 'x').min(-20).max(20).step(0.01).listen();
+	positionFolder.add(camera.position, 'y').min(-20).max(20).step(0.01).listen();
+	positionFolder.add(camera.position, 'z').min(-20).max(20).step(0.01).listen();
 
 	// Rotation controls
 	const rotationFolder = cameraFolder.addFolder('Rotation');
