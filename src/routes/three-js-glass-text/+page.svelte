@@ -135,6 +135,7 @@
 
 	$effect(() => {
 		const gui = new GUI({ width: 325 });
+		gui.hide();
 		const setup = async () => {
 			const debugObject = {
 				rotationSpeed: 0.5
