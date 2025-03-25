@@ -473,7 +473,7 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: true,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/studio-chain.png'
+		imgSrc: '/projectThumbnails/interactive-particles.png'
 	},
 	{
 		href: '/three-js-glass-text',
@@ -491,7 +491,7 @@ export const projects = [
 		description: '',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/glass-text.png'
 	}

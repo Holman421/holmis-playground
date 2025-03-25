@@ -42,7 +42,6 @@
 			<h1 class="font-bold text-2xl font-audiowide">Holmis Playground</h1>
 		</a>
 	</nav>
-
 	<slot class="flex-1" />
 </div>
 

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Sketch from './app.js';
+	import Sketch from './utils';
 
 	$effect(() => {
 		const sketch = new Sketch({
 			dom: document.getElementById('container')
 		});
 
-		// return () => {
-		// 	sketch.stop();
-		// };
+		return () => {
+			sketch.stop();
+		};
 	});
 </script>
 

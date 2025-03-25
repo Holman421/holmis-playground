@@ -366,7 +366,9 @@ export const createGlassTextDisplay = async (
 	scene.add(group);
 
 	let currentRotation = { ...options.startRotation };
-	let continuousRotationY = 0;
+	let continuousRotationY = 0; // Add this
+	let isHovered = false;
+	let currentSpeed = 0.01; // Add this line to track current speed
 
 	const debugObject = {
 		torusColor: '#aaaaaa',
@@ -450,6 +452,20 @@ export const createGlassTextDisplay = async (
 		if (currentAnimation) currentAnimation.kill();
 		if (currentHoverAnimation) currentHoverAnimation.kill();
 
+		// Reset hover state and speed when becoming active
+		if (targetState === 'active') {
+			isHovered = false;
+			const speedObj = { speed: currentSpeed };
+			gsap.to(speedObj, {
+				speed: 0.01,
+				duration: 0.3,
+				ease: 'power2.inOut',
+				onUpdate: () => {
+					currentSpeed = speedObj.speed;
+				}
+			});
+		}
+
 		const prevState = state;
 		state = targetState;
 
@@ -458,7 +474,9 @@ export const createGlassTextDisplay = async (
 			group.rotation.set(currentRotation.x, currentRotation.y, currentRotation.z);
 		}
 
-		const timeline = gsap.timeline({ defaults: { duration: 2, ease: 'power2.inOut' } });
+		const easing = state === 'active' ? 'power4.out' : 'power1.out';
+
+		const timeline = gsap.timeline({ defaults: { duration: 1.75, ease: easing } });
 
 		if (state === 'active') {
 			// Switch to high quality geometry
@@ -521,9 +539,25 @@ export const createGlassTextDisplay = async (
 		currentAnimation = timeline;
 	};
 
+	const setHovered = (value: boolean) => {
+		// Only allow hover speed changes in idle state
+		if (state === 'idle') {
+			isHovered = value;
+			const speedObj = { speed: currentSpeed };
+			gsap.to(speedObj, {
+				speed: value ? 0.07 : 0.01,
+				duration: 0.3,
+				ease: 'power2.inOut',
+				onUpdate: () => {
+					currentSpeed = speedObj.speed;
+				}
+			});
+		}
+	};
+
 	const update = (elapsedTime: number, mouseX: number, mouseY: number, rotationSpeed: number) => {
-		// Always apply continuous rotation to text, regardless of state
-		continuousRotationY -= rotationSpeed * 0.01;
+		// Use the current animated speed
+		continuousRotationY -= currentSpeed;
 		textResult.textMesh.rotation.y = continuousRotationY;
 
 		// Only apply mouse-based rotation when group is active
@@ -556,6 +590,7 @@ export const createGlassTextDisplay = async (
 		update,
 		currentHoverAnimation,
 		getBaseRotation,
+		setHovered,
 		get state() {
 			return state;
 		}

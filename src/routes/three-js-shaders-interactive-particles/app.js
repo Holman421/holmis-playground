@@ -3,6 +3,10 @@ import { REVISION } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js';
 import fragment from './shader/fragment.glsl';
 import vertex from './shader/vertexParticles.glsl';
 
@@ -44,6 +48,21 @@ export default class Sketch {
 		this.gltfLoader = new GLTFLoader();
 		this.gltfLoader.setDRACOLoader(this.dracoLoader);
 
+		this.composer = new EffectComposer(this.renderer);
+		this.renderPass = new RenderPass(this.scene, this.camera);
+		this.composer.addPass(this.renderPass);
+
+		this.bloomPass = new UnrealBloomPass(
+			new THREE.Vector2(this.width, this.height),
+			1.15,
+			1.0,
+			0.66
+		);
+		this.composer.addPass(this.bloomPass);
+
+		this.afterimagePass = new AfterimagePass(0.1); // value between 0 and 1
+		this.composer.addPass(this.afterimagePass);
+
 		this.isPlaying = true;
 		this.setupEvents();
 		this.setupFBO();
@@ -51,7 +70,7 @@ export default class Sketch {
 		this.resize();
 		this.render();
 		this.setupResize();
-		// this.setUpSettings();
+		this.setUpSettings();
 	}
 
 	setupEvents() {
@@ -63,7 +82,7 @@ export default class Sketch {
 		// this.scene.add(this.ball)
 		document.addEventListener('pointermove', (e) => {
 			this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-			this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+			this.pointer.y = -((e.clientY - 56) / (window.innerHeight - 56)) * 2 + 1;
 
 			this.raycaster.setFromCamera(this.pointer, this.camera);
 			let intersects = this.raycaster.intersectObject(this.dummy);
@@ -77,11 +96,91 @@ export default class Sketch {
 	}
 
 	setUpSettings() {
-		this.settings = {
-			progress: 0
-		};
 		this.gui = new GUI();
-		this.gui.add(this.settings, 'progress', 0, 1, 0.01).onChange((val) => {});
+		this.controllers = {}; // Store controllers for later access
+
+		const particleFolder = this.gui.addFolder('Particle Controls');
+
+		// Store controller references when creating them
+		this.controllers.mouseForce = particleFolder
+			.add(this.settings, 'mouseForce', 0, 0.5, 0.01)
+			.onChange((value) => {
+				this.fboMaterial.uniforms.uMouseForce.value = value;
+			});
+
+		this.controllers.circularForce = particleFolder
+			.add(this.settings, 'circularForce', 0, 2, 0.1)
+			.onChange((value) => {
+				this.fboMaterial.uniforms.uCircularForce.value = value;
+			});
+
+		this.controllers.rotationSpeed = particleFolder
+			.add(this.settings, 'rotationSpeed', 0, 1, 0.01)
+			.onChange((value) => {
+				this.fboMaterial.uniforms.uRotationSpeed.value = value;
+			});
+
+		this.controllers.targetRadius = particleFolder
+			.add(this.settings, 'targetRadius', 0.0, 3, 0.1)
+			.onChange((value) => {
+				this.fboMaterial.uniforms.uTargetRadius.value = value;
+			});
+
+		this.controllers.noiseStrength = particleFolder
+			.add(this.settings, 'noiseStrength', 0, 0.02, 0.001)
+			.onChange((value) => {
+				this.fboMaterial.uniforms.uNoiseStrength.value = value;
+			});
+
+		// Add animation button
+		const animationFolder = this.gui.addFolder('Animation');
+		animationFolder
+			.add(
+				{
+					animate: () => {
+						if (this.settings.isAnimating) return;
+						this.settings.isAnimating = true;
+
+						const targetState = this.isFirstState
+							? this.settingsStates.second
+							: this.settingsStates.first;
+
+						gsap.to(this.settings, {
+							duration: 2,
+							mouseForce: targetState.mouseForce,
+							circularForce: targetState.circularForce,
+							rotationSpeed: targetState.rotationSpeed,
+							targetRadius: targetState.targetRadius,
+							noiseStrength: targetState.noiseStrength,
+							ease: 'power2.inOut',
+							onUpdate: () => {
+								// Update uniforms
+								this.fboMaterial.uniforms.uMouseForce.value = this.settings.mouseForce;
+								this.fboMaterial.uniforms.uCircularForce.value = this.settings.circularForce;
+								this.fboMaterial.uniforms.uRotationSpeed.value = this.settings.rotationSpeed;
+								this.fboMaterial.uniforms.uTargetRadius.value = this.settings.targetRadius;
+								this.fboMaterial.uniforms.uNoiseStrength.value = this.settings.noiseStrength;
+
+								// Update individual controllers
+								this.controllers.mouseForce.updateDisplay();
+								this.controllers.circularForce.updateDisplay();
+								this.controllers.rotationSpeed.updateDisplay();
+								this.controllers.targetRadius.updateDisplay();
+								this.controllers.noiseStrength.updateDisplay();
+							},
+							onComplete: () => {
+								this.isFirstState = !this.isFirstState;
+								this.settings.isAnimating = false;
+							}
+						});
+					}
+				},
+				'animate'
+			)
+			.name('Toggle Animation');
+
+		// Initialize state
+		this.isFirstState = true;
 	}
 
 	setupResize() {
@@ -134,12 +233,49 @@ export default class Sketch {
 		this.fboTexture.minFilter = THREE.NearestFilter;
 		this.fboTexture.needsUpdate = true;
 
+		this.settings = {
+			progress: 0,
+			bloomStrength: 1.15,
+			bloomRadius: 1,
+			bloomThreshold: 0.66,
+			afterimageStrength: 0.1,
+			mouseForce: 0.1,
+			circularForce: 0,
+			rotationSpeed: 1.0,
+			targetRadius: 0,
+			noiseStrength: 0.02,
+			isAnimating: false
+		};
+
+		// Add two states for animation
+		this.settingsStates = {
+			first: {
+				mouseForce: 0.1,
+				circularForce: 0,
+				rotationSpeed: 1.0,
+				targetRadius: 0,
+				noiseStrength: 0.02
+			},
+			second: {
+				mouseForce: 0.3,
+				circularForce: 2.0,
+				rotationSpeed: 0.2,
+				targetRadius: 2.1,
+				noiseStrength: 0.002
+			}
+		};
+
 		this.fboMaterial = new THREE.ShaderMaterial({
 			uniforms: {
 				uPositions: { value: this.fboTexture },
 				uInfo: { value: null },
 				uMouse: { value: new THREE.Vector2(0, 0) },
-				time: { value: 0 }
+				time: { value: 0 },
+				uMouseForce: { value: this.settings.mouseForce },
+				uCircularForce: { value: this.settings.circularForce },
+				uRotationSpeed: { value: this.settings.rotationSpeed },
+				uTargetRadius: { value: this.settings.targetRadius },
+				uNoiseStrength: { value: this.settings.noiseStrength }
 			},
 			vertexShader: simVertex,
 			fragmentShader: simFragment
@@ -184,6 +320,7 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
+		this.composer.setSize(this.width, this.height);
 	}
 
 	addObjects() {
@@ -239,7 +376,8 @@ export default class Sketch {
 		this.renderer.setRenderTarget(this.fbo);
 		this.renderer.render(this.fboScene, this.fboCamera);
 		this.renderer.setRenderTarget(null);
-		this.renderer.render(this.scene, this.camera);
+
+		this.composer.render();
 
 		// swap render targets
 		let temp = this.fbo;
@@ -250,7 +388,3 @@ export default class Sketch {
 		// this.renderer.render(this.fboScene, this.fboCamera);
 	}
 }
-
-new Sketch({
-	dom: document.getElementById('container')
-});

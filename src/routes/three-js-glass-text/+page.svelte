@@ -91,6 +91,7 @@
 					ease: 'power2.out'
 				});
 			}
+			hoverAnimation.endHover(glass.torusMaterial);
 		}
 	};
 
@@ -98,41 +99,28 @@
 		const glass = [glassText1, glassText2, glassText3][glassId - 1];
 		const heading = [heading1, heading2, heading3][glassId - 1];
 
-		if (glass && glass.state !== 'active') {
+		// Only proceed if glass exists and is in idle state
+		if (glass && glass.state === 'idle') {
 			if (isEntering) {
-				// Kill any existing hover animation
-				if (glass.currentHoverAnimation) {
-					glass.currentHoverAnimation.kill();
-				}
-
-				hoverAnimation.startHover(glass.torusMaterial);
 				gsap.to(heading, {
 					xPercent: 10,
 					duration: 0.3,
 					ease: 'power2.out'
 				});
-
-				// Store base rotation before starting animation
-				const baseRotation = glass.getBaseRotation();
-
-				// Store the animation reference
-				(glass.currentHoverAnimation as any) = gsap.to(glass.group.rotation, {
-					y: baseRotation.y + Math.PI * 2,
-					duration: 0.6,
-					ease: 'power2.inOut',
-					onComplete: () => {
-						// Reset to base rotation after complete
-						glass.group.rotation.y = baseRotation.y;
-						glass.currentHoverAnimation = null;
-					}
-				});
+				glass.setHovered(true);
 			} else {
-				hoverAnimation.endHover(glass.torusMaterial);
 				gsap.to(heading, {
 					xPercent: 0,
 					duration: 0.3,
 					ease: 'power2.out'
 				});
+				glass.setHovered(false);
+			}
+		} else if (glass && glass.state === 'active') {
+			if (isEntering) {
+				hoverAnimation.startHover(glass.torusMaterial);
+			} else {
+				hoverAnimation.endHover(glass.torusMaterial);
 			}
 		}
 	};
@@ -236,7 +224,7 @@
 			// setupCameraGUI(camera, gui);
 
 			const axesHelper = new THREE.AxesHelper(5);
-			// scene.add(axesHelper);
+			// // scene.add(axesHelper);
 
 			const mouse = {
 				x: 0,
@@ -247,7 +235,6 @@
 			const raycaster = new THREE.Raycaster();
 			raycaster.params.Line.threshold = 0.1;
 			const pointer = new THREE.Vector2();
-			let isHovered = false;
 
 			window.addEventListener('mousemove', (event) => {
 				mouse.target.x = (event.clientX / sizes.width - 0.5) * 2;
@@ -266,18 +253,21 @@
 
 			const clock = new THREE.Clock();
 
-			window.addEventListener('click', () => {
+			window.addEventListener('click', (event) => {
 				raycaster.setFromCamera(pointer, camera);
 				const glassGroups = [glassText1, glassText2, glassText3];
 
+				// Check for 3D object intersections first
 				for (const glass of glassGroups) {
-					// Check intersections for all elements, not just active ones
 					const intersects = raycaster.intersectObjects([glass.torus, glass.textMesh]);
 					if (intersects.length > 0) {
 						handleGroupClick(glass);
-						break;
+						event.stopPropagation(); // Prevent button click from triggering
+						return;
 					}
 				}
+
+				// If no 3D intersection, let button clicks work naturally through onclick handlers
 			});
 
 			const tick = () => {
@@ -371,7 +361,10 @@
 		class="top-[185px] left-1/2 -translate-x-[265px] absolute w-fit cursor-pointer py-5 pl-10"
 		onmouseenter={() => handleDivHover(1, true)}
 		onmouseleave={() => handleDivHover(1, false)}
-		onclick={() => handleButtonClick(1)}
+		onclick={(e) => {
+			e.stopPropagation();
+			handleButtonClick(1);
+		}}
 	>
 		<h2
 			id="1heading"
@@ -386,7 +379,10 @@
 		id="2div"
 		onmouseenter={() => handleDivHover(2, true)}
 		onmouseleave={() => handleDivHover(2, false)}
-		onclick={() => handleButtonClick(2)}
+		onclick={(e) => {
+			e.stopPropagation();
+			handleButtonClick(2);
+		}}
 	>
 		<h2
 			id="2heading"
@@ -401,7 +397,10 @@
 		id="3div"
 		onmouseenter={() => handleDivHover(3, true)}
 		onmouseleave={() => handleDivHover(3, false)}
-		onclick={() => handleButtonClick(3)}
+		onclick={(e) => {
+			e.stopPropagation();
+			handleButtonClick(3);
+		}}
 	>
 		<h2
 			id="3heading"
@@ -422,5 +421,10 @@
 
 	[id$='heading'] {
 		color: white;
+	}
+
+	[id$='div'] {
+		pointer-events: all;
+		z-index: 10;
 	}
 </style>

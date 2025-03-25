@@ -19,7 +19,7 @@
 				y: 0,
 				ease: 'back.out(1.2)',
 				stagger: {
-					amount: 0.3,
+					each: 0.1,
 					from: 'start'
 				}
 			}
