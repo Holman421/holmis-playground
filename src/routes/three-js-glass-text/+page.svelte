@@ -156,31 +156,40 @@
 			scene.environment = environmentMap;
 			scene.environmentIntensity = 1;
 
-			// Create glass text display
+			let isMobile = window.innerWidth < 768;
+
+			window.addEventListener('resize', () => {
+				isMobile = window.innerWidth < 768;
+			});
+
 			glassText1 = await createGlassTextDisplay(scene, gui, {
-				id: 1, // Add ID for identification
+				id: 1,
 				text: 'Wonder Makers  Wonder Makers  Wonder Makers',
-				startPosition: { x: -15, y: 17.5, z: -75 },
+				startPosition: {
+					x: isMobile ? -9 : -15,
+					y: isMobile ? 17.5 : 17.5,
+					z: isMobile ? -75 : -75
+				},
 				startRotation: { x: 1.5, y: 0, z: -0.75 },
-				targetPosition: { x: 0, y: 0, z: 0 },
+				targetPosition: { x: 0, y: 0, z: isMobile ? -10 : 0 },
 				targetRotation: { x: 0.3, y: 0, z: 0 }
 			});
 
 			glassText2 = await createGlassTextDisplay(scene, gui, {
-				id: 2, // Add ID for identification
+				id: 2,
 				text: 'About us  About us  About us  About us  About us',
-				startPosition: { x: 0, y: 17.5, z: -75 },
+				startPosition: { x: isMobile ? -0.5 : 0, y: 17.5, z: -75 },
 				startRotation: { x: 1.5, y: 0, z: -0.65 },
-				targetPosition: { x: 0, y: 0, z: 0 },
+				targetPosition: { x: 0, y: 0, z: isMobile ? -10 : 0 },
 				targetRotation: { x: 0.3, y: 0, z: 0 }
 			});
 
 			glassText3 = await createGlassTextDisplay(scene, gui, {
-				id: 3, // Fix: Change ID from 2 to 3
+				id: 3,
 				text: 'Our Work Our Work  Our Work  Our Work  Our Work',
-				startPosition: { x: 15, y: 17.5, z: -75 },
+				startPosition: { x: isMobile ? 8.5 : 15, y: 17.5, z: -75 },
 				startRotation: { x: 1.5, y: 0, z: -0.55 },
-				targetPosition: { x: 0, y: 0, z: 0 },
+				targetPosition: { x: 0, y: 0, z: isMobile ? -10 : 0 },
 				targetRotation: { x: 0.3, y: 0, z: 0 }
 			});
 
@@ -351,7 +360,7 @@
 	{/if}
 	<button
 		id="1div"
-		class="top-[185px] left-1/2 -translate-x-[265px] absolute w-fit cursor-pointer py-5 pl-10"
+		class="top-[185px] left-1/2 -translate-x-[190px] md:-translate-x-[265px] absolute w-fit cursor-pointer py-5 pl-10"
 		onmouseenter={() => handleDivHover(1, true)}
 		onmouseleave={() => handleDivHover(1, false)}
 		onclick={(e) => {
@@ -361,14 +370,14 @@
 	>
 		<h2
 			id="1heading"
-			class="text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
+			class="text-lg md:text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
 			class:opacity-0={activeGroupId === 1}
 		>
 			Home
 		</h2>
 	</button>
 	<button
-		class="top-[185px] left-1/2 -translate-x-[40px] absolute w-fit cursor-pointer py-5 pl-10"
+		class="top-[185px] left-1/2 -translate-x-[60px] md:-translate-x-[40px] absolute w-fit cursor-pointer py-5 pl-10"
 		id="2div"
 		onmouseenter={() => handleDivHover(2, true)}
 		onmouseleave={() => handleDivHover(2, false)}
@@ -379,14 +388,14 @@
 	>
 		<h2
 			id="2heading"
-			class="text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
+			class="text-lg md:text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
 			class:opacity-0={activeGroupId === 2}
 		>
 			About
 		</h2>
 	</button>
 	<button
-		class="top-[185px] left-1/2 translate-x-[180px] absolute w-fit cursor-pointer py-5 pl-10"
+		class="top-[185px] left-1/2 translate-x-[70px] md:translate-x-[180px] absolute w-fit cursor-pointer py-5 pl-10"
 		id="3div"
 		onmouseenter={() => handleDivHover(3, true)}
 		onmouseleave={() => handleDivHover(3, false)}
@@ -397,7 +406,7 @@
 	>
 		<h2
 			id="3heading"
-			class="text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
+			class="text-lg md:text-2xl font-audiowide py-1 bg-gradient-to-b from-transparent via-black to-transparent transition-opacity duration-500"
 			class:opacity-0={activeGroupId === 3}
 		>
 			Work
