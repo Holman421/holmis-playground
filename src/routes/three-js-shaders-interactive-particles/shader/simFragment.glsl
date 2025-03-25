@@ -1,8 +1,6 @@
 uniform float time;
-uniform float progress;
 uniform sampler2D uPositions;
 uniform sampler2D uInfo;
-uniform vec4 resolution;
 uniform vec2 uMouse;
 // Add new uniforms
 uniform float uMouseForce;
@@ -11,7 +9,6 @@ uniform float uRotationSpeed;
 uniform float uTargetRadius;
 uniform float uNoiseStrength;
 varying vec2 vUv;
-varying vec3 vPosition;
 float PI = 3.141592653589793238;
 #define PI 3.1415926538
 
@@ -116,6 +113,8 @@ void main() {
     vec4 pos = texture2D(uPositions, vUv);
     vec4 info = texture2D(uInfo, vUv);
 
+    float scaledTime = time * 1.0;
+
     vec2 mouse = uMouse;
 
     float radius = length(pos.xy);
@@ -123,7 +122,7 @@ void main() {
     float circlularForce = 1. - smoothstep(0.3, 1.4, abs(pos.x - radius));
     float angle = atan(pos.y, pos.x) - info.y * uRotationSpeed * mix(0.5, 1., circlularForce);
 
-    float targetRadius = mix(info.x, uTargetRadius, 0.5 + 0.45 * sin(angle * 2. + time * 0.2));
+    float targetRadius = mix(info.x, uTargetRadius, 0.5 + 0.45 * sin(angle * 2. + scaledTime * 0.0));
 
     radius += (targetRadius - radius) * mix(0.2, 0.5, circlularForce * uCircularForce);
 
@@ -131,7 +130,7 @@ void main() {
 
     pos.xy += (targetPos.xy - pos.xy) * 0.1;
 
-    pos.xy += curl(pos.xyz * 4., time * 0.1, 0.1).xy * uNoiseStrength;
+    pos.xy += curl(pos.xyz * 4., scaledTime * 0.0, 0.1).xy * uNoiseStrength;
 
     float dist = length(pos.xy - mouse);
     vec2 dir = normalize(pos.xy - mouse);

@@ -14,6 +14,8 @@ import simFragment from './shader/simFragment.glsl';
 import simVertex from './shader/simVertex.glsl';
 import GUI from 'lil-gui';
 import gsap from 'gsap';
+import { setupCameraGUI } from '$lib/utils/cameraGUI';
+import { setupObjectGUI } from '$lib/utils/objectGUI';
 
 export default class Sketch {
 	constructor(options) {
@@ -32,14 +34,20 @@ export default class Sketch {
 
 		this.container.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(95, this.width / this.height, 0.01, 1000);
 
 		// let frustumSize = 10;
 		// let aspect = this.width / this.height;
 		// this.camera = new THREE.OrthographicCamera( frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, -1000, 1000 );
-		this.camera.position.set(0, 0, 4);
+
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
+
+		this.camera.position.set(0.27, 0.7, 1.15);
+		this.camera.rotation.set(-1.15, 0.69, 0.96);
+		this.controls.target.set(-0.45, -0.1, 0.79);
+		this.camera.fov = 95;
+		this.camera.updateProjectionMatrix();
 
 		const THREE_PATH = `https://unpkg.com/three@0.${REVISION}.x`;
 		this.dracoLoader = new DRACOLoader(new THREE.LoadingManager()).setDecoderPath(
@@ -89,7 +97,6 @@ export default class Sketch {
 			if (intersects.length > 0) {
 				let { x, y } = intersects[0].point;
 				this.fboMaterial.uniforms.uMouse.value = new THREE.Vector2(x, y);
-				console.log(x, y);
 				this.ball.position.set(x, y, 0);
 			}
 		});
@@ -98,6 +105,8 @@ export default class Sketch {
 	setUpSettings() {
 		this.gui = new GUI();
 		this.controllers = {}; // Store controllers for later access
+
+		// setupCameraGUI(this.camera, this.controls, this.gui);
 
 		const particleFolder = this.gui.addFolder('Particle Controls');
 
@@ -239,29 +248,29 @@ export default class Sketch {
 			bloomRadius: 1,
 			bloomThreshold: 0.66,
 			afterimageStrength: 0.1,
-			mouseForce: 0.1,
-			circularForce: 0,
-			rotationSpeed: 1.0,
-			targetRadius: 0,
-			noiseStrength: 0.02,
+			mouseForce: 0.1, // Changed to match second state
+			circularForce: 2.0, // Changed to match second state
+			rotationSpeed: 0.2, // Changed to match second state
+			targetRadius: 2.1, // Changed to match second state
+			noiseStrength: 0.003, // Changed to match second state
 			isAnimating: false
 		};
 
-		// Add two states for animation
+		// Switch first and second states
 		this.settingsStates = {
 			first: {
+				mouseForce: 0.1,
+				circularForce: 2.0,
+				rotationSpeed: 0.2,
+				targetRadius: 2.1,
+				noiseStrength: 0.002
+			},
+			second: {
 				mouseForce: 0.1,
 				circularForce: 0,
 				rotationSpeed: 1.0,
 				targetRadius: 0,
 				noiseStrength: 0.02
-			},
-			second: {
-				mouseForce: 0.3,
-				circularForce: 2.0,
-				rotationSpeed: 0.2,
-				targetRadius: 2.1,
-				noiseStrength: 0.002
 			}
 		};
 
@@ -386,5 +395,10 @@ export default class Sketch {
 
 		// this.renderer.setRenderTarget(null);
 		// this.renderer.render(this.fboScene, this.fboCamera);
+	}
+
+	stop() {
+		this.isPlaying = false;
+		this.gui.destroy();
 	}
 }
