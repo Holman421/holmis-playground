@@ -350,13 +350,6 @@
 		<div class="absolute inset-0 flex items-center justify-center">Loading...</div>
 	{/if}
 	<button
-		id="animate"
-		class="absolute left-1/2 cursor-pointer -translate-x-1/2 top-[10%] border rounded-md px-3 py-1"
-		disabled={isLoading}
-	>
-		{isAnimatedIn ? 'Animate Out' : 'Animate In'}
-	</button>
-	<button
 		id="1div"
 		class="top-[185px] left-1/2 -translate-x-[265px] absolute w-fit cursor-pointer py-5 pl-10"
 		onmouseenter={() => handleDivHover(1, true)}
