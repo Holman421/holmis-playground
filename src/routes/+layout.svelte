@@ -4,6 +4,9 @@
 	import Lenis from '@studio-freight/lenis';
 	import { lenisStore } from '$lib/stores/lenis';
 	import { onMount } from 'svelte';
+	import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
+
+	injectSpeedInsights();
 
 	setCounterState();
 

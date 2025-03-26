@@ -40,6 +40,7 @@
 		"@studio-freight/lenis": "^1.0.42",
 		"@types/cannon": "^0.1.13",
 		"@types/three": "^0.171.0",
+		"@vercel/speed-insights": "^1.2.0",
 		"bits-ui": "^0.21.16",
 		"cannon": "^0.6.2",
 		"clsx": "^2.1.1",
