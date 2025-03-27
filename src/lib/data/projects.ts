@@ -461,19 +461,9 @@ export const projects = [
 		description: 'Pixelated, animated effect used for background and mouse cursor',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		usedInRealProject: true,
 		imgSrc: '/projectThumbnails/studio-chain.png'
-	},
-	{
-		href: '/three-js-shaders-interactive-particles',
-		title: 'Interactive Particles',
-		description: '',
-		technologies: ['THREE.js'],
-		shared: true,
-		isForNextTuesday: true,
-		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/interactive-particles.png'
 	},
 	{
 		href: '/three-js-glass-text',
@@ -481,7 +471,7 @@ export const projects = [
 		description: 'Torus with glass material and perlin noise metalness animation with text inside',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: true,
+		isForNextTuesday: false,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/glass-text.png'
 	},
@@ -494,5 +484,25 @@ export const projects = [
 		isForNextTuesday: false,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/glass-text.png'
+	},
+	{
+		href: '/three-js-shaders-interactive-particles',
+		title: 'Interactive Particles',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: false,
+		imgSrc: '/projectThumbnails/interactive-particles-1.png'
+	},
+	{
+		href: '/three-js-shaders-interactive-particles2',
+		title: 'Interactive Particles 2',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: false,
+		imgSrc: '/projectThumbnails/interactive-particles-2.png'
 	}
 ];

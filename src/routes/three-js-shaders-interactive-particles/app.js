@@ -49,13 +49,6 @@ export default class Sketch {
 		this.camera.fov = 95;
 		this.camera.updateProjectionMatrix();
 
-		const THREE_PATH = `https://unpkg.com/three@0.${REVISION}.x`;
-		this.dracoLoader = new DRACOLoader(new THREE.LoadingManager()).setDecoderPath(
-			`${THREE_PATH}/examples/jsm/libs/draco/gltf/`
-		);
-		this.gltfLoader = new GLTFLoader();
-		this.gltfLoader.setDRACOLoader(this.dracoLoader);
-
 		this.composer = new EffectComposer(this.renderer);
 		this.renderPass = new RenderPass(this.scene, this.camera);
 		this.composer.addPass(this.renderPass);
@@ -68,7 +61,7 @@ export default class Sketch {
 		);
 		this.composer.addPass(this.bloomPass);
 
-		this.afterimagePass = new AfterimagePass(0.1); // value between 0 and 1
+		this.afterimagePass = new AfterimagePass(0.1);
 		this.composer.addPass(this.afterimagePass);
 
 		this.isPlaying = true;

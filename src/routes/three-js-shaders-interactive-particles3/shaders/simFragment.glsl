@@ -1,14 +1,15 @@
-uniform float time;
+varying vec2 vUv;
 uniform sampler2D uPositions;
 uniform sampler2D uInfo;
 uniform vec2 uMouse;
-// Add new uniforms
-uniform float uMouseForce;
+uniform vec2 uCurrentMouse;  // Add this line
+uniform float uTime;
+uniform float uMouseMode;
+uniform float uNoiseScale;
+uniform float uNoiseStrength;
 uniform float uCircularForce;
 uniform float uRotationSpeed;
-uniform float uTargetRadius;
-uniform float uNoiseStrength;
-varying vec2 vUv;
+uniform float uAttractionStrength;
 float PI = 3.141592653589793238;
 #define PI 3.1415926538
 
@@ -109,32 +110,35 @@ vec3 curl(in vec3 p, in float noiseTime, in float persistence) {
     }
     return vec3(yNoisePotentialDerivatives[1] - xNoisePotentialDerivatives[1], yNoisePotentialDerivatives[2] - xNoisePotentialDerivatives[2], yNoisePotentialDerivatives[0] - xNoisePotentialDerivatives[0]);
 }
+
 void main() {
     vec4 pos = texture2D(uPositions, vUv);
     vec4 info = texture2D(uInfo, vUv);
 
-    float scaledTime = time * 1.0;
+    vec2 mouse = uCurrentMouse;  // Change this line to use smoothed position
 
-    vec2 mouse = uMouse;
+    float radius = length(pos.xy) * 0.25 + 0.75;
+    float circularForce = 1.0 - smoothstep(0.0, 0.4, abs(pos.x - radius));
 
-    float radius = length(pos.xy);
+    float angle = atan(pos.y, pos.x) - info.y * uRotationSpeed * mix(0.7, 0.8, circularForce * uCircularForce);
 
-    float circlularForce = 1. - smoothstep(0.3, 1.4, abs(pos.x - radius));
-    float angle = atan(pos.y, pos.x) - info.y * uRotationSpeed * mix(0.5, 1., circlularForce);
-
-    float targetRadius = mix(info.x, uTargetRadius, 0.5 + 0.45 * sin(angle * 2. + scaledTime * 0.0));
-
-    radius += (targetRadius - radius) * mix(0.2, 0.5, circlularForce * uCircularForce);
+    float targetRadius = mix(info.x, 0.9, 1.2 + 0.45);
+    radius += (targetRadius - radius) * mix(0.2, 0.5, circularForce * uCircularForce);
 
     vec3 targetPos = vec3(cos(angle), sin(angle), 0.0) * radius;
 
-    pos.xy += (targetPos.xy - pos.xy) * 0.04;
+    pos.xy += curl(pos.xyz * uNoiseScale, uTime * 0.25, 0.1).xy * uNoiseStrength;
+    pos.xy += (targetPos.xy - pos.xy) * uAttractionStrength;
 
-    pos.xy += curl(pos.xyz * 4., scaledTime * 0.0, 0.1).xy * uNoiseStrength * 0.4;
-
-    float dist = length(pos.xy - mouse);
+    float dist = length(pos.xy - mouse) - 0.1;
     vec2 dir = normalize(pos.xy - mouse);
-    pos.xy += dir * uMouseForce * smoothstep(0.3, 0.0, dist);
+    pos.xy += dir * 0.1 * smoothstep(0.05, 0.0, dist) * uMouseMode;
 
-    gl_FragColor = vec4(pos.xy, 1., 1.);
+    if(pos.w > 0.0) {
+        pos.z = sin(angle * 0.25) * 2.0;
+    } else {
+        pos.z = sin(angle * 0.25) * 2.0 + 2.8;
+    }
+
+    gl_FragColor = pos;  // Changed this line to preserve pos.w
 }

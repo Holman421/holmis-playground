@@ -96,7 +96,7 @@
 
 	// Replace the handleScroll function
 	const handleScroll = (deltaY: number) => {
-		if (!camera || !cameraFolder || isAnimating || isReverseAnimating) return;
+		if (!camera || isAnimating || isReverseAnimating) return;
 
 		if (!hasInitialAnimationPlayed) {
 			handleInitialAnimation();
@@ -803,7 +803,7 @@
 						}
 					});
 
-					setupObjectGUI(gltf.scene, gui, 'Chain');
+					// setupObjectGUI(gltf.scene, gui, 'Chain');
 					chainModel = gltf.scene;
 					scene.add(gltf.scene);
 					resolve(gltf.scene);
@@ -1028,7 +1028,7 @@
 		camera.lookAt(0, DEFAULT_Y, 0);
 
 		// Add camera GUI controls
-		cameraFolder = setupCameraGUI(camera, gui);
+		// cameraFolder = setupCameraGUI(camera, gui);
 
 		// After camera setup, add OrbitControls
 		controls = new OrbitControls(camera, canvas);
@@ -1171,9 +1171,9 @@
 			}
 
 			// Update GUI if values changed significantly
-			if (Math.abs(currentCameraY - targetCameraY) > 0.001) {
-				cameraFolder.controllers.forEach((controller) => controller.updateDisplay());
-			}
+			// if (Math.abs(currentCameraY - targetCameraY) > 0.001) {
+			// 	cameraFolder.controllers.forEach((controller) => controller.updateDisplay());
+			// }
 
 			// Update only chain position and shader uniforms
 			if (chainModel) {

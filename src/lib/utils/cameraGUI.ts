@@ -21,8 +21,30 @@ export interface CameraState {
 	fov: number;
 }
 
-export const setupCameraGUI = (camera: PerspectiveCamera, controls: OrbitControls, gui: GUI) => {
+export const setupCameraGUI = ({
+	gui,
+	camera,
+	controls
+}: {
+	gui: GUI;
+	camera: PerspectiveCamera;
+	controls: OrbitControls;
+}) => {
 	const cameraFolder = gui.addFolder('Camera');
+
+	// Add controls toggle
+	cameraFolder
+		.add({ enabled: true }, 'enabled')
+		.name('Orbit Controls')
+		.onChange((value: any) => {
+			controls.enabled = value;
+		});
+
+	// Add target controls
+	const targetFolder = cameraFolder.addFolder('Target (Look At)');
+	targetFolder.add(controls.target, 'x').min(-20).max(20).step(0.01).listen();
+	targetFolder.add(controls.target, 'y').min(-20).max(20).step(0.01).listen();
+	targetFolder.add(controls.target, 'z').min(-20).max(20).step(0.01).listen();
 
 	// Existing position and rotation controls...
 	const positionFolder = cameraFolder.addFolder('Position');

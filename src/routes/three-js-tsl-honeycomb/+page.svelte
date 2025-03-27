@@ -57,7 +57,7 @@
 			const textureLoader = new THREE.TextureLoader();
 			Promise.all([
 				new Promise<THREE.Texture>((resolve) =>
-					textureLoader.load('/pictures/galaxy-img.jpg', (texture) => {
+					textureLoader.load('/pictures/universe/universe-11.jpg', (texture) => {
 						texture.colorSpace = THREE.SRGBColorSpace;
 						texture.minFilter = THREE.LinearFilter;
 						texture.magFilter = THREE.LinearFilter;
@@ -65,7 +65,7 @@
 					})
 				),
 				new Promise<THREE.Texture>((resolve) =>
-					textureLoader.load('/pictures/planet-img.jpg', (texture) => {
+					textureLoader.load('/pictures/universe/universe-8.jpg', (texture) => {
 						texture.colorSpace = THREE.SRGBColorSpace;
 						texture.minFilter = THREE.LinearFilter;
 						texture.magFilter = THREE.LinearFilter;
