@@ -26,8 +26,11 @@ export default class Sketch {
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
+		this.progress = 0;
 
 		this.isPlaying = true;
+		this.isOpen = false;
+
 		this.setupEvents();
 		this.setupLights();
 		this.addObjects();
@@ -61,9 +64,37 @@ export default class Sketch {
 	}
 
 	addObjects() {
+		const numCircles = Math.floor(Math.random() * 5) + 3; // 3-7 circles
+		const circlePositions = [];
+		const noiseParams = [];
+
+		// Add texture loading
+		const textureLoader = new THREE.TextureLoader();
+		const texture = textureLoader.load('/pictures/universe/universe-1.jpg'); // Update path to your image
+
+		for (let i = 0; i < numCircles; i++) {
+			circlePositions.push(
+				Math.random(), // x
+				Math.random() // y
+			);
+			noiseParams.push(
+				Math.random() * 4 + 1, // frequency
+				Math.random() * 4 + 1, // speed
+				Math.random() * 0.5 + 0.2 // amplitude
+			);
+		}
+
 		this.material = new THREE.ShaderMaterial({
 			vertexShader,
 			fragmentShader,
+			uniforms: {
+				uTime: { value: 0 },
+				uProgress: { value: 0 },
+				uCircles: { value: new Float32Array(circlePositions) },
+				uNoiseParams: { value: new Float32Array(noiseParams) },
+				uNumCircles: { value: numCircles },
+				uTexture: { value: texture } // Add texture uniform
+			},
 			side: THREE.DoubleSide
 		});
 
@@ -73,19 +104,36 @@ export default class Sketch {
 		this.scene.add(this.mesh);
 	}
 
+	animateProgress() {
+		const targetProgress = this.isOpen ? 0 : 1;
+		this.isOpen = !this.isOpen;
+
+		gsap.to(this.material.uniforms.uProgress, {
+			value: targetProgress,
+			duration: this.isOpen ? 5 : 1,
+			ease: 'power1.in',
+			overwrite: true,
+			onUpdate: () => {
+				// Update the GUI controller when animation updates
+				this.progressController.updateDisplay();
+			}
+		});
+	}
+
 	setUpSettings() {
 		this.gui = new GUI();
 
-		setupCameraGUI({
-			gui: this.gui,
-			camera: this.camera,
-			controls: this.controls
-		});
+		// Store reference to the controller
+		this.progressController = this.gui
+			.add(this.material.uniforms.uProgress, 'value', 0, 1, 0.01)
+			.name('progress');
+		this.gui.add({ animate: () => this.animateProgress() }, 'animate').name('Toggle Animation');
 	}
 
 	render() {
 		if (!this.isPlaying) return;
 		this.time += 0.05;
+		this.material.uniforms.uTime.value = this.time;
 
 		this.controls.update();
 		this.renderer.render(this.scene, this.camera);

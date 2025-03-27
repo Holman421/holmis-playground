@@ -1,5 +1,6 @@
 uniform sampler2D uPositions;
 uniform float uTime;
+uniform float uProgress;
 
 varying vec2 vUv;
 varying vec4 vColor;
@@ -16,11 +17,11 @@ void main() {
 
     scaledAngle = smoothstep(-0.9, 0.75, scaledAngle);
 
-    vColor = vec4(0.05 + 0.95 * scaledAngle);
-    // float scaledAngle = abs(sin(angle / PI) + 0.);
-    // scaledAngle = smoothstep(0.0, 1.0, scaledAngle);
+    vec4 baseColor = vec4(0.05 + 0.95 * scaledAngle);
 
-    // vColor = vec4(1.0);
+    float scaledProgress = smoothstep(0.0, 0.25, uProgress);
+
+    vColor = mix(baseColor, vec4(1.0), scaledProgress);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos.xyz, 1.0);
     gl_PointSize = 1.0 * (1.0 / -mvPosition.z);

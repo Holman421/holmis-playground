@@ -504,5 +504,25 @@ export const projects = [
 		isForNextTuesday: true,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/interactive-particles-2.png'
+	},
+	{
+		href: '/three-js-shaders-interactive-particles3',
+		title: 'Interactive Particles 3',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: false,
+		imgSrc: '/projectThumbnails/interactive-particles-3.png'
+	},
+	{
+		href: '/three-js-shaders-image-reveal',
+		title: 'Image reveal',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		usedInRealProject: false,
+		imgSrc: '/projectThumbnails/image-reveal.png'
 	}
 ];

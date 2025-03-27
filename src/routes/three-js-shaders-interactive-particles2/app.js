@@ -15,8 +15,6 @@ import fragmentShader from './shaders/fragment.glsl';
 import simVertex from './shaders/simVertex.glsl';
 import simFragment from './shaders/simFragment.glsl';
 
-import vertexParticles from './shaders/vertexParticles.glsl';
-
 export default class Sketch {
 	constructor(options) {
 		this.scene = new THREE.Scene();
@@ -31,19 +29,28 @@ export default class Sketch {
 		this.renderer.setClearColor(0x000000, 1);
 		this.container.appendChild(this.renderer.domElement);
 
-		let frustumSize = 5;
-		let aspect = this.width / this.height;
-		this.camera = new THREE.OrthographicCamera(
-			(frustumSize * aspect) / -2,
-			(frustumSize * aspect) / 2,
-			frustumSize / 2,
-			frustumSize / -2,
-			-1000,
-			1000
-		);
+		// let frustumSize = 5;
+		// let aspect = this.width / this.height;
+		// this.camera = new THREE.OrthographicCamera(
+		// 	(frustumSize * aspect) / -2,
+		// 	(frustumSize * aspect) / 2,
+		// 	frustumSize / 2,
+		// 	frustumSize / -2,
+		// 	-1000,
+		// 	1000
+		// );
+
+		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		this.camera.position.set(0.0, 0.0, 4.0);
+		// this.camera.rotation.set(3.0, 1.0, -3.0);
+		// this.camera.fov = 60;
+		this.camera.lookAt(0, 0, 0);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
+		// this.controls.enabled = false;
+
+		this.progress = 0;
 
 		this.raycaster = new THREE.Raycaster();
 		this.pointer = new THREE.Vector2();
@@ -193,7 +200,8 @@ export default class Sketch {
 				uNoiseStrength: { value: 0.005 },
 				uCircularForce: { value: 0.7 },
 				uRotationSpeed: { value: 0.15 },
-				uAttractionStrength: { value: 0.1 }
+				uAttractionStrength: { value: 0.1 },
+				uProgress: { value: 0.0 }
 			},
 			vertexShader: simVertex,
 			fragmentShader: simFragment
@@ -205,8 +213,6 @@ export default class Sketch {
 			for (let j = 0; j < this.size; j++) {
 				// Changed i++ to j++
 				let index = (i + j * this.size) * 4;
-				let theta = Math.random() * Math.PI * 2;
-				let r = 0.5 + Math.random() * 0.5;
 				this.infoArray[index + 0] = 0.5 + Math.random();
 				this.infoArray[index + 1] = 0.5 + Math.random();
 				this.infoArray[index + 2] = 1;
@@ -242,7 +248,8 @@ export default class Sketch {
 			},
 			uniforms: {
 				uTime: { value: 0 },
-				uPositions: { value: null }
+				uPositions: { value: null },
+				uProgress: { value: 0 } // Add this uniform
 			},
 			transparent: true,
 			vertexShader,
@@ -297,10 +304,47 @@ export default class Sketch {
 			.add(this.fboMaterial.uniforms.uAttractionStrength, 'value', 0.01, 0.5)
 			.name('Attraction Strength');
 		simulationFolder.open();
+
+		this.controllers.progress = this.gui
+			.add(this.fboMaterial.uniforms.uProgress, 'value', 0.0, 1.0)
+			.min(0)
+			.max(1)
+			.step(0.01)
+			.name('Progress');
+
+		// Add toggle button
+		const params = {
+			toggleProgress: () => {
+				const currentProgress = this.fboMaterial.uniforms.uProgress.value;
+				const targetProgress = currentProgress < 0.5 ? 1 : 0;
+
+				gsap.to(this.fboMaterial.uniforms.uProgress, {
+					value: targetProgress,
+					duration: 4,
+					ease: 'none',
+					onUpdate: () => this.controllers.progress.updateDisplay()
+				});
+			}
+		};
+
+		this.gui.add(params, 'toggleProgress').name('Toggle Progress');
 	}
 
 	setupButtonHover() {
 		const button = document.getElementById('explore-btn');
+		// Add click handler for the button
+		button.addEventListener('click', () => {
+			const currentProgress = this.fboMaterial.uniforms.uProgress.value;
+			const targetProgress = currentProgress < 0.5 ? 1 : 0;
+
+			gsap.to(this.fboMaterial.uniforms.uProgress, {
+				value: targetProgress,
+				duration: 4,
+				ease: 'none',
+				onUpdate: () => this.controllers.progress.updateDisplay()
+			});
+		});
+
 		const hoverModes = [
 			{ type: 'noise', value: 0 },
 			{ type: 'noise', value: 0.015 },
@@ -380,6 +424,7 @@ export default class Sketch {
 
 		this.controls.update();
 		this.material.uniforms.uTime.value = this.time;
+		this.material.uniforms.uProgress.value = this.fboMaterial.uniforms.uProgress.value; // Add this line
 		this.fboMaterial.uniforms.uTime.value = this.time;
 		requestAnimationFrame(this.render.bind(this));
 

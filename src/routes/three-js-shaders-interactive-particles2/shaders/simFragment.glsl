@@ -10,6 +10,7 @@ uniform float uNoiseStrength;
 uniform float uCircularForce;
 uniform float uRotationSpeed;
 uniform float uAttractionStrength;
+uniform float uProgress;
 float PI = 3.141592653589793238;
 #define PI 3.1415926538
 
@@ -133,6 +134,12 @@ void main() {
     float dist = length(pos.xy - mouse) - 0.1;
     vec2 dir = normalize(pos.xy - mouse);
     pos.xy += dir * 0.1 * smoothstep(0.05, 0.0, dist) * uMouseMode;
+
+    float scaledRandom = info.x;
+    scaledRandom -= 0.25;
+    scaledRandom = pow(scaledRandom, 10.0);
+    float scaledProgress = pow(uProgress, 2.0);
+    pos.z = scaledRandom * scaledProgress * 50.0 + scaledProgress * 5.0;
 
     gl_FragColor = pos;
 }
