@@ -48,7 +48,7 @@ export default class Sketch {
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
-		// this.controls.enabled = false;
+		this.controls.enabled = false;
 
 		this.progress = 0;
 
