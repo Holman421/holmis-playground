@@ -119,7 +119,7 @@ export default class Sketch {
 		this.text.position.z = 0.5;
 		this.text.anchorX = 'center';
 		this.text.anchorY = 'middle';
-		this.text.font = './fonts/Audiowide.ttf';
+		this.text.font = './fonts/Audiowide.woff';
 
 		// Set initial progress values
 		this.text.progress1 = this.settings.progress[1];

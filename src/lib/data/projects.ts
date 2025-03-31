@@ -487,7 +487,7 @@ export const projects = [
 	{
 		href: '/57-three-js-shaders-interactive-particles',
 		title: 'Interactive Particles',
-		description: '',
+		description: 'Non responsive particles system scene using GPGPU technique',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
@@ -497,7 +497,8 @@ export const projects = [
 	{
 		href: '/58-three-js-shaders-interactive-particles2',
 		title: 'Interactive Particles 2',
-		description: '',
+		description:
+			'Interactive particles system scene using GPGPU technique, with hover and click effect',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
@@ -507,7 +508,7 @@ export const projects = [
 	{
 		href: '/59-three-js-shaders-interactive-particles3',
 		title: 'Interactive Particles 3',
-		description: '',
+		description: '3D particles system scene using GPGPU technique',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
@@ -517,7 +518,7 @@ export const projects = [
 	{
 		href: '/60-three-js-shaders-image-reveal',
 		title: 'Image reveal',
-		description: '',
+		description: 'Randomized shader image reveal effect',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
@@ -527,7 +528,7 @@ export const projects = [
 	{
 		href: '/61-three-js-shaders-water-cursor',
 		title: 'Water trail cursor effect',
-		description: 'ON hover water trail cursor effect',
+		description: 'On hover water trail cursor effect',
 		technologies: ['THREE.js'],
 		shared: false,
 		isForNextTuesday: true,
@@ -536,7 +537,7 @@ export const projects = [
 	{
 		href: '/62-three-js-checkerboard-text',
 		title: 'Checkerboard text reveal',
-		description: 'Cool text reveal effect',
+		description: 'Pixelated text reveal effect',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
