@@ -551,5 +551,14 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/avalabs.png'
+	},
+	{
+		href: '/64-three-js-shaders-interactive-particles4',
+		title: 'Interactive particles 4',
+		description: '2D particles system scene using GPGPU technique',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/particles-4.png'
 	}
 ];
