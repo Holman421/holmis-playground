@@ -391,10 +391,28 @@ class Text extends Mesh {
 		this.gpuAccelerateSDF = true;
 
 		/**
-		 * @member {number} progress
+		 * @member {number} progress1
 		 * A value between 0 and 1 that can be used for animated effects in the shader
 		 */
-		this.progress = 0;
+		this.progress1 = 0;
+
+		/**
+		 * @member {number} progress2
+		 * A value between 0 and 1 that can be used for animated effects in the shader
+		 */
+		this.progress2 = 0;
+
+		/**
+		 * @member {number} progress3
+		 * A value between 0 and 1 that can be used for animated effects in the shader
+		 */
+		this.progress3 = 0;
+
+		/**
+		 * @member {number} progress4
+		 * A value between 0 and 1 that can be used for animated effects in the shader
+		 */
+		this.progress4 = 0;
 
 		this.debugSDF = false;
 	}
@@ -661,7 +679,10 @@ class Text extends Mesh {
 			this.geometry.applyClipRect(uniforms.uTroikaClipRect.value);
 		}
 		uniforms.uTroikaSDFDebug.value = !!this.debugSDF;
-		uniforms.uProgress.value = this.progress;
+		uniforms.uProgress1.value = this.progress1;
+		uniforms.uProgress2.value = this.progress2;
+		uniforms.uProgress3.value = this.progress3;
+		uniforms.uProgress4.value = this.progress4;
 		material.polygonOffset = !!this.depthOffset;
 		material.polygonOffsetFactor = material.polygonOffsetUnits = this.depthOffset || 0;
 

@@ -88,7 +88,10 @@ uniform vec3 uTroikaStrokeColor;
 uniform float uTroikaStrokeWidth;
 uniform float uTroikaStrokeOpacity;
 uniform bool uTroikaSDFDebug;
-uniform float uProgress;
+uniform float uProgress1;
+uniform float uProgress2;
+uniform float uProgress3;
+uniform float uProgress4;
 varying vec2 vTroikaGlyphUV;
 varying vec4 vTroikaTextureUVBounds;
 varying float vTroikaTextureChannel;
@@ -120,14 +123,20 @@ float troikaGlyphUvToDistance(vec2 uv) {
   return troikaSdfValueToSignedDistance(troikaGlyphUvToSdfValue(uv));
 }
 
+float noise(vec2 p) {
+    vec2 ip = floor(p);
+    vec2 u = fract(p);
+    u = u * u * (3.0 - 2.0 * u);
+
+    float res = mix(mix(rand(ip), rand(ip + vec2(1.0, 0.0)), u.x), mix(rand(ip + vec2(0.0, 1.0)), rand(ip + vec2(1.0, 1.0)), u.x), u.y);
+    return res * res;
+}
+
+float map(float value, float min1, float max1, float min2, float max2) {
+    return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+}
+
 float troikaGetAADist() {
-  ${
-		'' /*
-    When the standard derivatives extension is available, we choose an antialiasing alpha threshold based
-    on the potential change in the SDF's alpha from this fragment to its neighbor. This strategy maximizes 
-    readability and edge crispness at all sizes and screen resolutions.
-  */
-	}
   #if defined(GL_OES_standard_derivatives) || __VERSION__ >= 300
   return length(fwidth(vTroikaGlyphUV * vTroikaGlyphDimensions)) * 0.5;
   #else
@@ -142,31 +151,6 @@ float troikaGetFragDistValue() {
   // Extrapolate distance when outside bounds:
   distance += clampedGlyphUV == vTroikaGlyphUV ? 0.0 : 
     length((vTroikaGlyphUV - clampedGlyphUV) * vTroikaGlyphDimensions);
-
-  ${
-		'' /* 
-  // TODO more refined extrapolated distance by adjusting for angle of gradient at edge...
-  // This has potential but currently gives very jagged extensions, maybe due to precision issues?
-  float uvStep = 1.0 / uTroikaSDFGlyphSize;
-  vec2 neighbor1UV = clampedGlyphUV + (
-    vTroikaGlyphUV.x != clampedGlyphUV.x ? vec2(0.0, uvStep * sign(0.5 - vTroikaGlyphUV.y)) :
-    vTroikaGlyphUV.y != clampedGlyphUV.y ? vec2(uvStep * sign(0.5 - vTroikaGlyphUV.x), 0.0) :
-    vec2(0.0)
-  );
-  vec2 neighbor2UV = clampedGlyphUV + (
-    vTroikaGlyphUV.x != clampedGlyphUV.x ? vec2(0.0, uvStep * -sign(0.5 - vTroikaGlyphUV.y)) :
-    vTroikaGlyphUV.y != clampedGlyphUV.y ? vec2(uvStep * -sign(0.5 - vTroikaGlyphUV.x), 0.0) :
-    vec2(0.0)
-  );
-  float neighbor1Distance = troikaGlyphUvToDistance(neighbor1UV);
-  float neighbor2Distance = troikaGlyphUvToDistance(neighbor2UV);
-  float distToUnclamped = length((vTroikaGlyphUV - clampedGlyphUV) * vTroikaGlyphDimensions);
-  float distToNeighbor = length((clampedGlyphUV - neighbor1UV) * vTroikaGlyphDimensions);
-  float gradientAngle1 = min(asin(abs(neighbor1Distance - distance) / distToNeighbor), PI / 2.0);
-  float gradientAngle2 = min(asin(abs(neighbor2Distance - distance) / distToNeighbor), PI / 2.0);
-  distance += (cos(gradientAngle1) + cos(gradientAngle2)) / 2.0 * distToUnclamped;
-  */
-	}
 
   return distance;
 }
@@ -198,10 +182,76 @@ float edgeAlpha = uTroikaSDFDebug ?
 #if !defined(IS_DEPTH_MATERIAL) && !defined(IS_DISTANCE_MATERIAL)
 vec4 fillRGBA = gl_FragColor;
 fillRGBA.a *= uTroikaFillOpacity;
-vec4 strokeRGBA = uTroikaStrokeWidth == 0.0 ? fillRGBA : vec4(vec3(1.0)  * vUv.x + 1.0 - uProgress * 2.0, uTroikaStrokeOpacity);
+vec3 stroke1Color = vec3(1.0);
+vec4 strokeRGBA = uTroikaStrokeWidth == 0.0 ? fillRGBA : vec4(stroke1Color, uTroikaStrokeOpacity);
+vec4 strokeRGBA2 = uTroikaStrokeWidth == 0.0 ? fillRGBA : vec4(uTroikaStrokeColor, uTroikaStrokeOpacity);
+
+float x = floor(vUv.x * 10.0);
+float y = floor(vUv.y * 10.0);
+float pattern = noise(vec2(x, y));
+
+float w = 0.75;
+// Stroke animations
+float p0 = uProgress1;
+p0 = map(p0, 0.0, 1.0, -w, 1.0);
+p0 = smoothstep(p0, p0 + w, vUv.x);
+p0 = 1.0 - p0;
+float _p0 = 2.0 * p0 - pattern;
+
+float p1 = uProgress2;
+p1 = map(p1, 0.0, 1.0, -w, 1.0);
+p1 = smoothstep(p1, p1 + w, vUv.x);
+p1 = 1.0 - p1;
+float _p1 = 2.0 * p1 - pattern;
+
+// Fill animations
+float p2 = uProgress3;
+p2 = map(p2, 0.0, 1.0, -w, 1.0);
+p2 = smoothstep(p2, p2 + w, vUv.x);
+p2 = 1.0 - p2;
+float _p2 = 2.0 * p2 - pattern;
+
+float p3 = uProgress4;
+p3 = map(p3, 0.0, 1.0, -w, 1.0);
+p3 = smoothstep(p3, p3 + w, vUv.x);
+p3 = 1.0 - p3;
+float _p3 = 2.0 * p3 - pattern;
+
+// Strokes
+vec4 whiteStroke = vec4(strokeRGBA.rgb, strokeRGBA.a * max(0.0, _p0));
+vec4 coloredStroke = vec4(strokeRGBA2.rgb, strokeRGBA2.a * max(0.0, _p1));
+
+// Fill colors - first original color, then white
+vec4 whiteFill = vec4(fillRGBA.rgb, fillRGBA.a * max(0.0, _p2));
+vec4 coloredFill = vec4(vec3(1.0), fillRGBA.a * max(0.0, _p3));
+
+// Initialize with black fill
+vec4 ultraFinalFillRGBA = vec4(vec3(0.0), fillRGBA.a);
+
+// Initialize with no stroke
+vec4 ultraFinalStrokeRGBA = vec4(0.0);
+
+// Layer the strokes
+if (_p0 > 0.0 && uProgress1 > 0.0) {
+    ultraFinalStrokeRGBA = whiteStroke;
+}
+if (_p1 > 0.0 && uProgress2 > 0.0) {
+    ultraFinalStrokeRGBA = coloredStroke;
+}
+
+// Layer the fills
+if (_p2 > 0.0 && uProgress3 > 0.0) {
+    ultraFinalFillRGBA = whiteFill;
+}
+if (_p3 > 0.0 && uProgress4 > 0.0) {
+    // Transition from original fill color to white based on _p3
+    vec3 lerpedColor = mix(fillRGBA.rgb, vec3(1.0), _p3);
+    ultraFinalFillRGBA = vec4(lerpedColor, fillRGBA.a);
+    ultraFinalStrokeRGBA = vec4(vec3(1.0), strokeRGBA.a * max(0.0, _p3));
+}
 
 if (fillRGBA.a == 0.0) fillRGBA.rgb = strokeRGBA.rgb;
-gl_FragColor = mix(fillRGBA, strokeRGBA, smoothstep(
+gl_FragColor = mix(ultraFinalFillRGBA, ultraFinalStrokeRGBA, smoothstep(
   -uTroikaStrokeWidth - aaDist,
   -uTroikaStrokeWidth + aaDist,
   fragDistance
@@ -241,7 +291,10 @@ export function createTextDerivedMaterial(baseMaterial) {
 			uTroikaOrient: { value: new Matrix3() },
 			uTroikaUseGlyphColors: { value: true },
 			uTroikaSDFDebug: { value: false },
-			uProgress: { value: 0 }
+			uProgress1: { value: 0 },
+			uProgress2: { value: 0 },
+			uProgress3: { value: 0 },
+			uProgress4: { value: 0 }
 		},
 		vertexDefs: VERTEX_DEFS,
 		vertexTransform: VERTEX_TRANSFORM,

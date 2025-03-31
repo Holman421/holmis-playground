@@ -11,6 +11,7 @@ import textVertexShader from './shaders/textVertex.glsl';
 import textFragmentShader from './shaders/textFragment.glsl';
 import { setupCameraPane } from '$lib/utils/Tweakpane/utils';
 import { Pane } from 'tweakpane';
+import { on } from 'svelte/events';
 
 export default class Sketch {
 	constructor(options) {
@@ -26,8 +27,19 @@ export default class Sketch {
 		this.renderer.setClearColor(0x000000, 1);
 		this.container.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
-		this.camera.position.set(0, 0, 3);
+		let frustumSize = 5;
+		let aspect = this.width / this.height;
+		this.camera = new THREE.OrthographicCamera(
+			(frustumSize * aspect) / -2,
+			(frustumSize * aspect) / 2,
+			frustumSize / 2,
+			frustumSize / -2,
+			-1000,
+			1000
+		);
+
+		// this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		// this.camera.position.set(0, 0, 3);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
@@ -39,15 +51,15 @@ export default class Sketch {
 		// Create settings first
 		this.settings = {
 			text: {
-				content: 'abc',
+				content: 'Wonder Makers',
 				fontSize: 0.5,
-				fillColor: '#000000',
+				fillColor: '#ffcc00',
 				fillOpacity: 1.0
 			},
 			stroke: {
-				color: '#00ffff',
+				color: '#ffcc00',
 				opacity: 1.0,
-				width: 0.005
+				width: 0.002
 			},
 			wave: {
 				amplitude: 0.05,
@@ -57,8 +69,19 @@ export default class Sketch {
 				showBoundingBox: true,
 				showCharacterBoxes: true
 			},
-			progress: 0
+			progress: {
+				1: 0,
+				2: 0,
+				3: 0,
+				4: 0
+			},
+			animation: {
+				duration: 1.75,
+				delay: 1.55
+			}
 		};
+
+		this.timeline = null; // Add this line to track the animation
 
 		// Initialize everything in the right order
 		this.setupLights();
@@ -96,8 +119,19 @@ export default class Sketch {
 		this.text.position.z = 0.5;
 		this.text.anchorX = 'center';
 		this.text.anchorY = 'middle';
-		this.text.font = './fonts/grotesk-font.ttf';
-		this.text.progress = this.settings.progress;
+		this.text.font = './fonts/Audiowide.ttf';
+
+		// Set initial progress values
+		this.text.progress1 = this.settings.progress[1];
+		this.text.progress2 = this.settings.progress[2];
+		this.text.progress3 = this.settings.progress[3];
+		this.text.progress4 = this.settings.progress[4];
+
+		// Also set initial uniforms for the background material
+		this.material.uniforms.uProgress1.value = this.settings.progress[1];
+		this.material.uniforms.uProgress2.value = this.settings.progress[2];
+		this.material.uniforms.uProgress3.value = this.settings.progress[3];
+		this.material.uniforms.uProgress4.value = this.settings.progress[4];
 
 		// Set stroke properties using Troika's built-in properties
 		this.text.strokeWidth = this.settings.stroke.width;
@@ -122,7 +156,10 @@ export default class Sketch {
 			fragmentShader,
 			side: THREE.DoubleSide,
 			uniforms: {
-				uTexture: { value: null }
+				uProgress1: { value: 0 },
+				uProgress2: { value: 0 },
+				uProgress3: { value: 0 },
+				uProgress4: { value: 0 }
 			},
 			wireframe: false
 		});
@@ -135,6 +172,7 @@ export default class Sketch {
 
 	setupSettings() {
 		this.pane = new Pane();
+		this.progressBindings = {};
 
 		setupCameraPane({
 			pane: this.pane,
@@ -145,15 +183,190 @@ export default class Sketch {
 		});
 
 		const textFolder = this.pane.addFolder({ title: 'Text' });
+
+		// Add text content and style controls
 		textFolder
-			.addBinding(this.settings, 'progress', {
-				label: 'Progress',
+			.addBinding(this.settings.text, 'content', {
+				label: 'Text'
+			})
+			.on('change', (ev) => {
+				if (this.text) {
+					this.text.text = ev.value;
+				}
+			});
+
+		textFolder
+			.addBinding(this.settings.text, 'fillColor', {
+				label: 'Fill Color',
+				view: 'color'
+			})
+			.on('change', (ev) => {
+				if (this.text) {
+					this.text.color = ev.value;
+				}
+			});
+
+		textFolder
+			.addBinding(this.settings.stroke, 'color', {
+				label: 'Stroke Color',
+				view: 'color'
+			})
+			.on('change', (ev) => {
+				if (this.text) {
+					this.text.strokeColor = new THREE.Color(ev.value);
+				}
+			});
+
+		textFolder
+			.addBinding(this.settings.stroke, 'width', {
+				label: 'Stroke Width',
+				min: 0,
+				max: 0.05,
+				step: 0.001
+			})
+			.on('change', (ev) => {
+				if (this.text) {
+					this.text.strokeWidth = ev.value;
+				}
+			});
+
+		// Store each binding
+		this.progressBindings[1] = textFolder
+			.addBinding(this.settings.progress, '1', {
+				label: 'Progress 1',
 				min: 0,
 				max: 1,
 				step: 0.01
 			})
-			.on('change', () => {
-				this.text.progress = this.settings.progress;
+			.on('change', (ev) => {
+				this.text.progress1 = ev.value;
+				this.material.uniforms.uProgress1.value = ev.value;
+			});
+
+		this.progressBindings[2] = textFolder
+			.addBinding(this.settings.progress, '2', {
+				label: 'Progress 2',
+				min: 0,
+				max: 1,
+				step: 0.01
+			})
+			.on('change', (ev) => {
+				this.text.progress2 = ev.value;
+				this.material.uniforms.uProgress2.value = ev.value;
+			});
+
+		this.progressBindings[3] = textFolder
+			.addBinding(this.settings.progress, '3', {
+				label: 'Progress 3',
+				min: 0,
+				max: 1,
+				step: 0.01
+			})
+			.on('change', (ev) => {
+				this.text.progress3 = ev.value;
+				this.material.uniforms.uProgress3.value = ev.value;
+			});
+
+		this.progressBindings[4] = textFolder
+			.addBinding(this.settings.progress, '4', {
+				label: 'Progress 4',
+				min: 0,
+				max: 1,
+				step: 0.01
+			})
+			.on('change', (ev) => {
+				this.text.progress4 = ev.value;
+				this.material.uniforms.uProgress4.value = ev.value;
+			});
+
+		// Add animation settings folder
+		const animationFolder = this.pane.addFolder({ title: 'Animation' });
+
+		animationFolder.addBinding(this.settings.animation, 'duration', {
+			label: 'Duration',
+			min: 0.1,
+			max: 5.0,
+			step: 0.05
+		});
+
+		animationFolder.addBinding(this.settings.animation, 'delay', {
+			label: 'Delay Offset',
+			min: 0.1,
+			max: 5.0,
+			step: 0.05
+		});
+
+		textFolder
+			.addButton({
+				title: 'Animate'
+			})
+			.on('click', () => {
+				// Kill existing timeline if it exists
+				if (this.timeline) {
+					this.timeline.kill();
+				}
+
+				// Reset all progress values
+				[1, 2, 3, 4].forEach((i) => {
+					this.settings.progress[i] = 0;
+					this.material.uniforms[`uProgress${i}`].value = 0;
+					if (this.text) this.text[`progress${i}`] = 0;
+				});
+
+				// Create and store new timeline
+				this.timeline = gsap.timeline({
+					defaults: {
+						duration: this.settings.animation.duration
+					}
+				});
+
+				const delay = `-=${this.settings.animation.delay}`;
+
+				this.timeline
+					.to(this.settings.progress, {
+						1: 1,
+						onUpdate: () => {
+							this.text.progress1 = this.settings.progress[1];
+							this.material.uniforms.uProgress1.value = this.settings.progress[1];
+							this.progressBindings[1].refresh();
+						}
+					})
+					.to(
+						this.settings.progress,
+						{
+							2: 1,
+							onUpdate: () => {
+								this.text.progress2 = this.settings.progress[2];
+								this.material.uniforms.uProgress2.value = this.settings.progress[2];
+								this.progressBindings[2].refresh();
+							}
+						},
+						delay
+					)
+					.to(
+						this.settings.progress,
+						{
+							3: 1,
+							onUpdate: () => {
+								this.text.progress3 = this.settings.progress[3];
+								this.material.uniforms.uProgress3.value = this.settings.progress[3];
+								this.progressBindings[3].refresh();
+							}
+						},
+						delay
+					)
+					.to(
+						this.settings.progress,
+						{
+							4: 1,
+							onUpdate: () => {
+								this.text.progress4 = this.settings.progress[4];
+								this.material.uniforms.uProgress4.value = this.settings.progress[4];
+								this.progressBindings[4].refresh();
+							}
+						},
+						delay
+					);
 			});
 	}
 

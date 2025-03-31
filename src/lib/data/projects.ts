@@ -540,7 +540,7 @@ export const projects = [
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: true,
-		imgSrc: '/projectThumbnails/portal-gateway.png'
+		imgSrc: '/projectThumbnails/checkerboard-text.png'
 	},
 	{
 		href: '/63-avalabs-test',
