@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
-	import VirusModel from '../../routes/three-js-shaders-wobbly-sphere/VirusModel.svelte';
+	import VirusModel from '../../routes/26-three-js-shaders-wobbly-sphere/VirusModel.svelte';
 
 	type Uniform = {
 		uPositionFrequency: number;

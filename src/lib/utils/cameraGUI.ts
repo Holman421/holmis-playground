@@ -1,4 +1,4 @@
-import { PerspectiveCamera, Vector3 } from 'three';
+import { PerspectiveCamera } from 'three';
 import GUI from 'lil-gui';
 import type { OrbitControls } from 'three/examples/jsm/Addons.js';
 

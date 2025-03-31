@@ -30,6 +30,11 @@
 
 		requestAnimationFrame(raf);
 
+		const tweakPaneContainer = document.querySelector('.tp-dfwv') as HTMLElement;
+		if (tweakPaneContainer) {
+			tweakPaneContainer.style.zIndex = '9999';
+		}
+
 		return () => {
 			lenis.destroy();
 			lenisStore.set(null);
@@ -39,7 +44,7 @@
 
 <div class="w-full min-h-screen flex flex-col">
 	<nav
-		class="h-[56px] flex justify-center items-center z-[10] bg-black relative border-[#a6a8b1] border-b"
+		class="h-[56px] flex justify-center items-center z-[1] bg-black relative border-[#a6a8b1] border-b"
 	>
 		<a href="/">
 			<h1 class="font-bold text-2xl font-audiowide">Holmis Playground</h1>

@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
-import GUI from 'lil-gui';
+import { Pane } from 'tweakpane';
 import gsap from 'gsap';
-import { setupCameraGUI } from '$lib/utils/cameraGUI';
+import { setupCameraPane } from '$lib/utils/Tweakpane/utils';
 
 export default class Sketch {
 	constructor(options) {
@@ -69,12 +68,13 @@ export default class Sketch {
 	}
 
 	setUpSettings() {
-		this.gui = new GUI();
+		this.pane = new Pane();
 
-		setupCameraGUI({
-			gui: this.gui,
+		setupCameraPane({
 			camera: this.camera,
-			controls: this.controls
+			pane: this.pane,
+			controls: this.controls,
+			scene: this.scene
 		});
 	}
 
@@ -92,6 +92,6 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
-		this.gui.destroy();
+		this.pane.dispose();
 	}
 }

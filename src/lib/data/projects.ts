@@ -1,6 +1,6 @@
 export const projects = [
 	{
-		href: '/svelte-todo',
+		href: '/1-svelte-todo',
 		title: 'Todo flip',
 		description: 'Simple todo app with Svelte and gsap flip animation',
 		technologies: ['Svetle', 'GSAP', 'GSAP-Flip', 'Svelte-state'],
@@ -8,7 +8,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/todo.png'
 	},
 	{
-		href: '/flip',
+		href: '/2-flip',
 		title: 'Flip animation',
 		description: 'Training with gsap flip animation',
 		technologies: ['Svetle', 'GSAP', 'GSAP-Flip', 'Svelte-state'],
@@ -16,7 +16,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/flip.png'
 	},
 	{
-		href: '/training-store',
+		href: '/3-training-store',
 		title: 'Svelte stores',
 		description: 'Very simple counter with utilization of Svelte stores',
 		technologies: ['Svelte', 'Svelte-stores'],
@@ -24,7 +24,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/store.png'
 	},
 	{
-		href: '/three-js-lights',
+		href: '/4-three-js-lights',
 		title: 'Three.js Lights',
 		description: 'Training with Three.js lights and GUI',
 		technologies: ['Three.js', 'Lights', 'Three.js GUI'],
@@ -32,7 +32,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/lights-tutorial.png'
 	},
 	{
-		href: '/three-js-hounted-house',
+		href: '/5-three-js-hounted-house',
 		title: 'Three.js Hounted house',
 		description: 'Bigger Three.js project with textures and geometries',
 		technologies: ['Three.js', 'Textures', 'Geometries'],
@@ -40,7 +40,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/hounted-house.png'
 	},
 	{
-		href: '/three-js-particles',
+		href: '/6-three-js-particles',
 		title: 'Three.js Matrix',
 		description: 'Simple training of rendering particles in Matrix style',
 		technologies: ['Three.js', 'Particles'],
@@ -48,7 +48,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/matrix.png'
 	},
 	{
-		href: '/three-js-galaxy',
+		href: '/7-three-js-galaxy',
 		title: 'Galaxy generator',
 		description: 'Scene with thousands of particles forming galaxy, higtly customizable',
 		technologies: ['Three.js', 'Particles', 'GUI', 'Trigonometry'],
@@ -56,7 +56,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/galaxy.png'
 	},
 	{
-		href: '/svg-filters',
+		href: '/8-svg-filters',
 		title: 'SVG Filters Effects',
 		description: 'Experimenting with svg filters',
 		technologies: ['SVG Filters', 'GSAP'],
@@ -64,7 +64,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/svg.png'
 	},
 	{
-		href: '/three-js-portfolio',
+		href: '/9-three-js-portfolio',
 		title: 'Three.js Portfolio',
 		description: 'Small project with Three.js',
 		technologies: ['Three.js', 'GSAP'],
@@ -72,7 +72,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/portfolio.png'
 	},
 	{
-		href: '/three-js-physics',
+		href: '/10-three-js-physics',
 		title: 'Three.js Physics',
 		description: 'Learning about THREE.js physics',
 		technologies: ['Three.js', 'GSAP', 'Cannon.js'],
@@ -80,7 +80,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/physics.png'
 	},
 	{
-		href: '/three-js-imported-models',
+		href: '/11-three-js-imported-models',
 		title: 'Three.js Imported models',
 		description: 'Learning about importing models into Three.js',
 		technologies: ['Three.js', 'GSAP'],
@@ -88,7 +88,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/imported-model.png'
 	},
 	{
-		href: '/clamp-calculate',
+		href: '/12-clamp-calculate',
 		title: 'Optimal clamp calculator',
 		description: 'Handy tool for calculating optimal clamp',
 		technologies: ['JS'],
@@ -96,7 +96,15 @@ export const projects = [
 		imgSrc: '/projectThumbnails/clamp-calculator.png'
 	},
 	{
-		href: '/three-js-environment-map',
+		href: '/12-three-js-realistic-render',
+		title: 'Realistic render',
+		description: 'Project with focus on rendering realistic materials',
+		technologies: ['JS'],
+		shared: false,
+		imgSrc: '/projectThumbnails/realistic-render.png'
+	},
+	{
+		href: '/13-three-js-environment-map',
 		title: 'Environment map',
 		description:
 			'Learning about interacting with three.js with mouse events and setting up environment maps',
@@ -105,7 +113,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/environment-map.png'
 	},
 	{
-		href: '/three-js-shaders-tutorial',
+		href: '/14-three-js-shaders-tutorial',
 		title: 'Shaders Basic',
 		description: 'First experimentation with GLSL shaders',
 		technologies: ['THREE.js', 'Shaders'],
@@ -113,7 +121,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/shaders-basic.png'
 	},
 	{
-		href: '/three-js-shaders-sea',
+		href: '/15-three-js-shaders-sea',
 		title: 'Sea simulation',
 		description: 'Sea with shaders',
 		technologies: ['THREE.js', 'Shaders'],
@@ -121,7 +129,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/sea-basic.png'
 	},
 	{
-		href: '/three-js-shaders-galaxy',
+		href: '/16-three-js-shaders-galaxy',
 		title: 'Animated Galaxy',
 		description: 'Scene with thousands of particles forming galaxy, animated with shaders',
 		technologies: ['THREE.js', 'Shaders'],
@@ -129,7 +137,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/animated-galaxy.png'
 	},
 	{
-		href: '/three-js-coffe-smoke',
+		href: '/17-three-js-coffe-smoke',
 		title: 'Animated coffe smoke',
 		description: 'Static model with animated smoke effect',
 		technologies: ['THREE.js', 'Shaders'],
@@ -137,7 +145,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/coffe-smoke.png'
 	},
 	{
-		href: '/three-js-shaders-hologram',
+		href: '/18-three-js-shaders-hologram',
 		title: 'Hologram effect',
 		description: 'Hologram like effect with occasional glitch',
 		technologies: ['THREE.js', 'Shaders'],
@@ -145,7 +153,15 @@ export const projects = [
 		imgSrc: '/projectThumbnails/hologram.png'
 	},
 	{
-		href: '/three-js-shaders-fireworks',
+		href: '/18-three-js-shaders-halftone',
+		title: 'Halftone shading',
+		description: 'Shader with halftone shading and custom lights',
+		technologies: ['JS'],
+		shared: false,
+		imgSrc: '/projectThumbnails/halftone.png'
+	},
+	{
+		href: '/19-three-js-shaders-fireworks',
 		title: 'Fireworks',
 		description: 'Scene with fireworks like effect on each click',
 		technologies: ['THREE.js', 'Shaders'],
@@ -153,7 +169,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/galaxy.png'
 	},
 	{
-		href: '/three-js-shaders-lights',
+		href: '/20-three-js-shaders-lights',
 		title: 'Shaders Lights',
 		description: 'Scene with custom lights made in shaders',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
@@ -161,7 +177,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/lights-shaders.png'
 	},
 	{
-		href: '/three-js-shaders-sea-lights',
+		href: '/21-three-js-shaders-sea-lights',
 		title: 'Sea with Lights',
 		description: 'Animated sea like surface with lights and shadows',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
@@ -169,7 +185,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/sea-shadows.png'
 	},
 	{
-		href: '/three-js-shaders-moving-particles',
+		href: '/22-three-js-shaders-moving-particles',
 		title: 'Particles canvas',
 		description:
 			'Scene with picture divided into particles that gets displacement with mouse movement',
@@ -178,7 +194,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/displacement-particles.png'
 	},
 	{
-		href: '/three-js-shaders-morphing-shapes',
+		href: '/23-three-js-shaders-morphing-shapes',
 		title: '3D Morhing shapes',
 		description:
 			'Scene with 3D models represented with a lot of points morphing to each other shapes',
@@ -187,7 +203,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/morphing.png'
 	},
 	{
-		href: '/three-js-shaders-earth',
+		href: '/24-three-js-shaders-earth',
 		title: 'Earth globe',
 		description: 'Scene with 3D earth model and atmosphere effect made with shaders',
 		technologies: ['THREE.js', 'Shaders', 'Texture'],
@@ -195,7 +211,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/earth-globe.png'
 	},
 	{
-		href: '/three-js-shaders-gpgpu',
+		href: '/25-three-js-shaders-gpgpu',
 		title: 'GPGPU Technique',
 		description: 'Scene with ship model transitioning to particles system with GPGPU technique',
 		technologies: ['THREE.js', 'Shaders', 'GPGPU'],
@@ -203,7 +219,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/gpgpu-ship.png'
 	},
 	{
-		href: '/three-js-shaders-wobbly-sphere',
+		href: '/26-three-js-shaders-wobbly-sphere',
 		title: 'Virus project',
 		description: 'Virus cards with 3D models of the molecules with various surface disturption',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
@@ -211,7 +227,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/virus.png'
 	},
 	{
-		href: '/three-js-shaders-terrain',
+		href: '/27-three-js-shaders-terrain',
 		title: 'Procedural Terrain',
 		description: 'Procedurally generated terrain with shaders',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
@@ -219,7 +235,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/procedural-terrain.png'
 	},
 	{
-		href: '/three-js-shaders-sliced-model',
+		href: '/28-three-js-shaders-sliced-model',
 		title: 'Sliced model',
 		description: 'Scene with 3d model with customizable slice area',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
@@ -227,7 +243,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/sliced-model.png'
 	},
 	{
-		href: '/three-js-shaders-can-brush',
+		href: '/29-three-js-shaders-can-brush',
 		title: 'Can brush effect',
 		description: 'Mouse spray can brush effect',
 		technologies: ['THREE.js', 'Shaders'],
@@ -235,7 +251,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/can-brush.png'
 	},
 	{
-		href: '/three-js-shaders-model',
+		href: '/30-three-js-shaders-model',
 		title: 'Model deformation',
 		description: 'Scene with 3D model with deformation effect',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
@@ -243,7 +259,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/model-deformation.png'
 	},
 	{
-		href: '/three-js-shaders-minecraft',
+		href: '/31-three-js-shaders-minecraft',
 		title: 'Minecraft terrain',
 		description: 'Bigger project with minecraft like procedurally generated terrain, animated',
 		technologies: ['THREE.js', 'Shaders'],
@@ -251,7 +267,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/minecraft.png'
 	},
 	{
-		href: '/three-js-postprocesing',
+		href: '/32-three-js-postprocesing',
 		title: 'Postprocessing effect',
 		description: 'Various post procesing effects on 3D models together with html tags',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
@@ -259,7 +275,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/postprocessing-helmet.png'
 	},
 	{
-		href: '/three-js-tags',
+		href: '/33-three-js-tags',
 		title: 'Tags with Three.js',
 		description: 'Applying descriptive html tags to 3D scenes',
 		technologies: ['THREE.js'],
@@ -267,7 +283,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/tags-sword.png'
 	},
 	{
-		href: '/three-js-random-blocks',
+		href: '/34-three-js-random-blocks',
 		title: 'Block sphere',
 		description:
 			'Scene with random moving cubes with cool animation and transition to normal 2D page layout',
@@ -276,7 +292,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/random-blocks.png'
 	},
 	{
-		href: '/three-js-interactive-grid',
+		href: '/35-three-js-interactive-grid',
 		title: 'Interactive Grid',
 		description: 'Background scene with interactive grid of colorfull cubes, has 2 modes',
 		technologies: ['THREE.js'],
@@ -284,7 +300,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/interactive-grid.png'
 	},
 	{
-		href: '/three-js-shaders-pixelated',
+		href: '/36-three-js-shaders-pixelated',
 		title: 'Pixelation effect',
 		description: 'Simple Image load pixelated effect',
 		technologies: ['THREE.js'],
@@ -292,7 +308,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/pixelation-effect.png'
 	},
 	{
-		href: '/three-js-shaders-ring',
+		href: '/37-three-js-shaders-ring',
 		title: 'Ring text animation',
 		description:
 			'Scene with ring shape with noice generated alumination distortion effect, and text transition animation',
@@ -301,7 +317,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/ring-shader.png'
 	},
 	{
-		href: '/three-js-shaders-gradients',
+		href: '/38-three-js-shaders-gradients',
 		title: 'Lava lamp gradient',
 		description: 'Cards with fragment and vertex Lava lamp like gradient shaders',
 		technologies: ['THREE.js'],
@@ -309,7 +325,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/laval-lamp.png'
 	},
 	{
-		href: '/three-js-tsl-honeycomb',
+		href: '/39-three-js-tsl-honeycomb',
 		title: 'Honeycomb transition',
 		description: 'Scene with honeycomb like transition effect',
 		technologies: ['THREE.js'],
@@ -317,7 +333,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/honeycomb-transition.png'
 	},
 	{
-		href: '/three-js-shaders-gradient-glass',
+		href: '/40-three-js-shaders-gradient-glass',
 		title: 'Gradient glass effect',
 		description: 'Scene with smooth gradient background and glass effect round shape',
 		technologies: ['THREE.js'],
@@ -325,7 +341,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/gradient-glass.png'
 	},
 	{
-		href: '/three-js-shaders-hover-pixelation',
+		href: '/41-three-js-shaders-hover-pixelation',
 		title: 'Onhover pixelation',
 		description: 'Image pixelation distortion onhover effect',
 		technologies: ['THREE.js'],
@@ -333,15 +349,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/pixelation-onhover.png'
 	},
 	{
-		href: '/three-js-shaders-water-cursor',
-		title: 'Water trail cursor effect',
-		description: 'ON hover water trail cursor effect',
-		technologies: ['THREE.js'],
-		shared: false,
-		imgSrc: '/projectThumbnails/water-cursor.png'
-	},
-	{
-		href: '/three-js-shaders-element-distortion',
+		href: '/42-three-js-shaders-element-distortion',
 		title: 'Element distortion',
 		description:
 			'Effect where regular images are distorted to the point they act as a abstract background',
@@ -350,7 +358,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/element-distortion.png'
 	},
 	{
-		href: '/three-js-instanced-mesh',
+		href: '/43-three-js-instanced-mesh',
 		title: 'Instanced Mesh',
 		description:
 			'Scene with many animated cubes with instanced mesh technique, with custom shader material',
@@ -359,7 +367,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/instanced-mesh.png'
 	},
 	{
-		href: '/raymarching-shapes',
+		href: '/44-raymarching-shapes',
 		title: 'Raymarching shapes',
 		description: 'Simple 2D html animated shapes that merge into themselfs',
 		technologies: ['THREE.js'],
@@ -367,7 +375,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/raymarching-shapes.png'
 	},
 	{
-		href: '/three-js-text-mobius',
+		href: '/45-three-js-text-mobius',
 		title: 'Mobius text',
 		description: 'Text with mobius strip effect',
 		technologies: ['THREE.js'],
@@ -375,16 +383,16 @@ export const projects = [
 		imgSrc: '/projectThumbnails/text-mobius.png'
 	},
 	{
-		href: '/boxed-image-relevation',
+		href: '/46-boxed-image-relevation',
 		title: 'Grid image relevation',
-		description: 'Cool image relevation effect',
+		description: 'Cool image reveal effect',
 		technologies: ['THREE.js'],
 		shared: true,
 		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/boxed-image-relevation.png'
 	},
 	{
-		href: '/button-hover',
+		href: '/47-button-hover',
 		title: 'Button hover effect',
 		description: 'Cool button hover effect',
 		technologies: ['THREE.js'],
@@ -393,7 +401,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/button-hover.png'
 	},
 	{
-		href: '/three-js-rome-column',
+		href: '/48-three-js-rome-column',
 		title: 'Rome column 3D scene',
 		description: 'Rotating scene around Rome column',
 		technologies: ['THREE.js'],
@@ -402,7 +410,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/roman-column.png'
 	},
 	{
-		href: '/three-js-portal-gateway',
+		href: '/49-three-js-portal-gateway',
 		title: 'Portal gateway',
 		description: 'Scene with detailed gateway and animated portal effect',
 		technologies: ['THREE.js'],
@@ -411,16 +419,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/portal-gateway.png'
 	},
 	{
-		href: '/three-js-checkerboard-text',
-		title: 'Checkerboard text reveal',
-		description: 'Cool text reveal effect',
-		technologies: ['THREE.js'],
-		shared: false,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/portal-gateway.png'
-	},
-	{
-		href: '/inverted-border',
+		href: '/50-inverted-border',
 		title: 'Css inverted border',
 		description: 'Shapes with inverted borders using svg masks',
 		technologies: ['THREE.js'],
@@ -429,7 +428,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/inverted-border.png'
 	},
 	{
-		href: '/three-js-postprocesing-scroll',
+		href: '/51-three-js-postprocesing-scroll',
 		title: 'Warped gallery',
 		description: 'Photo gallery with warping effect on scroll',
 		technologies: ['THREE.js'],
@@ -438,7 +437,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/galery-warp.png'
 	},
 	{
-		href: '/three-js-shaders-art',
+		href: '/52-three-js-shaders-art',
 		title: 'Noise gradients',
 		description: 'Collection of noise gradient shaders',
 		technologies: ['THREE.js'],
@@ -447,7 +446,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/noice-gradient.png'
 	},
 	{
-		href: '/three-js-shaders-radar',
+		href: '/53-three-js-shaders-radar',
 		title: 'Submarine Radar',
 		description: 'Advanced radar simulation demo with shaders',
 		technologies: ['THREE.js'],
@@ -456,7 +455,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/radar.png'
 	},
 	{
-		href: '/three-js-shaders-studio-chain',
+		href: '/54-three-js-shaders-studio-chain',
 		title: 'Chain Studio',
 		description: 'Pixelated, animated effect used for background and mouse cursor',
 		technologies: ['THREE.js'],
@@ -466,7 +465,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/studio-chain.png'
 	},
 	{
-		href: '/three-js-glass-text',
+		href: '/55-three-js-glass-text',
 		title: 'WM Glass text',
 		description: 'Torus with glass material and perlin noise metalness animation with text inside',
 		technologies: ['THREE.js'],
@@ -476,17 +475,17 @@ export const projects = [
 		imgSrc: '/projectThumbnails/glass-text.png'
 	},
 	{
-		href: '/three-js-sponsors',
+		href: '/56-three-js-sponsors',
 		title: 'Sponsor idea',
 		description: '',
 		technologies: ['THREE.js'],
-		shared: true,
+		shared: false,
 		isForNextTuesday: false,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/glass-text.png'
 	},
 	{
-		href: '/three-js-shaders-interactive-particles',
+		href: '/57-three-js-shaders-interactive-particles',
 		title: 'Interactive Particles',
 		description: '',
 		technologies: ['THREE.js'],
@@ -496,7 +495,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/interactive-particles-1.png'
 	},
 	{
-		href: '/three-js-shaders-interactive-particles2',
+		href: '/58-three-js-shaders-interactive-particles2',
 		title: 'Interactive Particles 2',
 		description: '',
 		technologies: ['THREE.js'],
@@ -506,7 +505,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/interactive-particles-2.png'
 	},
 	{
-		href: '/three-js-shaders-interactive-particles3',
+		href: '/59-three-js-shaders-interactive-particles3',
 		title: 'Interactive Particles 3',
 		description: '',
 		technologies: ['THREE.js'],
@@ -516,7 +515,7 @@ export const projects = [
 		imgSrc: '/projectThumbnails/interactive-particles-3.png'
 	},
 	{
-		href: '/three-js-shaders-image-reveal',
+		href: '/60-three-js-shaders-image-reveal',
 		title: 'Image reveal',
 		description: '',
 		technologies: ['THREE.js'],
@@ -524,5 +523,32 @@ export const projects = [
 		isForNextTuesday: true,
 		usedInRealProject: false,
 		imgSrc: '/projectThumbnails/image-reveal.png'
+	},
+	{
+		href: '/61-three-js-shaders-water-cursor',
+		title: 'Water trail cursor effect',
+		description: 'ON hover water trail cursor effect',
+		technologies: ['THREE.js'],
+		shared: false,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/water-cursor.png'
+	},
+	{
+		href: '/62-three-js-checkerboard-text',
+		title: 'Checkerboard text reveal',
+		description: 'Cool text reveal effect',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/portal-gateway.png'
+	},
+	{
+		href: '/63-avalabs-test',
+		title: 'Avalabs testing',
+		description: 'Various testing of effects and shaders for Avalabs project',
+		technologies: ['THREE.js'],
+		shared: true,
+		isForNextTuesday: false,
+		imgSrc: '/projectThumbnails/avalabs.png'
 	}
 ];
