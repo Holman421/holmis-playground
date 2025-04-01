@@ -22,14 +22,16 @@ export default class Sketch {
 	constructor(options) {
 		this.scene = new THREE.Scene();
 		this.container = options.dom;
-		this.width = this.container.offsetWidth;
-		this.height = this.container.offsetHeight;
+
+		this.canvasSize = window.innerWidth > 1000 ? 600 : 300;
+		this.width = this.canvasSize * 2;
+		this.height = this.canvasSize;
 		this.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
 		this.renderer = new THREE.WebGLRenderer();
 		this.renderer.setPixelRatio(this.pixelRatio);
 		this.renderer.setSize(this.width, this.height);
-		this.renderer.setClearColor(0x000000, 1);
+		this.renderer.setClearColor('#070809', 1);
 		this.container.appendChild(this.renderer.domElement);
 
 		this.axesHelper = new THREE.AxesHelper(5);
@@ -49,11 +51,11 @@ export default class Sketch {
 
 	setupCamera() {
 		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
-		this.camera.position.set(0.0, 0.0, 3.0);
-		this.camera.lookAt(0, 0, 0);
+		this.camera.position.set(0.0, 0.0, 2.25);
+		this.camera.lookAt(0.0, 0, 0);
 
-		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-		this.controls.enabled = false;
+		// this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+		// this.controls.enabled = false;
 		this.time = 0;
 	}
 
@@ -67,8 +69,16 @@ export default class Sketch {
 		this.targetMouse = new THREE.Vector3(0, 0, 0);
 
 		window.addEventListener('pointermove', (e) => {
-			this.pointer.x = (e.clientX / this.width) * 2 - 1;
-			this.pointer.y = -((e.clientY - 56) / this.height) * 2 + 1;
+			// Get canvas bounds
+			const rect = this.renderer.domElement.getBoundingClientRect();
+			// Calculate mouse position relative to canvas
+			const x = e.clientX - rect.left;
+			const y = e.clientY - rect.top;
+
+			// Convert to normalized device coordinates
+			this.pointer.x = (x / this.width) * 2 - 1;
+			this.pointer.y = -(y / this.height) * 2 + 1;
+
 			this.raycaster.setFromCamera(this.pointer, this.camera);
 
 			let intersects = this.raycaster.intersectObject(this.dummy);
@@ -110,8 +120,9 @@ export default class Sketch {
 	}
 
 	resize() {
-		this.width = this.container.offsetWidth;
-		this.height = this.container.offsetHeight;
+		this.canvasSize = window.innerWidth > 1000 ? 600 : 300;
+		this.width = this.canvasSize * 2;
+		this.height = this.canvasSize;
 		this.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
 		this.renderer.setSize(this.width, this.height);
@@ -186,11 +197,11 @@ export default class Sketch {
 				uCurrentMouse: { value: new THREE.Vector2(0, 0) }, // Add this line
 				uInfo: { value: null },
 				uMouseMode: { value: 1.0 },
-				uNoiseScale: { value: 3.0 }, // Increased scale
-				uNoiseStrength: { value: 0.035 }, // Increased strength
+				uNoiseScale: { value: 6.0 }, // Increased scale
+				uNoiseStrength: { value: 0.025 }, // Increased strength
 				uCircularForce: { value: 0.7 },
 				uRotationSpeed: { value: 0.15 },
-				uAttractionStrength: { value: 0.25 } // Increased for stronger mouse attraction
+				uAttractionStrength: { value: 0.4 } // Increased for stronger mouse attraction
 			},
 			vertexShader: simVertex,
 			fragmentShader: simFragment
@@ -303,7 +314,7 @@ export default class Sketch {
 		this.gui = new GUI();
 		this.controllers = {}; // Store controllers for updating
 
-		setupLightGUI(this.pointLight2, this.gui, 'Directional Light');
+		// setupLightGUI(this.pointLight2, this.gui, 'Directional Light');
 
 		// setupCameraGUI({ gui: this.gui, camera: this.camera, controls: this.controls });
 
@@ -320,7 +331,7 @@ export default class Sketch {
 			.add(this.fboMaterial.uniforms.uNoiseScale, 'value', 0.1, 10.0)
 			.name('Noise Scale');
 		this.controllers.noiseStrength = simulationFolder
-			.add(this.fboMaterial.uniforms.uNoiseStrength, 'value', 0.0, 0.02)
+			.add(this.fboMaterial.uniforms.uNoiseStrength, 'value', 0.0, 0.05)
 			.name('Noise Strength');
 		this.controllers.circularForce = simulationFolder
 			.add(this.fboMaterial.uniforms.uCircularForce, 'value', 0.0, 2.0)

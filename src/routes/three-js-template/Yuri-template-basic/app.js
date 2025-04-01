@@ -69,6 +69,7 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.pane = new Pane();
+		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
 		setupCameraPane({
 			camera: this.camera,

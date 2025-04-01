@@ -172,6 +172,7 @@ export default class Sketch {
 
 	setupSettings() {
 		this.pane = new Pane();
+		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 		this.progressBindings = {};
 
 		setupCameraPane({

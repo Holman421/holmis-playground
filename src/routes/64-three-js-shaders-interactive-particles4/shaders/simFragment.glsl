@@ -119,19 +119,29 @@ void main() {
     vec4 pos = texture2D(uPositions, vUv);
     vec4 info = texture2D(uInfo, vUv);
 
-    vec2 mousePos = uCurrentMouse.xy;
+    // vec2 mousePos = uCurrentMouse.xy;
+    vec2 mouse = uCurrentMouse.xy;
+    vec2 mousePos = vec2(2.0, 0.0);
     vec2 direction = mousePos - pos.xy;
     float dist = length(direction);
 
+    // Random reset logic based on time
+    float resetProbability = 0.01; // Adjust this value to control reset frequency
+    float randomValue = random(vUv + vec2(uTime));
+    if(randomValue < resetProbability) {
+        // Even distribution for x position
+        pos.x = (random(vUv + vec2(uTime * 0.5)) * 2.0 - 1.0) * 0.5;
+        // Simplified vertical position calculation for even distribution
+        float randomValue = random(vUv + vec2(uTime * 2.0));
+        float scaledRandomValue = randomValue * 0.2;
+        float distance = 1.0;
+        pos.y = randomValue > 0.5 ? scaledRandomValue + distance : scaledRandomValue - distance;
+        // pos.y = (random(vUv + vec2(uTime * 2.0)) * 2.0 - 1.0) * 1.0;
+    }
+
     // Only apply mouse interaction when clicked (uMouseMode == -1.0)
-    if(uMouseMode < 0.0) {
-        if(dist < 0.05) {
-            // Reset position if too close
-            // pos.x = (random(vUv + vec2(uTime)) * 2.0 - 1.0) * 1.0;
-            // pos.y = (random(vUv + vec2(uTime * 2.0)) * 2.0 - 1.0) * 1.0;
-            pos.x = 10000.0;
-            pos.y = 10000.0;
-        } else if(dist > 0.01) {
+    if(-1.0 < 0.0) {
+        if(dist > 0.01) {
             direction = normalize(direction);
             float strength = smoothstep(4.0, 0.0, dist) * uAttractionStrength * 0.05;
 
@@ -139,7 +149,7 @@ void main() {
                 vec3 noiseForce = curl(pos.xyz * uNoiseScale, uTime * 0.25, 0.1);
                 float noiseMask = smoothstep(2.0, 0.0, dist);
                 pos.xy += noiseForce.xy * uNoiseStrength * strength * 10.0;
-                pos.xy += direction * strength; // Changed from -= to += for attraction
+                pos.xy += direction * strength;
             }
         }
     } else {
@@ -147,6 +157,10 @@ void main() {
         vec3 randomForce = curl(pos.xyz * 2.0 + uTime * 0.1, uTime * 0.1, 0.1);
         pos.xy += randomForce.xy * 0.0003;
     }
+
+    float dist2 = length(pos.xy - mouse) - 0.025;
+    vec2 dir = normalize(pos.xy - mouse);
+    pos.xy += dir * 0.1 * smoothstep(0.05, 0.0, dist2) * uMouseMode;
 
     gl_FragColor = pos;
 }

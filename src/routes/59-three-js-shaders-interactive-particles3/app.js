@@ -56,7 +56,8 @@ export default class Sketch {
 			1000
 		);
 		this.camera.position.set(4.0, 0.0, 0);
-		this.camera.rotation.set(3.0, 1.0, -3.0);
+		// this.camera.rotation.set(3.0, 0.0, 0);
+		this.camera.lookAt(0, 0, 0);
 		this.camera.fov = 60;
 		this.camera.updateProjectionMatrix();
 
