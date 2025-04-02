@@ -130,7 +130,7 @@ export default class Sketch {
 		this.renderer.setPixelRatio(this.pixelRatio);
 
 		this.shaderResetPointsOffset = window.innerWidth >= 1024 ? 0 : 1;
-
+		this.fboMaterial.uniforms.shaderResetPointsOffset.value = this.shaderResetPointsOffset;
 		// Update camera
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
