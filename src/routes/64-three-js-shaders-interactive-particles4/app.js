@@ -322,7 +322,10 @@ export default class Sketch {
 		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
 		// Add bloom folder
-		const bloomFolder = this.pane.addFolder({ title: 'Bloom Effect' });
+		const bloomFolder = this.pane.addFolder({
+			title: 'Bloom Effect',
+			expanded: false
+		});
 
 		bloomFolder.addBinding(this.bloomPass, 'enabled', {
 			label: 'Enable Bloom'
@@ -347,7 +350,7 @@ export default class Sketch {
 		});
 
 		// Simulation folder
-		const simulationFolder = this.pane.addFolder({ title: 'Simulation' });
+		const simulationFolder = this.pane.addFolder({ title: 'Simulation', expanded: false });
 
 		simulationFolder.addBinding(this.fboMaterial.uniforms.uNoiseScale, 'value', {
 			label: 'Noise Scale',
