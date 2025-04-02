@@ -69,22 +69,33 @@ export default class Sketch {
 		this.targetMouse = new THREE.Vector3(0, 0, 0);
 
 		window.addEventListener('pointermove', (e) => {
-			// Get canvas bounds
-			const rect = this.renderer.domElement.getBoundingClientRect();
-			// Calculate mouse position relative to canvas
-			const x = e.clientX - rect.left;
-			const y = e.clientY - rect.top;
+			// Only handle mouse move on larger screens
+			if (window.innerWidth >= 1024) {
+				const rect = this.renderer.domElement.getBoundingClientRect();
 
-			// Convert to normalized device coordinates
-			this.pointer.x = (x / this.width) * 2 - 1;
-			this.pointer.y = -(y / this.height) * 2 + 1;
+				if (
+					e.clientX >= rect.left &&
+					e.clientX <= rect.right &&
+					e.clientY >= rect.top &&
+					e.clientY <= rect.bottom
+				) {
+					const x = e.clientX - rect.left;
+					const y = e.clientY - rect.top;
 
-			this.raycaster.setFromCamera(this.pointer, this.camera);
+					this.pointer.x = (x / this.width) * 2 - 1;
+					this.pointer.y = -(y / this.height) * 2 + 1;
 
-			let intersects = this.raycaster.intersectObject(this.dummy);
-			if (intersects.length > 0) {
-				let point = intersects[0].point;
-				this.targetMouse.copy(point);
+					this.raycaster.setFromCamera(this.pointer, this.camera);
+
+					let intersects = this.raycaster.intersectObject(this.dummy);
+					if (intersects.length > 0) {
+						let point = intersects[0].point;
+						this.targetMouse.copy(point);
+					}
+				}
+			} else {
+				// Set fixed center position for small screens
+				this.targetMouse.set(0, 0, 0);
 			}
 		});
 
