@@ -1,5 +1,6 @@
 uniform sampler2D uPositions;
 uniform float uTime;
+uniform float uCanvasSize;
 
 varying vec2 vUv;
 varying vec4 vColor;
@@ -13,6 +14,10 @@ void main() {
     vColor = vec4(1.0);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos.xyz, 1.0);
-    gl_PointSize = 1.0 * (1.0 / -mvPosition.z);
+
+    // Base size scaled by canvas size (300 is the smaller breakpoint)
+    float baseSize = 1.0 * (300.0 / uCanvasSize);
+    gl_PointSize = baseSize;
+
     gl_Position = projectionMatrix * mvPosition;
 }

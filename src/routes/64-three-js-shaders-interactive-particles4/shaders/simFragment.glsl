@@ -1,15 +1,13 @@
 varying vec2 vUv;
 uniform sampler2D uPositions;
 uniform sampler2D uInfo;
-uniform vec2 uMouse;
 uniform vec2 uCurrentMouse;  // Add this line
 uniform float uTime;
 uniform float uMouseMode;
 uniform float uNoiseScale;
 uniform float uNoiseStrength;
-uniform float uCircularForce;
-uniform float uRotationSpeed;
 uniform float uAttractionStrength;
+uniform float shaderResetPointsOffset;
 float PI = 3.141592653589793238;
 #define PI 3.1415926538
 
@@ -121,25 +119,25 @@ void main() {
 
     // vec2 mousePos = uCurrentMouse.xy;
     vec2 mouse = uCurrentMouse.xy;
-    vec2 mousePos = vec2(2.0, 0.0);
-    vec2 direction = mousePos - pos.xy;
+    vec2 atractionPoint = vec2(0.0, 0.0);
+    vec2 direction = atractionPoint - pos.xy;
     float dist = length(direction);
 
     // Random reset logic based on time
     float resetProbability = 0.01; // Adjust this value to control reset frequency
     float randomValue = random(vUv + vec2(uTime));
     if(randomValue < resetProbability) {
-        // Even distribution for x position
-        pos.x = (random(vUv + vec2(uTime * 0.5)) * 2.0 - 1.0) * 0.5;
-        // Simplified vertical position calculation for even distribution
         float randomValue = random(vUv + vec2(uTime * 2.0));
+        float xDistance = 1.0 - shaderResetPointsOffset * 0.3;
+        float xSpread = 2.0;
+        float xRandomValue = random(vUv + vec2(uTime * 0.5));
+        pos.x = xRandomValue > 0.5 ? (xRandomValue * xSpread + xDistance - xSpread / 2.) : (xRandomValue * xSpread - xDistance - xSpread / 2.);
         float scaledRandomValue = randomValue * 0.2;
-        float distance = 1.0;
-        pos.y = randomValue > 0.5 ? scaledRandomValue + distance : scaledRandomValue - distance;
+        float yDistance = 1.0;
+        pos.y = randomValue > 0.5 ? scaledRandomValue + yDistance : scaledRandomValue - yDistance;
         // pos.y = (random(vUv + vec2(uTime * 2.0)) * 2.0 - 1.0) * 1.0;
     }
 
-    // Only apply mouse interaction when clicked (uMouseMode == -1.0)
     if(-1.0 < 0.0) {
         if(dist > 0.01) {
             direction = normalize(direction);

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-import GUI from 'lil-gui';
+import { Pane } from 'tweakpane';
 import gsap from 'gsap';
-import { setupCameraGUI } from '$lib/utils/cameraGUI';
+import { setupCameraPane } from '$lib/utils/Tweakpane/utils';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -23,7 +23,8 @@ export default class Sketch {
 		this.scene = new THREE.Scene();
 		this.container = options.dom;
 
-		this.canvasSize = window.innerWidth > 1000 ? 600 : 300;
+		this.canvasSize = window.innerWidth >= 1024 ? 600 : 300;
+
 		this.width = this.canvasSize * 2;
 		this.height = this.canvasSize;
 		this.pixelRatio = Math.min(window.devicePixelRatio, 2);
@@ -34,8 +35,7 @@ export default class Sketch {
 		this.renderer.setClearColor('#070809', 1);
 		this.container.appendChild(this.renderer.domElement);
 
-		this.axesHelper = new THREE.AxesHelper(5);
-		// this.scene.add(this.axesHelper);
+		// this.scene.add(new THREE.AxesHelper(5));
 
 		this.isPlaying = true;
 		this.setupRaycaster();
@@ -50,9 +50,9 @@ export default class Sketch {
 	}
 
 	setupCamera() {
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1024);
 		this.camera.position.set(0.0, 0.0, 2.25);
-		this.camera.lookAt(0.0, 0, 0);
+		this.camera.lookAt(0, 0, 0);
 
 		// this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		// this.controls.enabled = false;
@@ -85,7 +85,6 @@ export default class Sketch {
 			if (intersects.length > 0) {
 				let point = intersects[0].point;
 				this.targetMouse.copy(point);
-				this.fboMaterial.uniforms.uMouse.value.copy(point);
 			}
 		});
 
@@ -103,16 +102,18 @@ export default class Sketch {
 	}
 
 	setupPasses() {
+		this.renderer.setSize(1200, 600);
+		this.camera.aspect = 1200 / 600;
+		this.camera.updateProjectionMatrix();
 		this.composer = new EffectComposer(this.renderer);
+
 		this.renderPass = new RenderPass(this.scene, this.camera);
 		this.composer.addPass(this.renderPass);
+		this.renderer.setSize(this.width, this.height);
+		this.camera.aspect = this.width / this.height;
+		this.camera.updateProjectionMatrix();
 
-		this.bloomPass = new UnrealBloomPass(
-			new THREE.Vector2(this.width, this.height),
-			0.7,
-			1.0,
-			0.66
-		);
+		this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1200, 600), 0.7, 0.25, 0.66);
 		this.composer.addPass(this.bloomPass);
 
 		this.afterimagePass = new AfterimagePass(0.1);
@@ -120,7 +121,7 @@ export default class Sketch {
 	}
 
 	resize() {
-		this.canvasSize = window.innerWidth > 1000 ? 600 : 300;
+		this.canvasSize = window.innerWidth >= 1024 ? 600 : 300;
 		this.width = this.canvasSize * 2;
 		this.height = this.canvasSize;
 		this.pixelRatio = Math.min(window.devicePixelRatio, 2);
@@ -128,8 +129,14 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setPixelRatio(this.pixelRatio);
 
+		this.shaderResetPointsOffset = window.innerWidth >= 1024 ? 0 : 1;
+
+		// Update camera
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
+
+		// Update the canvas size uniform
+		this.material.uniforms.uCanvasSize.value = this.canvasSize;
 	}
 
 	setupLights() {
@@ -165,6 +172,7 @@ export default class Sketch {
 		this.fboCamera.lookAt(0, 0, 0);
 		let geometry = new THREE.PlaneGeometry(2, 2);
 		this.data = new Float32Array(this.size * this.size * 4);
+		this.shaderResetPointsOffset = window.innerWidth >= 1024 ? 0 : 1;
 
 		for (let i = 0; i < this.size; i++) {
 			for (let j = 0; j < this.size; j++) {
@@ -193,15 +201,13 @@ export default class Sketch {
 			uniforms: {
 				uPositions: { value: this.fboTexture },
 				uTime: { value: 0 },
-				uMouse: { value: new THREE.Vector2(0, 0) },
-				uCurrentMouse: { value: new THREE.Vector2(0, 0) }, // Add this line
+				uCurrentMouse: { value: new THREE.Vector2(0, 0) },
 				uInfo: { value: null },
 				uMouseMode: { value: 1.0 },
-				uNoiseScale: { value: 6.0 }, // Increased scale
-				uNoiseStrength: { value: 0.025 }, // Increased strength
-				uCircularForce: { value: 0.7 },
-				uRotationSpeed: { value: 0.15 },
-				uAttractionStrength: { value: 0.4 } // Increased for stronger mouse attraction
+				uNoiseScale: { value: 6.0 },
+				uNoiseStrength: { value: 0.025 },
+				uAttractionStrength: { value: 0.4 },
+				shaderResetPointsOffset: { value: this.shaderResetPointsOffset }
 			},
 			vertexShader: simVertex,
 			fragmentShader: simFragment
@@ -248,7 +254,8 @@ export default class Sketch {
 			},
 			uniforms: {
 				uTime: { value: 0 },
-				uPositions: { value: null }
+				uPositions: { value: null },
+				uCanvasSize: { value: this.canvasSize } // Add this uniform
 			},
 			transparent: true,
 			vertexShader,
@@ -311,38 +318,48 @@ export default class Sketch {
 	}
 
 	setUpSettings() {
-		this.gui = new GUI();
-		this.controllers = {}; // Store controllers for updating
-
-		// setupLightGUI(this.pointLight2, this.gui, 'Directional Light');
-
-		// setupCameraGUI({ gui: this.gui, camera: this.camera, controls: this.controls });
+		this.pane = new Pane();
+		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
 		// Add bloom folder
-		const bloomFolder = this.gui.addFolder('Bloom Effect');
-		bloomFolder.add(this.bloomPass, 'enabled').name('Enable Bloom');
-		bloomFolder.add(this.bloomPass, 'strength', 0, 3).name('Bloom Strength');
-		bloomFolder.add(this.bloomPass, 'radius', 0, 1).name('Bloom Radius');
-		bloomFolder.add(this.bloomPass, 'threshold', 0, 1).name('Bloom Threshold');
-		bloomFolder.open();
+		const bloomFolder = this.pane.addFolder({ title: 'Bloom Effect' });
 
-		const simulationFolder = this.gui.addFolder('Simulation');
-		this.controllers.noiseScale = simulationFolder
-			.add(this.fboMaterial.uniforms.uNoiseScale, 'value', 0.1, 10.0)
-			.name('Noise Scale');
-		this.controllers.noiseStrength = simulationFolder
-			.add(this.fboMaterial.uniforms.uNoiseStrength, 'value', 0.0, 0.05)
-			.name('Noise Strength');
-		this.controllers.circularForce = simulationFolder
-			.add(this.fboMaterial.uniforms.uCircularForce, 'value', 0.0, 2.0)
-			.name('Circular Force');
-		this.controllers.rotationSpeed = simulationFolder
-			.add(this.fboMaterial.uniforms.uRotationSpeed, 'value', 0.0, 1.0)
-			.name('Rotation Speed');
-		this.controllers.attractionStrength = simulationFolder
-			.add(this.fboMaterial.uniforms.uAttractionStrength, 'value', 0.01, 0.5)
-			.name('Attraction Strength');
-		simulationFolder.open();
+		bloomFolder.addBinding(this.bloomPass, 'enabled', {
+			label: 'Enable Bloom'
+		});
+
+		bloomFolder.addBinding(this.bloomPass, 'strength', {
+			label: 'Bloom Strength',
+			min: 0,
+			max: 3
+		});
+
+		bloomFolder.addBinding(this.bloomPass, 'radius', {
+			label: 'Bloom Radius',
+			min: 0,
+			max: 1
+		});
+
+		bloomFolder.addBinding(this.bloomPass, 'threshold', {
+			label: 'Bloom Threshold',
+			min: 0,
+			max: 1
+		});
+
+		// Simulation folder
+		const simulationFolder = this.pane.addFolder({ title: 'Simulation' });
+
+		simulationFolder.addBinding(this.fboMaterial.uniforms.uNoiseScale, 'value', {
+			label: 'Noise Scale',
+			min: 0.1,
+			max: 10.0
+		});
+
+		simulationFolder.addBinding(this.fboMaterial.uniforms.uNoiseStrength, 'value', {
+			label: 'Noise Strength',
+			min: 0.0,
+			max: 0.05
+		});
 	}
 
 	render() {
@@ -375,6 +392,6 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
-		this.gui.destroy();
+		this.pane.dispose();
 	}
 }
