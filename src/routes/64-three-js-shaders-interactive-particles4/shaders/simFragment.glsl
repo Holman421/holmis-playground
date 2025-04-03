@@ -119,6 +119,7 @@ void main() {
 
     vec2 mouse = uCurrentMouse.xy;
     mouse.y += 0.05;
+    mouse *= 0.3;
     vec2 atractionPoint = mouse;
 
     vec2 direction = atractionPoint - pos.xy;

@@ -3,11 +3,12 @@ import { REVISION } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import gsap from 'gsap';
+import { Pane } from 'tweakpane';
+
 import fragment from './shader/fragment.glsl';
 import fragmentFBO from './shader/fbo.glsl';
 import vertex from './shader/vertex.glsl';
-import GUI from 'lil-gui';
-import gsap from 'gsap';
 
 export default class Sketch {
 	constructor(options) {
@@ -23,7 +24,7 @@ export default class Sketch {
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.renderer.setSize(this.width, this.height);
 		// this.renderer.setClearColor(0xeeeeee, 1);
-
+		this.clock = new THREE.Clock();
 		this.container.appendChild(this.renderer.domElement);
 
 		// this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
@@ -46,23 +47,34 @@ export default class Sketch {
 		this.pointer = new THREE.Vector2();
 		this.pointerPos = new THREE.Vector3();
 
-		// Add sourceTarget initialization
-		this.sourceTarget = new THREE.WebGLRenderTarget(this.width, this.height);
+		this.whiteTarget = new THREE.WebGLRenderTarget(this.width, this.height);
+		this.whiteScene = new THREE.Scene();
+		this.whiteBg = new THREE.Mesh(
+			new THREE.PlaneGeometry(100, 100, 1, 1),
+			new THREE.MeshBasicMaterial({ color: 0xffffff })
+		);
+
+		this.whiteScene.add(this.whiteBg);
+		this.whiteBg.position.z = -1;
 
 		this.box = new THREE.Mesh(
 			new THREE.BoxGeometry(0.3, 0.3, 0.3),
 			new THREE.MeshBasicMaterial({ color: 0x00ff00 })
 		);
-		this.scene.add(this.box);
+		this.whiteScene.add(this.box);
+
+		// Add sourceTarget initialization
+		this.sourceTarget = new THREE.WebGLRenderTarget(this.width, this.height);
 
 		this.isPlaying = true;
 		this.mouseEvents();
-		this.addObjects();
+		// this.addObjects();
 		this.addLights();
 		this.resize();
-		this.render();
 		this.setupResize();
+		this.setupPipeline();
 		this.setUpSettings();
+		this.render();
 	}
 
 	mouseEvents() {
@@ -96,11 +108,23 @@ export default class Sketch {
 	}
 
 	setUpSettings() {
+		this.pane = new Pane();
+		document.querySelector('.tp-dfwv').style.zIndex = 1000;
+
 		this.settings = {
 			progress: 0
 		};
-		this.gui = new GUI();
-		this.gui.add(this.settings, 'progress', 0, 1, 0.01).onChange((val) => {});
+
+		const ProgressFolder = this.pane.addFolder({
+			title: 'Progress Animation',
+			expanded: false
+		});
+
+		ProgressFolder.addBinding(this.settings, 'progress', {
+			label: 'Progress',
+			min: 0,
+			max: 1
+		});
 	}
 
 	setupResize() {
@@ -146,6 +170,39 @@ export default class Sketch {
 		this.scene.add(light2);
 	}
 
+	setupPipeline() {
+		this.sourceTarget = new THREE.WebGLRenderTarget(this.width, this.height);
+
+		this.targetA = new THREE.WebGLRenderTarget(this.width, this.height);
+		this.targetB = new THREE.WebGLRenderTarget(this.width, this.height);
+
+		this.renderer.setRenderTarget(this.whiteTarget);
+		this.renderer.render(this.whiteScene, this.camera);
+
+		this.fboScene = new THREE.Scene();
+		this.fboCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+		this.fboMaterial = new THREE.ShaderMaterial({
+			uniforms: {
+				time: { value: 0 },
+				tDiffuse: { value: null },
+				tPrev: { value: this.whiteTarget.texture },
+				resolution: { value: new THREE.Vector4(this.width, this.height, 1, 1) }
+			},
+			vertexShader: vertex,
+			fragmentShader: fragmentFBO
+		});
+
+		this.fboQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 1, 1), this.fboMaterial);
+		this.fboScene.add(this.fboQuad);
+
+		this.finalScene = new THREE.Scene();
+		this.finalQuad = new THREE.Mesh(
+			new THREE.PlaneGeometry(2, 2, 1, 1),
+			new THREE.MeshBasicMaterial({ map: this.targetA.texture })
+		);
+		this.finalScene.add(this.finalQuad);
+	}
+
 	stop() {
 		this.isPlaying = false;
 	}
@@ -159,17 +216,29 @@ export default class Sketch {
 
 	render() {
 		if (!this.isPlaying) return;
-		this.time += 0.05;
-		this.material.uniforms.time.value = this.time;
+		this.time = this.clock.getElapsedTime();
+		// this.material.uniforms.time.value = this.time;
 		requestAnimationFrame(this.render.bind(this));
 
-		// RENDERING THE SOURCE
+		// Rendering the source
 		this.renderer.setRenderTarget(this.sourceTarget);
 		this.renderer.render(this.scene, this.camera);
 
-		// Add final render to screen
+		// Running the ping pong
+		this.renderer.setRenderTarget(this.targetA);
+		this.renderer.render(this.fboScene, this.fboCamera);
+		this.fboMaterial.uniforms.tDiffuse.value = this.sourceTarget.texture;
+		this.fboMaterial.uniforms.tPrev.value = this.targetA.texture;
+		this.fboMaterial.uniforms.time.value = this.time;
+
+		// Rendering the final output
+		this.finalQuad.material.map = this.targetA.texture;
 		this.renderer.setRenderTarget(null);
-		this.renderer.render(this.scene, this.camera);
+		this.renderer.render(this.finalScene, this.fboCamera);
+
+		let temp = this.targetA;
+		this.targetA = this.targetB;
+		this.targetB = temp;
 	}
 }
 

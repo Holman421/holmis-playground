@@ -23,7 +23,8 @@ export default class Sketch {
 		this.scene = new THREE.Scene();
 		this.container = options.dom;
 
-		this.canvasSize = window.innerWidth >= 1024 ? 600 : 300;
+		this.isMobile = window.innerWidth < 1024;
+		this.canvasSize = this.isMobile ? 300 : 600;
 
 		this.width = this.canvasSize * 2;
 		this.height = this.canvasSize;
@@ -69,32 +70,19 @@ export default class Sketch {
 		this.targetMouse = new THREE.Vector3(0, 0, 0);
 
 		window.addEventListener('pointermove', (e) => {
-			// Only handle mouse move on larger screens
 			if (window.innerWidth >= 1024) {
-				const rect = this.renderer.domElement.getBoundingClientRect();
+				// Convert mouse position to normalized device coordinates (-1 to +1)
+				this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+				this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
-				if (
-					e.clientX >= rect.left &&
-					e.clientX <= rect.right &&
-					e.clientY >= rect.top &&
-					e.clientY <= rect.bottom
-				) {
-					const x = e.clientX - rect.left;
-					const y = e.clientY - rect.top;
+				// Update raycaster and get intersection
+				this.raycaster.setFromCamera(this.pointer, this.camera);
+				let intersects = this.raycaster.intersectObject(this.dummy);
 
-					this.pointer.x = (x / this.width) * 2 - 1;
-					this.pointer.y = -(y / this.height) * 2 + 1;
-
-					this.raycaster.setFromCamera(this.pointer, this.camera);
-
-					let intersects = this.raycaster.intersectObject(this.dummy);
-					if (intersects.length > 0) {
-						let point = intersects[0].point;
-						this.targetMouse.copy(point);
-					}
+				if (intersects.length > 0) {
+					this.targetMouse.copy(intersects[0].point);
 				}
 			} else {
-				// Set fixed center position for small screens
 				this.targetMouse.set(0, 0, 0);
 			}
 		});
@@ -113,18 +101,24 @@ export default class Sketch {
 	}
 
 	setupPasses() {
-		this.renderer.setSize(2400, 1200);
-		this.camera.aspect = 2400 / 1200;
+		this.renderer.setSize(this.canvasSize * 4, this.canvasSize * 2);
+		this.camera.aspect = (this.canvasSize * 4) / (this.canvasSize * 2);
 		this.camera.updateProjectionMatrix();
-		this.composer = new EffectComposer(this.renderer);
 
+		this.composer = new EffectComposer(this.renderer);
 		this.renderPass = new RenderPass(this.scene, this.camera);
 		this.composer.addPass(this.renderPass);
+
 		this.renderer.setSize(this.width, this.height);
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
 
-		this.bloomPass = new UnrealBloomPass(new THREE.Vector2(2400, 1200), 0.7, 0.25, 0.66);
+		this.bloomPass = new UnrealBloomPass(
+			new THREE.Vector2(this.canvasSize * 4, this.canvasSize * 2),
+			0.7,
+			0.25,
+			0.66
+		);
 		this.composer.addPass(this.bloomPass);
 
 		this.afterimagePass = new AfterimagePass(0.1);
@@ -132,7 +126,8 @@ export default class Sketch {
 	}
 
 	resize() {
-		this.canvasSize = window.innerWidth >= 1024 ? 600 : 300;
+		this.isMobile = window.innerWidth < 1024;
+		this.canvasSize = this.isMobile ? 300 : 600;
 		this.width = this.canvasSize * 2;
 		this.height = this.canvasSize;
 		this.pixelRatio = Math.min(window.devicePixelRatio, 2);
@@ -140,14 +135,22 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setPixelRatio(this.pixelRatio);
 
-		this.shaderResetPointsOffset = window.innerWidth >= 1024 ? 0 : 1;
+		this.shaderResetPointsOffset = this.isMobile ? 1 : 0;
 		this.fboMaterial.uniforms.shaderResetPointsOffset.value = this.shaderResetPointsOffset;
+		if (this.isMobile) {
+			this.fboMaterial.uniforms.uCurrentMouse.value = new THREE.Vector2(0, 0);
+		}
 		// Update camera
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
 
 		// Update the canvas size uniform
 		this.material.uniforms.uCanvasSize.value = this.canvasSize;
+
+		// Update composer
+		this.composer.setSize(this.canvasSize * 4, this.canvasSize * 2);
+		this.composer.setPixelRatio(this.pixelRatio);
+		this.bloomPass.resolution.set(this.canvasSize * 4, this.canvasSize * 2);
 	}
 
 	setupLights() {

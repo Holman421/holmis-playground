@@ -27,6 +27,7 @@ export default class Sketch {
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
 
+		this.clock = new THREE.Clock();
 		this.isPlaying = true;
 		this.setupEvents();
 		this.setupLights();
@@ -87,7 +88,7 @@ export default class Sketch {
 
 	render() {
 		if (!this.isPlaying) return;
-		this.time += 0.05;
+		this.time = this.clock.getElapsedTime();
 
 		this.controls.update();
 		this.renderer.render(this.scene, this.camera);
