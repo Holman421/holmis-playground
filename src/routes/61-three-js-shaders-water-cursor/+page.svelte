@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Sketch from './utils';
+	import Sketch from './app';
 
 	$effect(() => {
 		const sketch = new Sketch({

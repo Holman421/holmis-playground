@@ -47,11 +47,11 @@
 	<div
 		class="w-[600px] h-[300px] lg:w-[1200px] lg:h-[600px] flex absolute z-10"
 		style="background: linear-gradient(to bottom, #070809 0%, transparent 10%, transparent 90%, #070809 100%), linear-gradient(to left, #070809 0%, transparent 10%, transparent 90%, #070809 100%)"
-		role="presentation"
-		onmousemove={handleMouseMove}
 	>
 		<div
 			class="absolute size-full justify-between left-1/2 top-1/2 text-center -translate-y-1/2 -translate-x-1/2 flex flex-col items-center"
+			role="presentation"
+			onmousemove={handleMouseMove}
 		>
 			<Button
 				text="Wonder Makers"

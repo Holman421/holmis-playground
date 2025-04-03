@@ -113,8 +113,8 @@ export default class Sketch {
 	}
 
 	setupPasses() {
-		this.renderer.setSize(1200, 600);
-		this.camera.aspect = 1200 / 600;
+		this.renderer.setSize(2400, 1200);
+		this.camera.aspect = 2400 / 1200;
 		this.camera.updateProjectionMatrix();
 		this.composer = new EffectComposer(this.renderer);
 
@@ -124,7 +124,7 @@ export default class Sketch {
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
 
-		this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1200, 600), 0.7, 0.25, 0.66);
+		this.bloomPass = new UnrealBloomPass(new THREE.Vector2(2400, 1200), 0.7, 0.25, 0.66);
 		this.composer.addPass(this.bloomPass);
 
 		this.afterimagePass = new AfterimagePass(0.1);
