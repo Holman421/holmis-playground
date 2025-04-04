@@ -123,6 +123,7 @@ export default class Sketch {
 		this.pane = new Pane({
 			title: 'Controls'
 		});
+		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
 		// Store reference to the controller
 		const progressInput = this.pane.addBinding(this.material.uniforms.uProgress, 'value', {

@@ -41,6 +41,7 @@
 		"@tweakpane/core": "^2.0.5",
 		"@types/cannon": "^0.1.13",
 		"@types/three": "^0.171.0",
+		"@vercel/analytics": "^1.5.0",
 		"@vercel/speed-insights": "^1.2.0",
 		"bits-ui": "^0.21.16",
 		"cannon": "^0.6.2",

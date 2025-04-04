@@ -61,7 +61,7 @@ export default class Sketch {
 			new THREE.BoxGeometry(0.3, 0.3, 0.3),
 			new THREE.MeshBasicMaterial({ color: 0x00ff00 })
 		);
-		this.whiteScene.add(this.box);
+		// this.whiteScene.add(this.box);
 
 		// Add sourceTarget initialization
 		this.sourceTarget = new THREE.WebGLRenderTarget(this.width, this.height);
@@ -89,12 +89,21 @@ export default class Sketch {
 		this.scene.add(this.raycastPlane);
 
 		this.dummy = new THREE.Mesh(
-			new THREE.SphereGeometry(0.05, 30, 30),
+			// new THREE.PlaneGeometry(0.4, 0.4, 20, 20),
+			new THREE.CircleGeometry(0.05, 32),
 			new THREE.MeshBasicMaterial({
-				color: 0xffffff
+				color: 0xffffff,
+				// map: new THREE.TextureLoader().load('./textures/ball.png'),
+				transparent: true
 			})
 		);
 		this.scene.add(this.dummy);
+
+		// Store the target position the cursor should move towards
+		this.targetPosition = new THREE.Vector3();
+		// Set initial position to match dummy
+		this.targetPosition.copy(this.dummy.position);
+
 		window.addEventListener('mousemove', (e) => {
 			this.pointer.x = (e.clientX / this.width) * 2 - 1;
 			this.pointer.y = -((e.clientY - 56) / this.height) * 2 + 1;
@@ -102,7 +111,8 @@ export default class Sketch {
 			this.raycaster.setFromCamera(this.pointer, this.camera);
 			const intersects = this.raycaster.intersectObjects([this.raycastPlane]);
 			if (intersects.length > 0) {
-				this.dummy.position.copy(intersects[0].point);
+				// Only update the target position, don't move the dummy yet
+				this.targetPosition.copy(intersects[0].point);
 			}
 		});
 	}
@@ -218,6 +228,11 @@ export default class Sketch {
 		if (!this.isPlaying) return;
 		this.time = this.clock.getElapsedTime();
 		// this.material.uniforms.time.value = this.time;
+
+		// Apply smooth lerping between current position and target position
+		const lerpFactor = 0.075; // Adjust this value between 0-1 (smaller = smoother but slower)
+		this.dummy.position.lerp(this.targetPosition, lerpFactor);
+
 		requestAnimationFrame(this.render.bind(this));
 
 		// Rendering the source

@@ -104,7 +104,12 @@ void main() {
     floodColor = blendDarken(floodColor, texel4.rgb);
     floodColor = blendDarken(floodColor, texel5.rgb);
 
-    vec3 waterColor = blendDarken(prev.rgb, floodColor * 1.02, 0.3);
+    vec3 gradient = hsl2rgb(fract(time * 0.1), 0.65, 0.65);
+    vec3 lColor = mix(vec3(1.0), gradient, color.r);
 
-    gl_FragColor = vec4(waterColor, 1.0);
+    vec3 waterColor = blendDarken(prev.rgb, floodColor * 1.02, 0.6);
+
+    vec3 finalColor = blendDarken(waterColor, lColor, 1.0);
+
+    gl_FragColor = vec4(min(bgColor, finalColor * 1.01 + 0.001), 1.0);
 }
