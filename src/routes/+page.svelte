@@ -6,52 +6,59 @@
 	import { goto } from '$app/navigation';
 	import gsap from 'gsap';
 
+	// Helper function to determine media type from file extension
+	function getMediaType(src: string): 'image' | 'video' {
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi'];
+		const lowerSrc = src.toLowerCase();
+		return videoExtensions.some((ext) => lowerSrc.endsWith(ext)) ? 'video' : 'image';
+	}
+
+	// Reactive state
+	let showAllProjects = $state($page.url.searchParams.get('view') === 'all');
+	let showNextTuesdayProjects = $state($page.url.searchParams.get('view') === 'next');
+
+	// Filtered project lists
+	const filteredProjects = projects.filter((p) => p.shared);
+	const projectsForNextTuesday = projects.filter((p) => p.isForNextTuesday);
+	const allProjects = projects;
+
+	// Derived reactive projects
+	const currentProjects = $derived(
+		showNextTuesdayProjects
+			? projectsForNextTuesday
+			: showAllProjects
+				? allProjects
+				: filteredProjects
+	);
+
+	// Animation effect (re-runs when filters change)
 	$effect(() => {
-		const cards = document.querySelectorAll('#projectCardWrapper');
-		gsap.fromTo(
+		// Track filter states to trigger re-runs
+		showAllProjects;
+		showNextTuesdayProjects;
+
+		const cards = document.querySelectorAll('.project-card'); // Use a class instead of ID
+		const animation = gsap.fromTo(
 			cards,
-			{
-				opacity: 0,
-				y: 50
-			},
+			{ opacity: 0, y: 50 },
 			{
 				opacity: 1,
 				y: 0,
 				ease: 'back.out(1.2)',
-				stagger: {
-					each: 0.05,
-					from: 'start'
-				}
+				stagger: { each: 0.05, from: 'start' },
+				duration: 0.5
 			}
 		);
+
+		return () => animation.kill(); // Cleanup
 	});
 
-	// Initialize state from URL parameters
-	let showAllProjects = $state($page.url.searchParams.get('view') === 'all');
-	let showNextTuesdayProjects = $state($page.url.searchParams.get('view') === 'next');
-
+	// Update URL and state
 	function updateURL(view: string | null) {
 		const url = new URL(window.location.href);
-		if (view) {
-			url.searchParams.set('view', view);
-		} else {
-			url.searchParams.delete('view');
-		}
+		view ? url.searchParams.set('view', view) : url.searchParams.delete('view');
 		goto(url.toString(), { replaceState: true });
 	}
-
-	const filteredProjects = projects.filter((project) => project.shared);
-	const projectsForNextTuesday = projects.filter((project) => project.isForNextTuesday);
-	const allProjects = projects;
-	let currentProjects = $derived(() => {
-		if (showNextTuesdayProjects) {
-			return projectsForNextTuesday;
-		} else if (showAllProjects) {
-			return allProjects;
-		} else {
-			return filteredProjects;
-		}
-	});
 </script>
 
 <div class="w-full flex justify-center mt-10 gap-5 flex-col sm:flex-row items-center relative">
@@ -86,18 +93,25 @@
 		New projects
 	</Button>
 	<div class="absolute top-auto -bottom-10 translate-x-1/2 right-1/2">
-		Project Counter: {currentProjects().length}
+		Project Counter: {currentProjects.length}
 	</div>
 </div>
+
+<!-- Animated project grid -->
 <div class="text-black mx-auto mt-16 flex gap-8 flex-wrap w-full justify-center p-4">
-	{#each currentProjects() as { href, title, description, technologies, imgSrc, usedInRealProject }}
+	{#each currentProjects as { href, title, description, technologies, imgSrc, usedInRealProject }}
 		<ProjectCard
 			{href}
 			{title}
 			{description}
 			{technologies}
-			{imgSrc}
 			usedInRealProject={usedInRealProject ?? false}
-		/>
+		>
+			{#if getMediaType(imgSrc) === 'video'}
+				<video src={imgSrc} muted loop preload="metadata"></video>
+			{:else}
+				<img src={imgSrc} alt="Project thumbnail" />
+			{/if}
+		</ProjectCard>
 	{/each}
 </div>

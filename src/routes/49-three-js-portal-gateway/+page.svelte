@@ -636,12 +636,15 @@
 		camera.position.set(-0, 0, 12);
 		scene.add(camera);
 
-		setupCameraGUI(camera, gui);
-
 		// Controls
 		const controls = new OrbitControls(camera, canvas);
 		controls.enableDamping = true;
 
+		setupCameraGUI({
+			gui,
+			camera,
+			controls
+		});
 		// Add smooth camera movement function
 		const moveCameraToCenter = () => {
 			gsap.to(camera.position, {

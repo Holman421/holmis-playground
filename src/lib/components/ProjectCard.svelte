@@ -3,12 +3,11 @@
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 
-	const { title, description, href, technologies, imgSrc, usedInRealProject } = $props<{
+	const { title, description, href, technologies, usedInRealProject } = $props<{
 		title: string;
 		description: string;
 		href: string;
 		technologies: string[];
-		imgSrc: string;
 		usedInRealProject: boolean;
 	}>();
 
@@ -88,10 +87,23 @@
 
 		cardElement.addEventListener('mouseenter', () => {
 			gooEffect.set(10);
+
+			// Find video elements in slots and play them
+			const videos = cardElement.querySelectorAll('video');
+			videos.forEach((video) => {
+				video.play().catch((err) => console.error('Error playing video:', err));
+			});
 		});
 
 		cardElement.addEventListener('mouseleave', () => {
 			gooEffect.set(1);
+
+			// Find video elements in slots and pause them
+			const videos = cardElement.querySelectorAll('video');
+			videos.forEach((video) => {
+				video.pause();
+				video.currentTime = 0;
+			});
 		});
 
 		return () => {
@@ -100,7 +112,7 @@
 	});
 </script>
 
-<div bind:this={cardElement} id="projectCardWrapper">
+<div bind:this={cardElement} id="projectCardWrapper" class="project-card">
 	<a {href}>
 		<div id="cardBorderEffect-{uniqueId}">
 			<div id="cardGooEffect-{uniqueId}">
@@ -112,13 +124,8 @@
 						<h3 class="main-text font-audiowide">{title}</h3>
 						<div class="flex justify-between">
 							<p class="secondary-text font-exo2 w-[60%]">{description}</p>
-							<div class="w-[38%] aspect-square translate-x-3 -translate-y-2">
-								<img
-									src={imgSrc}
-									alt="Project thumbnail"
-									class="object-fill w-full h-full"
-									style="mask-image: radial-gradient(ellipse at center, black 95%, transparent 70%);"
-								/>
+							<div class="w-[38%] aspect-square translate-x-3 -translate-y-2 media-container">
+								<slot />
 							</div>
 						</div>
 					</div>
@@ -160,5 +167,13 @@
 			0 calc(100% - 1rem)
 		);
 		background: black;
+	}
+
+	.media-container :global(img),
+	.media-container :global(video) {
+		object-fit: fill;
+		width: 100%;
+		height: 100%;
+		mask-image: radial-gradient(ellipse at center, black 95%, transparent 70%);
 	}
 </style>
