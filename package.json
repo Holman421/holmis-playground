@@ -37,6 +37,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@dimforge/rapier3d-compat": "^0.16.0",
 		"@studio-freight/lenis": "^1.0.42",
 		"@tweakpane/core": "^2.0.5",
 		"@types/cannon": "^0.1.13",

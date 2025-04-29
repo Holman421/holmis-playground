@@ -13,6 +13,36 @@
 		return videoExtensions.some((ext) => lowerSrc.endsWith(ext)) ? 'video' : 'image';
 	}
 
+	// Mobile detection
+	let isMobile = $state(false);
+
+	// Check if device is mobile on component mount
+	function checkMobile() {
+		isMobile = window.innerWidth <= 768;
+	}
+
+	// Run on mount and when window resizes
+	$effect(() => {
+		checkMobile();
+
+		const handleResize = () => {
+			checkMobile();
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => {
+			window.removeEventListener('resize', handleResize);
+		};
+	});
+
+	// Transform video URLs to static image URLs for mobile
+	function getOptimizedSrc(src: string): string {
+		if (isMobile && src.toLowerCase().endsWith('.mp4')) {
+			return src.replace('.mp4', '.png');
+		}
+		return src;
+	}
+
 	// Reactive state
 	let showAllProjects = $state($page.url.searchParams.get('view') === 'all');
 	let showNextTuesdayProjects = $state($page.url.searchParams.get('view') === 'next');
@@ -107,10 +137,10 @@
 			{technologies}
 			usedInRealProject={usedInRealProject ?? false}
 		>
-			{#if getMediaType(imgSrc) === 'video'}
-				<video src={imgSrc} muted loop preload="metadata"></video>
+			{#if getMediaType(getOptimizedSrc(imgSrc)) === 'video'}
+				<video src={getOptimizedSrc(imgSrc)} muted loop preload="metadata"></video>
 			{:else}
-				<img src={imgSrc} alt="Project thumbnail" />
+				<img src={getOptimizedSrc(imgSrc)} alt="Project thumbnail" />
 			{/if}
 		</ProjectCard>
 	{/each}

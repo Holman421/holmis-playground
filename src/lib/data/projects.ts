@@ -560,5 +560,23 @@ export const projects = [
 		shared: true,
 		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/particles-4.mp4'
+	},
+	{
+		href: '/65-three-js-shaders-ribbons',
+		title: 'Ribbons Plane',
+		description: 'Plane seperated into ribbons with animated shader effect',
+		technologies: ['THREE.js'],
+		shared: false,
+		isForNextTuesday: false,
+		imgSrc: '/projectThumbnails/particles-4.mp4'
+	},
+	{
+		href: '/66-three-js-rapier',
+		title: 'Experimenting with rapier',
+		description: '',
+		technologies: ['THREE.js'],
+		shared: false,
+		isForNextTuesday: false,
+		imgSrc: '/projectThumbnails/particles-4.mp4'
 	}
 ];

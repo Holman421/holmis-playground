@@ -22,7 +22,7 @@ export default class Sketch {
 		this.container.appendChild(this.renderer.domElement);
 
 		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
-		this.camera.position.set(0, 0, 3);
+		this.camera.position.set(0, 1, 3);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.time = 0;
@@ -56,34 +56,36 @@ export default class Sketch {
 		const ambientLight = new THREE.AmbientLight(0xffffff, 1);
 		this.scene.add(ambientLight);
 
-		const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
-		directionalLight.position.set(1, 1, 1);
+		const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+		directionalLight.position.set(0.5, 2, 0.86);
 		this.scene.add(directionalLight);
 	}
 
 	addObjects() {
-		this.material = new THREE.ShaderMaterial({
-			vertexShader,
-			fragmentShader,
+		this.mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+		this.geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
+
+		this.plane = new THREE.Mesh(this.geometry, this.mat);
+		this.scene.add(this.plane);
+
+		let floorGeometry = new THREE.PlaneGeometry(30, 30, 200, 200).rotateX(-Math.PI / 2);
+		let floorMaterial = new THREE.MeshStandardMaterial({
 			side: THREE.DoubleSide
 		});
-
-		this.geometry = new THREE.PlaneGeometry(2, 2);
-		this.mesh = new THREE.Mesh(this.geometry, this.material);
-		this.mesh.position.set(0, 0, 0);
-		this.scene.add(this.mesh);
+		let floor = new THREE.Mesh(floorGeometry, floorMaterial);
+		this.scene.add(floor);
 	}
 
 	setUpSettings() {
 		this.pane = new Pane();
 		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
-		setupCameraPane({
-			camera: this.camera,
-			pane: this.pane,
-			controls: this.controls,
-			scene: this.scene
-		});
+		// setupCameraPane({
+		// 	camera: this.camera,
+		// 	pane: this.pane,
+		// 	controls: this.controls,
+		// 	scene: this.scene
+		// });
 	}
 
 	render() {

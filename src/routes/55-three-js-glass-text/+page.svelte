@@ -4,6 +4,7 @@
 	import { setupCameraGUI } from '$lib/utils/cameraGUI';
 	import gsap from 'gsap';
 	import { createGlassTextDisplay } from './utils';
+	import { onDestroy } from 'svelte';
 
 	let isAnimatedIn = $state(false);
 	let isLoading = $state(true);
@@ -12,6 +13,7 @@
 	let glassText2: Awaited<ReturnType<typeof createGlassTextDisplay>>;
 	let glassText3: Awaited<ReturnType<typeof createGlassTextDisplay>>;
 	let animationFrameId: number;
+	let autoRotationInterval: NodeJS.Timeout | number;
 
 	let heading1: HTMLElement;
 	let heading2: HTMLElement;
@@ -196,6 +198,17 @@
 
 			isLoading = false;
 
+			// Start auto-rotation after loading
+			autoRotationInterval = setInterval(() => {
+				if (!isLoading) {
+					const nextId = activeGroupId === null ? 1 : activeGroupId >= 3 ? 1 : activeGroupId + 1;
+					const glass = [glassText1, glassText2, glassText3][nextId - 1];
+					if (glass) {
+						handleGroupClick(glass);
+					}
+				}
+			}, 4000);
+
 			// Lights
 			const directionalLight1 = new THREE.DirectionalLight('#e1fc06', 2.5);
 			directionalLight1.position.set(1.6, -8.6, -5.2);
@@ -335,6 +348,7 @@
 		return () => {
 			gui.destroy();
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+			clearInterval(autoRotationInterval);
 		};
 	});
 
@@ -352,6 +366,11 @@
 				}
 			}
 		}
+	});
+
+	// Clean up interval on component destruction
+	onDestroy(() => {
+		clearInterval(autoRotationInterval);
 	});
 </script>
 
@@ -414,6 +433,9 @@
 		</h2>
 	</button>
 	<canvas class="webgl"></canvas>
+	<div
+		class="size-[750px] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border"
+	></div>
 </div>
 
 <style>

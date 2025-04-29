@@ -285,7 +285,7 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.gui = new GUI();
-		this.gui.hide();
+		// this.gui.hide();
 		this.controllers = {}; // Store controllers for updating
 
 		const simulationFolder = this.gui.addFolder('Simulation');
