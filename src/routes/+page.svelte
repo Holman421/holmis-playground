@@ -62,26 +62,26 @@
 	);
 
 	// Animation effect (re-runs when filters change)
-	$effect(() => {
-		// Track filter states to trigger re-runs
-		showAllProjects;
-		showNextTuesdayProjects;
+	// $effect(() => {
+	// 	// Track filter states to trigger re-runs
+	// 	showAllProjects;
+	// 	showNextTuesdayProjects;
 
-		const cards = document.querySelectorAll('.project-card'); // Use a class instead of ID
-		const animation = gsap.fromTo(
-			cards,
-			{ opacity: 0, y: 50 },
-			{
-				opacity: 1,
-				y: 0,
-				ease: 'back.out(1.2)',
-				stagger: { each: 0.05, from: 'start' },
-				duration: 0.5
-			}
-		);
+	// 	const cards = document.querySelectorAll('.project-card'); // Use a class instead of ID
+	// 	const animation = gsap.fromTo(
+	// 		cards,
+	// 		{ opacity: 0, y: 50 },
+	// 		{
+	// 			opacity: 1,
+	// 			y: 0,
+	// 			ease: 'back.out(1.2)',
+	// 			stagger: { each: 0.05, from: 'start' },
+	// 			duration: 0.5
+	// 		}
+	// 	);
 
-		return () => animation.kill(); // Cleanup
-	});
+	// 	return () => animation.kill(); // Cleanup
+	// });
 
 	// Update URL and state
 	function updateURL(view: string | null) {

@@ -567,16 +567,25 @@ export const projects = [
 		description: 'Plane seperated into ribbons with animated shader effect',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
+		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/particles-4.mp4'
 	},
 	{
 		href: '/66-three-js-rapier',
-		title: 'Experimenting with rapier',
-		description: '',
+		title: 'Rapier Experimentation',
+		description: 'Testing rapier physics engine with Three.js',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/particles-4.mp4'
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/rapier.mp4'
+	},
+	{
+		href: '/67-gsap-flip',
+		title: 'Tile highlight',
+		description: 'Tile highlight animation with smoothly transforming shape',
+		technologies: ['THREE.js'],
+		shared: false,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/gsap-flip.mp4'
 	}
 ];
