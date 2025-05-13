@@ -371,7 +371,7 @@ export const projects = [
 		title: 'Raymarching shapes',
 		description: 'Simple 2D html animated shapes that merge into themselfs',
 		technologies: ['THREE.js'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/raymarching-shapes.mp4'
 	},
 	{
@@ -396,7 +396,7 @@ export const projects = [
 		title: 'Button hover effect',
 		description: 'Cool button hover effect',
 		technologies: ['THREE.js'],
-		shared: true,
+		shared: false,
 		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/button-hover.mp4'
 	},
@@ -423,7 +423,7 @@ export const projects = [
 		title: 'Css inverted border',
 		description: 'Shapes with inverted borders using svg masks',
 		technologies: ['THREE.js'],
-		shared: true,
+		shared: false,
 		isForNextTuesday: false,
 		imgSrc: '/projectThumbnails/inverted-border.png'
 	},

@@ -1,195 +1,59 @@
 <script lang="ts">
 	import * as THREE from 'three';
-	import { onDestroy } from 'svelte';
-	import GUI from 'lil-gui';
+	import { onDestroy, onMount } from 'svelte';
 	import gsap from 'gsap';
-	import {
-		DRACOLoader,
-		EffectComposer,
-		GLTFLoader,
-		RenderPass,
-		RGBELoader,
-		ShaderPass
-	} from 'three/examples/jsm/Addons.js';
+	import { ScrollTrigger } from 'gsap/ScrollTrigger';
 	import bigSphereFragmentShader from './shaders/bigSphere/fragment.glsl';
 	import bigSpereVertexShader from './shaders/bigSphere/vertex.glsl';
-	import smallSphereFragmentShader from './shaders/smallSphere/fragment.glsl';
-	import smallSphereVertexShader from './shaders/smallSphere/vertex.glsl';
+	import { EffectComposer, RenderPass, ShaderPass } from 'three/examples/jsm/Addons.js';
 	import { DotScreenShader } from './shaders/postprocessing/vertex';
-	import { setupCameraMovement } from '$lib/utils/cameraMovementSetUp';
 
 	$effect(() => {
-		// Base
-		const gui = new GUI({ width: 325 });
-		const debugObject: any = {
-			randomizeColors: () => {
-				// Generate random colors
-				const color1 = new THREE.Color(Math.random(), Math.random(), Math.random());
-				const color2 = new THREE.Color(Math.random(), Math.random(), Math.random());
-				const color3 = new THREE.Color(Math.random(), Math.random(), Math.random());
+		// Register the ScrollTrigger plugin
+		gsap.registerPlugin(ScrollTrigger);
 
-				// Update uniforms
-				material.uniforms.uBaseFirstColor.value = color1;
-				material.uniforms.uBaseSecondColor.value = color2;
-				material.uniforms.uAccentColor.value = color3;
+		// Define colors once to keep them consistent across all sections
+		const shaderColors = {
+			baseFirstColor: new THREE.Color(41 / 255, 196 / 255, 206 / 255), // #29C4CE
+			baseSecondColor: new THREE.Color(206 / 255, 108 / 255, 41 / 255), // #CF6C29
+			accentColor: new THREE.Color(0, 0, 0) // black
+		};
 
-				// Update GUI controllers
-				colorsFolder.controllers.forEach((controller) => {
-					controller.updateDisplay();
-				});
+		// Section-specific shader configurations (without colors)
+		const sectionConfigs = [
+			{
+				// Section 1
+				noiseScale: 2.0,
+				noiseSpeed: 0.3,
+				patternFrequency: 5.0,
+				firstOffset: 0.0,
+				secondOffset: 0.5
 			},
-			isAnimated: false,
-			triggerAnimation: () => {
-				// Toggle animation state
-				debugObject.isAnimated = !debugObject.isAnimated;
-
-				// Animate to new or initial position based on state
-				gsap.to(material.uniforms.uPatternFrequency, {
-					value: debugObject.isAnimated ? 1 : 10.0,
-					duration: 2,
-					ease: 'power2.out'
-				});
-
-				gsap.to(mesh2.position, {
-					x: debugObject.isAnimated ? -0.74 : 0.3,
-					y: debugObject.isAnimated ? -0.06 : 0.21,
-					z: debugObject.isAnimated ? -0.84 : 0.16,
-					duration: 2,
-					ease: 'power2.out'
-				});
+			{
+				// Section 2
+				noiseScale: 4.0,
+				noiseSpeed: 0.4,
+				patternFrequency: 10.0,
+				firstOffset: 0.0,
+				secondOffset: 0.25
+			},
+			{
+				// Section 3
+				noiseScale: 1.5,
+				noiseSpeed: 0.3,
+				patternFrequency: 5.0,
+				firstOffset: 0.0,
+				secondOffset: 0.0
+			},
+			{
+				// Section 4
+				noiseScale: 3.0,
+				noiseSpeed: 0.2,
+				patternFrequency: 20.0,
+				firstOffset: 0.0,
+				secondOffset: 1.5
 			}
-		};
-		// gui.hide();
-
-		// Canvas
-		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
-
-		// Scene
-		const scene = new THREE.Scene();
-
-		// Loaders
-		const rgbeLoader = new RGBELoader();
-		const dracoLoader = new DRACOLoader();
-		dracoLoader.setDecoderPath('./draco/');
-		const gltfLoader = new GLTFLoader();
-		gltfLoader.setDRACOLoader(dracoLoader);
-
-		// Plane
-		const addObjects = () => {
-			const material = new THREE.ShaderMaterial({
-				vertexShader: bigSpereVertexShader,
-				fragmentShader: bigSphereFragmentShader,
-				uniforms: {
-					uTime: { value: 0 },
-					uResolution: { value: new THREE.Vector2() },
-					uMouse: { value: new THREE.Vector2() },
-					uBaseFirstColor: { value: new THREE.Color(120 / 255, 158 / 255, 113 / 255) },
-					uBaseSecondColor: { value: new THREE.Color(224 / 255, 148 / 255, 66 / 255) },
-					uAccentColor: { value: new THREE.Color(0, 0, 0) },
-					uNoiseSpeed: { value: 0.4 },
-					uNoiseScale: { value: 1.0 },
-					uPatternFrequency: { value: 10.0 },
-					uFirstOffset: { value: 0.5 },
-					uSecondOffset: { value: 2.0 } // Changed initial value to 2.0
-				},
-				side: THREE.DoubleSide
-			});
-
-			const geometry = new THREE.SphereGeometry(1, 32, 32, 32);
-			const mesh = new THREE.Mesh(geometry, material);
-			scene.add(mesh);
-
-			const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, {
-				format: THREE.RGBFormat,
-				generateMipmaps: true,
-				minFilter: THREE.LinearMipmapLinearFilter
-				// encoding: THREE.sRGBEncoding
-			});
-
-			const cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget);
-
-			let geometry2 = new THREE.SphereGeometry(0.4, 64, 64, 64);
-			let material2 = new THREE.ShaderMaterial({
-				vertexShader: smallSphereVertexShader,
-				fragmentShader: smallSphereFragmentShader,
-				uniforms: {
-					uTime: { value: 0 },
-					uCube: { value: 0 },
-					uResolution: { value: new THREE.Vector2() },
-					uMouse: { value: new THREE.Vector2() },
-					uRefractionRatio: { value: 1.02 },
-					uFresnelBias: { value: 0.1 },
-					uFresnelScale: { value: 4.0 },
-					uFresnelPower: { value: 2.0 }
-				},
-				side: THREE.DoubleSide
-			});
-			let mesh2 = new THREE.Mesh(geometry2, material2);
-			mesh2.position.set(0.3, 0.21, 0.16);
-			scene.add(mesh2);
-
-			return { material, mesh, material2, mesh2, cubeCamera, cubeRenderTarget };
-		};
-
-		const { material, mesh, material2, mesh2, cubeCamera, cubeRenderTarget } = addObjects();
-
-		// Add initial GSAP animation
-		gsap.to(material.uniforms.uSecondOffset, {
-			value: 0.1,
-			duration: 2
-		});
-
-		// Add animation control to GUI
-		gui.add(debugObject, 'triggerAnimation').name('Trigger Animation');
-
-		// Add GUI controls for mesh2 position
-		const mesh2Position = gui.addFolder('Small Sphere Position');
-		mesh2Position.close();
-		mesh2Position.add(mesh2.position, 'x').min(-3).max(3).step(0.01).name('X Position');
-		mesh2Position.add(mesh2.position, 'y').min(-3).max(3).step(0.01).name('Y Position');
-		mesh2Position.add(mesh2.position, 'z').min(-3).max(3).step(0.01).name('Z Position');
-
-		// Add GUI controls for shader parameters
-		const shaderParams = gui.addFolder('Shader Parameters');
-		shaderParams.close();
-		shaderParams
-			.add(material2.uniforms.uRefractionRatio, 'value', 0.5, 2.0, 0.01)
-			.name('Refraction Ratio');
-		shaderParams.add(material2.uniforms.uFresnelBias, 'value', 0.0, 1.0, 0.01).name('Fresnel Bias');
-		shaderParams
-			.add(material2.uniforms.uFresnelScale, 'value', 0.0, 10.0, 0.1)
-			.name('Fresnel Scale');
-		shaderParams
-			.add(material2.uniforms.uFresnelPower, 'value', 0.0, 5.0, 0.1)
-			.name('Fresnel Power');
-
-		// Add GUI controls for colors
-		const colorsFolder = gui.addFolder('Colors');
-		colorsFolder.addColor(material.uniforms.uBaseFirstColor, 'value').name('Base First Color');
-		colorsFolder.addColor(material.uniforms.uBaseSecondColor, 'value').name('Base Second Color');
-		colorsFolder.addColor(material.uniforms.uAccentColor, 'value').name('Accent Color');
-		colorsFolder.add(debugObject, 'randomizeColors').name('Random Colors');
-
-		// Add GUI controls for pattern parameters
-		const patternFolder = gui.addFolder('Pattern Controls');
-		patternFolder.close();
-		patternFolder.add(material.uniforms.uNoiseSpeed, 'value', 0.1, 2.0, 0.1).name('Noise Speed');
-		patternFolder.add(material.uniforms.uNoiseScale, 'value', 0.1, 5.0, 0.1).name('Noise Scale');
-		patternFolder
-			.add(material.uniforms.uPatternFrequency, 'value', 1.0, 20.0, 0.5)
-			.name('Pattern Frequency');
-		patternFolder
-			.add(material.uniforms.uFirstOffset, 'value', 0.0, 2.0, 0.1)
-			.name('First Pattern Offset');
-		patternFolder
-			.add(material.uniforms.uSecondOffset, 'value', 0.0, 2.0, 0.1)
-			.name('Second Pattern Offset');
-
-		// // Lights
-		// const directionalLight = new THREE.DirectionalLight('#ffffff', 4);
-		// directionalLight.position.set(6.25, 3, 4);
-		// scene.add(directionalLight);
-
+		];
 		// Sizes
 		const sizes = {
 			width: window.innerWidth,
@@ -197,25 +61,18 @@
 			pixelRatio: Math.min(window.devicePixelRatio, 2)
 		};
 
-		window.addEventListener('resize', () => {
-			// Update sizes
-			sizes.width = window.innerWidth;
-			sizes.height = window.innerHeight - 56;
-			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
+		// Animation state tracking
+		const state = {
+			currentSection: 1,
+			scrollProgress: 0,
+			progressScale: 0
+		};
 
-			// Update camera
-			camera.aspect = sizes.width / sizes.height;
-			camera.updateProjectionMatrix();
+		// Canvas and scene setup
+		const canvas = document.querySelector('canvas.webgl') as HTMLCanvasElement;
+		const scene = new THREE.Scene();
 
-			// Update renderer
-			renderer.setSize(sizes.width, sizes.height);
-			renderer.setPixelRatio(sizes.pixelRatio);
-
-			// Update composer
-			composer.setSize(sizes.width, sizes.height);
-		});
-
-		// Mouse movement
+		// Mouse tracking for interactive effects
 		const mouse = {
 			x: 0,
 			y: 0,
@@ -223,87 +80,261 @@
 			targetY: 0
 		};
 
+		// Create the shader material and mesh
+		const createShaderPlane = () => {
+			const initialConfig = sectionConfigs[0];
+
+			const material = new THREE.ShaderMaterial({
+				vertexShader: bigSpereVertexShader,
+				fragmentShader: bigSphereFragmentShader,
+				uniforms: {
+					uTime: { value: 0 },
+					uResolution: { value: new THREE.Vector2(sizes.width, sizes.height) },
+					uMouse: { value: new THREE.Vector2(0, 0) },
+					uBaseFirstColor: { value: shaderColors.baseFirstColor.clone() },
+					uBaseSecondColor: { value: shaderColors.baseSecondColor.clone() },
+					uAccentColor: { value: shaderColors.accentColor.clone() },
+					uNoiseSpeed: { value: initialConfig.noiseSpeed },
+					uNoiseScale: { value: initialConfig.noiseScale },
+					uPatternFrequency: { value: initialConfig.patternFrequency },
+					uFirstOffset: { value: initialConfig.firstOffset },
+					uSecondOffset: { value: initialConfig.secondOffset }
+				},
+				side: THREE.DoubleSide
+			});
+
+			const geometry = new THREE.PlaneGeometry(5, 3, 32, 32);
+			const mesh = new THREE.Mesh(geometry, material);
+			mesh.position.z = -0.5;
+			scene.add(mesh);
+
+			return { material, mesh };
+		};
+
+		const { material, mesh } = createShaderPlane(); // Initialize shader with first section values
+		const applyShaderConfig = (config) => {
+			material.uniforms.uNoiseScale.value = config.noiseScale;
+			material.uniforms.uPatternFrequency.value = config.patternFrequency;
+			material.uniforms.uFirstOffset.value = config.firstOffset;
+			material.uniforms.uSecondOffset.value = config.secondOffset;
+			material.uniforms.uNoiseSpeed.value = config.noiseSpeed;
+		};
+
+		// Mouse movement tracking
 		window.addEventListener('mousemove', (event) => {
 			// Convert mouse position to normalized coordinates (-1 to 1)
 			mouse.targetX = (event.clientX / sizes.width - 0.5) * 2;
 			mouse.targetY = (event.clientY / sizes.height - 0.5) * 2;
 		});
 
-		// Camera
+		// Camera and Renderer setup
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
 		camera.position.set(0, 0, 1);
 		scene.add(camera);
 
-		// Setup camera movement
-		const cameraMovement = setupCameraMovement(
-			camera,
-			scene.position,
-			{
-				smoothFactor: 0.05,
-				xSensitivity: 0.175,
-				ySensitivity: 0.1,
-				basePosition: { x: 0, y: 0, z: 1 }
-			},
-			true
-		);
-
-		// Renderer
 		const renderer = new THREE.WebGLRenderer({
 			canvas: canvas,
-			antialias: true
+			antialias: true,
+			alpha: false // Prevent transparency issues
 		});
 		renderer.setSize(sizes.width, sizes.height);
 		renderer.setPixelRatio(sizes.pixelRatio);
+		renderer.setClearColor(0x000000, 1);
+		// Resize handler
+		window.addEventListener('resize', () => {
+			// Update sizes
+			sizes.width = window.innerWidth;
+			sizes.height = window.innerHeight - 56;
+			sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
-		// Post processing
+			// Update camera and renderer
+			camera.aspect = sizes.width / sizes.height;
+			camera.updateProjectionMatrix();
+			renderer.setSize(sizes.width, sizes.height);
+			renderer.setPixelRatio(sizes.pixelRatio);
+			composer.setSize(sizes.width, sizes.height);
+
+			// Update resolution uniform
+			material.uniforms.uResolution.value.set(sizes.width, sizes.height);
+		});
+
+		// Post processing with simple dot screen effect
 		const composer = new EffectComposer(renderer);
 		composer.addPass(new RenderPass(scene, camera));
-
-		const effect1 = new ShaderPass(DotScreenShader);
-		effect1.uniforms['scale'].value = 4;
-		composer.addPass(effect1);
-
-		// Animate
+		const dotScreenEffect = new ShaderPass(DotScreenShader);
+		dotScreenEffect.uniforms['scale'].value = 4;
+		composer.addPass(dotScreenEffect);
+		// Animation clock
 		const clock = new THREE.Clock();
-
 		let animationFrameId: number;
+
+		// Setup initialization and scroll tracking
+		onMount(() => {
+			// Create a preloader
+			const preloader = document.createElement('div');
+			preloader.className =
+				'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black z-50';
+			preloader.innerHTML = '<div class="text-white text-lg">Loading shader...</div>';
+			document.body.appendChild(preloader);
+
+			// Initialize shader
+			const initializeShader = () => {
+				// Apply initial shader config
+				applyShaderConfig(sectionConfigs[0]);
+
+				// Force multiple renders to ensure shader is properly initialized
+				for (let i = 0; i < 5; i++) {
+					renderer.render(scene, camera);
+					composer.render();
+				}
+
+				// Fade out preloader
+				setTimeout(() => {
+					gsap.to(preloader, {
+						opacity: 0,
+						duration: 0.8,
+						ease: 'power2.inOut',
+						onComplete: () => preloader.remove()
+					});
+				}, 300);
+			};
+
+			// Initialize after a short delay
+			setTimeout(initializeShader, 200);
+
+			// Setup scroll tracking
+			ScrollTrigger.create({
+				start: 'top top',
+				end: 'bottom bottom',
+				onUpdate: (self) => {
+					// Convert progress from 0-1 to 0-3 for the four sections
+					state.progressScale = self.progress * 3;
+					state.scrollProgress = self.progress;
+				},
+				// Ensure first section is applied on initial load
+				onToggle: (self) => {
+					if (self.isActive && state.progressScale === 0) {
+						applyShaderConfig(sectionConfigs[0]);
+					}
+				}
+			});
+		}); // Animation loop
 		const tick = () => {
 			const elapsedTime = clock.getElapsedTime();
 
-			// Update camera position
-			cameraMovement.updateCamera();
-
-			// Update material
+			// Update material time uniform
 			material.uniforms.uTime.value = elapsedTime;
-			material2.uniforms.uTime.value = elapsedTime;
 
-			// Update controls
-			mesh2.visible = false;
-			cubeCamera.update(renderer, scene);
-			mesh2.visible = true;
-			material2.uniforms.uCube.value = cubeRenderTarget.texture;
+			// Smoothly update mouse position with LERP
+			mouse.x = mouse.x * 0.9 + mouse.targetX * 0.1;
+			mouse.y = mouse.y * 0.9 + mouse.targetY * 0.1;
+			material.uniforms.uMouse.value.set(mouse.x, mouse.y);
+
+			// Handle scroll-based shader transitions
+			if (state.progressScale !== undefined) {
+				// Special case for very beginning of page
+				if (state.progressScale < 0.01) {
+					applyShaderConfig(sectionConfigs[0]);
+					state.currentSection = 1;
+				}
+				// Special case for very end of page
+				else if (state.progressScale >= 2.8) {
+					applyShaderConfig(sectionConfigs[sectionConfigs.length - 1]);
+					state.currentSection = 4;
+				}
+				// Normal interpolation between sections
+				else {
+					// Calculate which sections to interpolate between
+					const exactPosition = state.progressScale;
+					const lowerIndex = Math.min(Math.floor(exactPosition), sectionConfigs.length - 2);
+					const upperIndex = Math.min(lowerIndex + 1, sectionConfigs.length - 1);
+					const fraction = exactPosition - lowerIndex;
+
+					// Get section configs
+					const lowerConfig = sectionConfigs[lowerIndex];
+					const upperConfig = sectionConfigs[upperIndex];
+
+					// Smooth easing function for transitions
+					const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+					const smoothMix = easeInOutCubic(fraction);
+
+					// Interpolate all shader parameters
+					material.uniforms.uNoiseSpeed.value =
+						lowerConfig.noiseSpeed + (upperConfig.noiseSpeed - lowerConfig.noiseSpeed) * smoothMix;
+
+					material.uniforms.uNoiseScale.value =
+						lowerConfig.noiseScale + (upperConfig.noiseScale - lowerConfig.noiseScale) * smoothMix;
+
+					material.uniforms.uPatternFrequency.value =
+						lowerConfig.patternFrequency +
+						(upperConfig.patternFrequency - lowerConfig.patternFrequency) * smoothMix;
+
+					material.uniforms.uFirstOffset.value =
+						lowerConfig.firstOffset +
+						(upperConfig.firstOffset - lowerConfig.firstOffset) * smoothMix;
+
+					material.uniforms.uSecondOffset.value =
+						lowerConfig.secondOffset +
+						(upperConfig.secondOffset - lowerConfig.secondOffset) * smoothMix;
+
+					// Update current section tracker
+					state.currentSection = lowerIndex + 1;
+				}
+			}
 
 			// Render
+			renderer.render(scene, camera);
 			composer.render();
+
 			animationFrameId = window.requestAnimationFrame(tick);
 		};
 
+		// Start animation loop
 		tick();
 
+		// Cleanup on component destroy
 		onDestroy(() => {
-			cameraMovement.cleanup();
 			window.removeEventListener('mousemove', () => {});
-			if (gui) gui.destroy();
+			window.removeEventListener('resize', () => {});
 			if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
 		});
 	});
 </script>
 
-<div>
-	<canvas class="webgl"></canvas>
-	<!-- <h1
-		class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl opacity-0 animate-fade-in"
-	>
-		Wonder makers
-	</h1> -->
+<div class="relative">
+	<!-- Fixed background with canvas -->
+	<div class="fixed top-0 left-0 w-full h-full z-0 bg-black">
+		<canvas class="webgl"></canvas>
+	</div>
+
+	<!-- Scrollable content -->
+	<div class="relative z-10">
+		<section id="section1" class="h-screen flex items-center justify-center">
+			<div class="text-center p-8 bg-black/40 rounded-lg backdrop-blur-sm">
+				<h1 class="text-5xl font-bold text-white mb-4">Section 1</h1>
+				<p class="text-xl text-white">Scroll down to explore more</p>
+			</div>
+		</section>
+
+		<section id="section2" class="h-screen flex items-center justify-center">
+			<div class="text-center p-8 bg-black/40 rounded-lg backdrop-blur-sm">
+				<h1 class="text-5xl font-bold text-white mb-4">Section 2</h1>
+				<p class="text-xl text-white">Keep scrolling</p>
+			</div>
+		</section>
+
+		<section id="section3" class="h-screen flex items-center justify-center">
+			<div class="text-center p-8 bg-black/40 rounded-lg backdrop-blur-sm">
+				<h1 class="text-5xl font-bold text-white mb-4">Section 3</h1>
+				<p class="text-xl text-white">Almost there</p>
+			</div>
+		</section>
+
+		<section id="section4" class="h-screen flex items-center justify-center">
+			<div class="text-center p-8 bg-black/40 rounded-lg backdrop-blur-sm">
+				<h1 class="text-5xl font-bold text-white mb-4">Section 4</h1>
+				<p class="text-xl text-white">Final section</p>
+			</div>
+		</section>
+	</div>
 </div>
