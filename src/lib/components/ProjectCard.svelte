@@ -3,12 +3,13 @@
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 
-	const { title, description, href, technologies, usedInRealProject } = $props<{
+	const { title, description, href, technologies, usedInRealProject, children } = $props<{
 		title: string;
 		description: string;
 		href: string;
 		technologies: string[];
 		usedInRealProject: boolean;
+		children?: any;
 	}>();
 
 	let cardElement: HTMLDivElement;
@@ -125,7 +126,7 @@
 						<div class="flex justify-between">
 							<p class="secondary-text font-exo2 w-[60%]">{description}</p>
 							<div class="w-[38%] aspect-square translate-x-3 -translate-y-2 media-container">
-								<slot />
+								{@render children()}
 							</div>
 						</div>
 					</div>
