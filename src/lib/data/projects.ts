@@ -596,5 +596,14 @@ export const projects = [
 		shared: false,
 		isForNextTuesday: true,
 		imgSrc: '/projectThumbnails/gsap-flip.mp4'
+	},
+	{
+		href: '/69-futuristic-card',
+		title: 'Futuristic card',
+		description: 'Tile highlight animation with smoothly transforming shape',
+		technologies: ['THREE.js'],
+		shared: false,
+		isForNextTuesday: true,
+		imgSrc: '/projectThumbnails/futuristic-card.mp4'
 	}
 ];

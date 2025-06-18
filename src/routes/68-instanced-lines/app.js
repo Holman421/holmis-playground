@@ -8,6 +8,7 @@ import vertexShader from './shaders/vertex.glsl';
 import fragmentShader from './shaders/fragment.glsl';
 import mouseVertexShader from './shaders/mouseVertex.glsl';
 import mouseFragmentShader from './shaders/mouseFragment.glsl';
+import postprocessFragmentShader from './shaders/postprocess.glsl';
 import { setupCameraPane } from '$lib/utils/Tweakpane/utils';
 import { Pane } from 'tweakpane';
 
@@ -146,6 +147,24 @@ export default class Sketch {
 		this.renderTarget = this.createRenderTarget();
 		this.renderTarget2 = this.createRenderTarget();
 		
+		// --- First pass: main scene as before, but render to a target ---
+		this.firstPassRenderTarget = this.createRenderTarget();
+
+		// --- Second pass: fullscreen quad with postprocess shader ---
+		this.postprocessMaterial = new THREE.ShaderMaterial({
+			vertexShader, // reuse the same vertex shader
+			fragmentShader: postprocessFragmentShader,
+			uniforms: {
+				uTexture: { value: this.firstPassRenderTarget.texture }, // from first pass
+				uDisplacementTexture: { value: this.texture }, // original loaded texture
+				uTrailTexture: { value: this.renderTarget.texture } // mouse trail
+			}
+		});
+		this.postprocessGeometry = new THREE.PlaneGeometry(2, 2);
+		this.postprocessMesh = new THREE.Mesh(this.postprocessGeometry, this.postprocessMaterial);
+		this.postprocessScene = new THREE.Scene();
+		this.postprocessScene.add(this.postprocessMesh);
+		
 		// Create the scene for the mouse trail
 		this.createMouseCanvas();
 		
@@ -160,9 +179,9 @@ export default class Sketch {
 				uResolution: { value: new THREE.Vector2(this.width, this.height) },				uMousePosition: { value: new THREE.Vector2(0, 0) },
 				uTime: { value: 0 },
 				uAspect: { value: this.width / this.height },
-				uTextureAspect: { value: 1.0 }, // Default value, will be updated when texture loads
-				uTextureScale: { value: 1.0 }, // Default scale for texture
-				uBlurStrength: { value: 10.0 } // Default blur strength
+				uTextureAspect: { value: 1.0 },
+				uTextureScale: { value: 1.0 }, 
+				uBlurStrength: { value: 10.0 } 
 			}
 		});
 
@@ -195,61 +214,8 @@ export default class Sketch {
 		
 		// Create a material for the mouse trail
 		this.mouseMaterial = new THREE.ShaderMaterial({
-			vertexShader: mouseVertexShader || `
-				varying vec2 vUv;
-				void main() {
-					vUv = uv;
-					gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-				}
-			`,
-			fragmentShader: mouseFragmentShader || `
-				uniform vec2 uMousePosition;
-				uniform vec2 uPreviousMousePosition;
-				uniform sampler2D uTrailTexture;
-				uniform vec2 uResolution;
-				uniform float uMouseRadius;
-				varying vec2 vUv;
-				
-				float distToLine(vec2 p, vec2 a, vec2 b) {
-					// If points are very close, just use distance to current point to avoid artifacts
-					if (length(b - a) < 0.001) {
-						return length(p - a);
-					}
-					vec2 pa = p - a;
-					vec2 ba = b - a;
-					float t = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-					return length(pa - ba * t);
-				}
-				
-				void main() {
-					vec2 pixelCoord = vUv * uResolution;
-					vec2 mousePixelCoord = uMousePosition * uResolution;
-					vec2 prevMousePixelCoord = uPreviousMousePosition * uResolution;
-					
-					float dist = distToLine(pixelCoord, mousePixelCoord, prevMousePixelCoord);
-					
-					// Smoother falloff for better trail quality
-					float strength = smoothstep(uMouseRadius, 0.0, dist);
-					
-					// Get previous trail value
-					vec4 previousTrail = texture2D(uTrailTexture, vUv);
-					
-					// Prevent excessive buildup by capping the maximum intensity
-					float maxIntensity = 0.8; // Maximum allowable intensity
-					float currentIntensity = previousTrail.r + strength * 0.5; // Lower strength value (was 0.7)
-					
-					// Apply capping to avoid excessive white
-					float cappedIntensity = min(currentIntensity, maxIntensity);
-					
-					// Create new color with capped intensity
-					vec4 color = vec4(cappedIntensity);
-					
-					// Apply decay
-					color *= 0.96;
-					
-					gl_FragColor = color;
-				}
-			`,
+			vertexShader: mouseVertexShader,
+			fragmentShader: mouseFragmentShader,
 			uniforms: {
 				uMousePosition: { value: new THREE.Vector2(0, 0) },
 				uPreviousMousePosition: { value: new THREE.Vector2(0, 0) },
@@ -288,7 +254,7 @@ export default class Sketch {
 			trailDecay: 0.96,
 			trailStrength: 0.5, // Reduced from 0.7 to 0.5
 			maxDisplacement: 0.1,
-			blurStrength: 10.0,
+			blurStrength: 20.0,
 			maxIntensity: 0.5,  // New setting to control max intensity
 			textureScale: 1.0   // Texture scaling factor
 		};
@@ -432,8 +398,6 @@ export default class Sketch {
 	render() {
 		if (!this.isPlaying) return;
 		this.time = this.clock.getElapsedTime();
-		
-		// Update uniforms
 		this.material.uniforms.uTime.value = this.time;
 		
 		// Initialize lastMouse if it's at the initial zero value
@@ -490,12 +454,17 @@ export default class Sketch {
 			
 			// Update the main material with the new trail texture
 			this.material.uniforms.uTrailTexture.value = this.renderTarget.texture;
+			
 		}
 		
-		// No need to update controls since they're disabled
-		// this.controls.update();
-		
+		// --- First pass: render main scene to render target ---
+		this.renderer.setRenderTarget(this.firstPassRenderTarget);
 		this.renderer.render(this.scene, this.camera);
+		this.renderer.setRenderTarget(null);
+
+		// --- Second pass: render postprocess quad to screen ---
+		this.renderer.render(this.postprocessScene, this.camera);
+
 		requestAnimationFrame(this.render.bind(this));
 	}
 
