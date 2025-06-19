@@ -182,7 +182,7 @@
 		let textMesh2: THREE.Mesh;
 
 		createText(
-			'Wonder Makers',
+			'Ales Holman',
 			new THREE.Vector3(-3, 0, 0),
 			debugObject.text1.textTransition,
 			'left'
@@ -192,7 +192,7 @@
 		});
 
 		createText(
-			'We are awesome',
+			'Is a Developer',
 			new THREE.Vector3(-3, 0, 0),
 			debugObject.text2.textTransition,
 			'right'

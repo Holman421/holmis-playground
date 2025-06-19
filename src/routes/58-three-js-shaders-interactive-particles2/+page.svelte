@@ -21,7 +21,7 @@
 		};
 
 		// Start the auto-click sequence
-		autoClick();
+		// autoClick();
 
 		return () => {
 			sketch.stop();
@@ -33,13 +33,13 @@
 <div
 	class="absolute left-1/2 top-1/2 text-center -translate-y-1/2 -translate-x-1/2 mt-[28px] flex flex-col items-center"
 >
-	<h1 class=" text-2xl font-audiowide">Wonder Makers</h1>
+	<h1 class=" text-2xl font-audiowide">Ales Holman</h1>
 	<div class="flex flex-col items-center mt-3">
 		<div class="h-[1px] w-full bg-gradient-to-r from-transparent via-white to-transparent"></div>
 		<button
 			id="explore-btn"
 			data-auto-click="true"
-			class="cursor-pointer w-fit px-3 py-[2px] font-audiowide tracking-[5px]">Explore</button
+			class="cursor-pointer w-fit px-3 py-[2px] font-audiowide tracking-[5px]">This is sick</button
 		>
 		<div class="h-[1px] w-full bg-gradient-to-r from-transparent via-white to-transparent"></div>
 	</div>

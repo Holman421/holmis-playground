@@ -662,7 +662,7 @@
 		id="title"
 		class="fixed top-[35%] tracking-[-4px] left-[22%] text-black text-[40px] z-10 silkscreen-regular"
 	>
-		Wonder Makers
+		Ales Holman
 	</h1>
 	<canvas
 		bind:this={trailCanvas}

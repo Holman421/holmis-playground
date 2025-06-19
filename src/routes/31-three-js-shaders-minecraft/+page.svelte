@@ -235,7 +235,7 @@
 			console.error('Error loading', url);
 		};
 
-		const text3D = 'Wonder Makers';
+		const text3D = 'Ales Holman';
 
 		// Add text settings
 		const textSettings = {

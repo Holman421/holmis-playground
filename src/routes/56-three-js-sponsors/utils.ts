@@ -187,7 +187,7 @@ export const addText = (scene: THREE.Scene, debugObject: any) => {
 	}>((resolve) => {
 		loader.load('fonts/helvetiker_regular.typeface.json', function (font) {
 			const geometry = new TextGeometry(
-				'Wonder Makers  Wonder Makers  Wonder Makers  Wonder Makers',
+				'Ales Holman Ales Holman Ales Holman Ales Holman',
 				{
 					font: font,
 					size: 0.4,

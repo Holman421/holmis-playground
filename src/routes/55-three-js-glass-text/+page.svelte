@@ -167,7 +167,7 @@
 
 			glassText1 = await createGlassTextDisplay(scene, gui, {
 				id: 1,
-				text: 'Wonder Makers  Wonder Makers  Wonder Makers',
+				text: 'Ales Holman Ales Holman Ales Holman Ales Holman',
 				startPosition: {
 					x: isMobile ? -9 : -15,
 					y: isMobile ? 17.5 : 17.5,

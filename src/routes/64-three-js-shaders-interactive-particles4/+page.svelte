@@ -54,7 +54,7 @@
 			class="absolute size-full justify-between left-1/2 top-1/2 text-center -translate-y-1/2 -translate-x-1/2 flex flex-col items-center"
 		>
 			<Button
-				text="Wonder Makers"
+				text="Ales Holman"
 				width="w-[150px] lg:w-[200px]"
 				class_="top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
 				style="transform: translate3d(calc(-50% + {mounted && !isMobile
@@ -62,7 +62,7 @@
 					: 0}px), calc(-50% + {mounted && !isMobile ? mouseY : 0}px), 0)"
 			/>
 			<Button text="Code" class_="top-[30px] lg:top-[85px] left-[110px] lg:left-[210px]" />
-			<Button text="Design" class_="top-[30px] lg:top-[85px] right-[110px] lg:right-[210px]" />
+			<Button text="Awesomes" class_="top-[30px] lg:top-[85px] right-[110px] lg:right-[210px]" />
 			<Button text="Art" class_="bottom-[25px] lg:bottom-[70px] left-[110px] lg:left-[210px]" />
 			<Button
 				text="Innovation"

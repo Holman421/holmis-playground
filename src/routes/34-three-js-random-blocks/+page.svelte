@@ -752,7 +752,7 @@
 
 <div>
 	<canvas class="webgl"></canvas>
-	<h1 class="title">Wonder Makers</h1>
+	<h1 class="title">Ales Holman</h1>
 </div>
 
 <style>

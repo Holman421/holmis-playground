@@ -273,7 +273,7 @@ export const setupTorusGUI = (
 export const addText = async (
 	scene: THREE.Scene,
 	debugObject: any,
-	text: string = 'Wonder Makers  Wonder Makers  Wonder Makers',
+	text: string = 'Ales Holman  Ales Holman  Ales Holman',
 	position: THREE.Vector3 = new THREE.Vector3(0, -0.15, 0)
 ) => {
 	const loader = new FontLoader();
@@ -355,7 +355,7 @@ export const createGlassTextDisplay = async (
 	gui: GUI,
 	options = {
 		id: 1, // Add id to options
-		text: 'Wonder Makers  Wonder Makers  Wonder Makers',
+		text: 'Ales Holman  Ales Holman  Ales Holman',
 		startPosition: { x: -10, y: 17.5, z: -75 },
 		startRotation: { x: 1.5, y: 0, z: 0 },
 		targetPosition: { x: 0, y: 0, z: 0 },
