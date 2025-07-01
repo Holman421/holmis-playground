@@ -1,11 +1,23 @@
-export const projects = [
+type Project = {
+	href: string;
+	title: string;
+	description: string;
+	technologies: string[];
+	shared: boolean;
+	usedInRealProject?: boolean;
+	imgSrc: string;
+	date?: Date;
+};
+
+const projects: Project[] = [
 	{
 		href: '/1-svelte-todo',
 		title: 'Todo flip',
 		description: 'Simple todo app with Svelte and gsap flip animation',
 		technologies: ['Svetle', 'GSAP', 'GSAP-Flip', 'Svelte-state'],
 		shared: false,
-		imgSrc: '/projectThumbnails/todo.png'
+		imgSrc: '/projectThumbnails/todo.png',
+		date: new Date('2024-10-09')
 	},
 	{
 		href: '/2-flip',
@@ -13,7 +25,8 @@ export const projects = [
 		description: 'Training with gsap flip animation',
 		technologies: ['Svetle', 'GSAP', 'GSAP-Flip', 'Svelte-state'],
 		shared: false,
-		imgSrc: '/projectThumbnails/flip.png'
+		imgSrc: '/projectThumbnails/flip.png',
+		date: new Date('2024-10-09')
 	},
 	{
 		href: '/3-training-store',
@@ -21,7 +34,8 @@ export const projects = [
 		description: 'Very simple counter with utilization of Svelte stores',
 		technologies: ['Svelte', 'Svelte-stores'],
 		shared: false,
-		imgSrc: '/projectThumbnails/store.png'
+		imgSrc: '/projectThumbnails/store.png',
+		date: new Date('2024-10-16')
 	},
 	{
 		href: '/4-three-js-lights',
@@ -29,7 +43,8 @@ export const projects = [
 		description: 'Training with Three.js lights and GUI',
 		technologies: ['Three.js', 'Lights', 'Three.js GUI'],
 		shared: false,
-		imgSrc: '/projectThumbnails/lights-tutorial.png'
+		imgSrc: '/projectThumbnails/lights-tutorial.png',
+		date: new Date('2024-10-21')
 	},
 	{
 		href: '/5-three-js-hounted-house',
@@ -37,7 +52,8 @@ export const projects = [
 		description: 'Bigger Three.js project with textures and geometries',
 		technologies: ['Three.js', 'Textures', 'Geometries'],
 		shared: false,
-		imgSrc: '/projectThumbnails/hounted-house.png'
+		imgSrc: '/projectThumbnails/hounted-house.png',
+		date: new Date('2024-10-29')
 	},
 	{
 		href: '/6-three-js-particles',
@@ -45,7 +61,8 @@ export const projects = [
 		description: 'Simple training of rendering particles in Matrix style',
 		technologies: ['Three.js', 'Particles'],
 		shared: false,
-		imgSrc: '/projectThumbnails/matrix.png'
+		imgSrc: '/projectThumbnails/matrix.png',
+		date: new Date('2024-10-30')
 	},
 	{
 		href: '/7-three-js-galaxy',
@@ -53,7 +70,8 @@ export const projects = [
 		description: 'Scene with thousands of particles forming galaxy, higtly customizable',
 		technologies: ['Three.js', 'Particles', 'GUI', 'Trigonometry'],
 		shared: true,
-		imgSrc: '/projectThumbnails/galaxy.mp4'
+		imgSrc: '/projectThumbnails/galaxy.mp4',
+		date: new Date('2024-11-06')
 	},
 	{
 		href: '/8-svg-filters',
@@ -61,7 +79,8 @@ export const projects = [
 		description: 'Experimenting with svg filters',
 		technologies: ['SVG Filters', 'GSAP'],
 		shared: false,
-		imgSrc: '/projectThumbnails/svg.png'
+		imgSrc: '/projectThumbnails/svg.png',
+		date: new Date('2024-11-06')
 	},
 	{
 		href: '/9-three-js-portfolio',
@@ -69,7 +88,8 @@ export const projects = [
 		description: 'Small project with Three.js',
 		technologies: ['Three.js', 'GSAP'],
 		shared: false,
-		imgSrc: '/projectThumbnails/portfolio.png'
+		imgSrc: '/projectThumbnails/portfolio.png',
+		date: new Date('2024-11-09')
 	},
 	{
 		href: '/10-three-js-physics',
@@ -77,7 +97,8 @@ export const projects = [
 		description: 'Learning about THREE.js physics',
 		technologies: ['Three.js', 'GSAP', 'Cannon.js'],
 		shared: false,
-		imgSrc: '/projectThumbnails/physics.png'
+		imgSrc: '/projectThumbnails/physics.png',
+		date: new Date('2024-11-17')
 	},
 	{
 		href: '/11-three-js-imported-models',
@@ -85,7 +106,8 @@ export const projects = [
 		description: 'Learning about importing models into Three.js',
 		technologies: ['Three.js', 'GSAP'],
 		shared: false,
-		imgSrc: '/projectThumbnails/imported-model.png'
+		imgSrc: '/projectThumbnails/imported-model.png',
+		date: new Date('2024-11-17')
 	},
 	{
 		href: '/12-clamp-calculate',
@@ -93,7 +115,8 @@ export const projects = [
 		description: 'Handy tool for calculating optimal clamp',
 		technologies: ['JS'],
 		shared: false,
-		imgSrc: '/projectThumbnails/clamp-calculator.png'
+		imgSrc: '/projectThumbnails/clamp-calculator.png',
+		date: new Date('2024-11-24')
 	},
 	{
 		href: '/12-three-js-realistic-render',
@@ -101,7 +124,8 @@ export const projects = [
 		description: 'Project with focus on rendering realistic materials',
 		technologies: ['JS'],
 		shared: false,
-		imgSrc: '/projectThumbnails/realistic-render.png'
+		imgSrc: '/projectThumbnails/realistic-render.png',
+		date: new Date('2024-11-24')
 	},
 	{
 		href: '/13-three-js-environment-map',
@@ -110,7 +134,8 @@ export const projects = [
 			'Learning about interacting with three.js with mouse events and setting up environment maps',
 		technologies: ['THREE.js', 'Mouse events'],
 		shared: false,
-		imgSrc: '/projectThumbnails/environment-map.png'
+		imgSrc: '/projectThumbnails/environment-map.png',
+		date: new Date('2024-11-27')
 	},
 	{
 		href: '/14-three-js-shaders-tutorial',
@@ -118,7 +143,8 @@ export const projects = [
 		description: 'First experimentation with GLSL shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: false,
-		imgSrc: '/projectThumbnails/shaders-basic.png'
+		imgSrc: '/projectThumbnails/shaders-basic.png',
+		date: new Date('2024-12-06')
 	},
 	{
 		href: '/15-three-js-shaders-sea',
@@ -126,7 +152,8 @@ export const projects = [
 		description: 'Sea with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: false,
-		imgSrc: '/projectThumbnails/sea-basic.png'
+		imgSrc: '/projectThumbnails/sea-basic.png',
+		date: new Date('2024-12-07')
 	},
 	{
 		href: '/16-three-js-shaders-galaxy',
@@ -134,7 +161,8 @@ export const projects = [
 		description: 'Scene with thousands of particles forming galaxy, animated with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
-		imgSrc: '/projectThumbnails/animated-galaxy.mp4'
+		imgSrc: '/projectThumbnails/animated-galaxy.mp4',
+		date: new Date('2024-12-14')
 	},
 	{
 		href: '/17-three-js-coffe-smoke',
@@ -142,7 +170,8 @@ export const projects = [
 		description: 'Static model with animated smoke effect',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
-		imgSrc: '/projectThumbnails/coffe-smoke.mp4'
+		imgSrc: '/projectThumbnails/coffe-smoke.mp4',
+		date: new Date('2024-12-14')
 	},
 	{
 		href: '/18-three-js-shaders-hologram',
@@ -150,7 +179,8 @@ export const projects = [
 		description: 'Hologram like effect with occasional glitch',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
-		imgSrc: '/projectThumbnails/hologram.mp4'
+		imgSrc: '/projectThumbnails/hologram.mp4',
+		date: new Date('2024-12-21')
 	},
 	{
 		href: '/18-three-js-shaders-halftone',
@@ -158,7 +188,8 @@ export const projects = [
 		description: 'Shader with halftone shading and custom lights',
 		technologies: ['JS'],
 		shared: false,
-		imgSrc: '/projectThumbnails/halftone.png'
+		imgSrc: '/projectThumbnails/halftone.png',
+		date: new Date('2024-12-22')
 	},
 	{
 		href: '/19-three-js-shaders-fireworks',
@@ -166,7 +197,8 @@ export const projects = [
 		description: 'Scene with fireworks like effect on each click',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: false,
-		imgSrc: '/projectThumbnails/galaxy.png'
+		imgSrc: '/projectThumbnails/galaxy.png',
+		date: new Date('2024-12-25')
 	},
 	{
 		href: '/20-three-js-shaders-lights',
@@ -174,7 +206,8 @@ export const projects = [
 		description: 'Scene with custom lights made in shaders',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
 		shared: false,
-		imgSrc: '/projectThumbnails/lights-shaders.png'
+		imgSrc: '/projectThumbnails/lights-shaders.png',
+		date: new Date('2025-01-02')
 	},
 	{
 		href: '/21-three-js-shaders-sea-lights',
@@ -182,7 +215,8 @@ export const projects = [
 		description: 'Animated sea like surface with lights and shadows',
 		technologies: ['THREE.js', 'Shaders', 'Lights'],
 		shared: true,
-		imgSrc: '/projectThumbnails/sea-shadows.mp4'
+		imgSrc: '/projectThumbnails/sea-shadows.mp4',
+		date: new Date('2025-01-04')
 	},
 	{
 		href: '/22-three-js-shaders-moving-particles',
@@ -191,7 +225,8 @@ export const projects = [
 			'Scene with picture divided into particles that gets displacement with mouse movement',
 		technologies: ['THREE.js', 'Shaders', 'Points', 'Canvas', 'Raycaster'],
 		shared: true,
-		imgSrc: '/projectThumbnails/displacement-particles.mp4'
+		imgSrc: '/projectThumbnails/displacement-particles.mp4',
+		date: new Date('2025-01-05')
 	},
 	{
 		href: '/23-three-js-shaders-morphing-shapes',
@@ -200,7 +235,8 @@ export const projects = [
 			'Scene with 3D models represented with a lot of points morphing to each other shapes',
 		technologies: ['THREE.js', 'Shaders', 'Points'],
 		shared: true,
-		imgSrc: '/projectThumbnails/morphing.mp4'
+		imgSrc: '/projectThumbnails/morphing.mp4',
+		date: new Date('2025-01-05')
 	},
 	{
 		href: '/24-three-js-shaders-earth',
@@ -208,7 +244,8 @@ export const projects = [
 		description: 'Scene with 3D earth model and atmosphere effect made with shaders',
 		technologies: ['THREE.js', 'Shaders', 'Texture'],
 		shared: false,
-		imgSrc: '/projectThumbnails/earth-globe.png'
+		imgSrc: '/projectThumbnails/earth-globe.png',
+		date: new Date('2025-01-14')
 	},
 	{
 		href: '/25-three-js-shaders-gpgpu',
@@ -216,7 +253,8 @@ export const projects = [
 		description: 'Scene with ship model transitioning to particles system with GPGPU technique',
 		technologies: ['THREE.js', 'Shaders', 'GPGPU'],
 		shared: true,
-		imgSrc: '/projectThumbnails/gpgpu-ship.mp4'
+		imgSrc: '/projectThumbnails/gpgpu-ship.mp4',
+		date: new Date('2025-01-17')
 	},
 	{
 		href: '/26-three-js-shaders-wobbly-sphere',
@@ -224,7 +262,8 @@ export const projects = [
 		description: 'Virus cards with 3D models of the molecules with various surface disturption',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true,
-		imgSrc: '/projectThumbnails/virus.mp4'
+		imgSrc: '/projectThumbnails/virus.mp4',
+		date: new Date('2025-01-26')
 	},
 	{
 		href: '/27-three-js-shaders-terrain',
@@ -232,7 +271,8 @@ export const projects = [
 		description: 'Procedurally generated terrain with shaders',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true,
-		imgSrc: '/projectThumbnails/procedural-terrain.mp4'
+		imgSrc: '/projectThumbnails/procedural-terrain.mp4',
+		date: new Date('2025-01-29')
 	},
 	{
 		href: '/28-three-js-shaders-sliced-model',
@@ -240,7 +280,8 @@ export const projects = [
 		description: 'Scene with 3d model with customizable slice area',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: false,
-		imgSrc: '/projectThumbnails/sliced-model.png'
+		imgSrc: '/projectThumbnails/sliced-model.png',
+		date: new Date('2025-01-29')
 	},
 	{
 		href: '/29-three-js-shaders-can-brush',
@@ -248,7 +289,8 @@ export const projects = [
 		description: 'Mouse spray can brush effect',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
-		imgSrc: '/projectThumbnails/can-brush.mp4'
+		imgSrc: '/projectThumbnails/can-brush.mp4',
+		date: new Date('2025-02-08')
 	},
 	{
 		href: '/30-three-js-shaders-model',
@@ -256,7 +298,8 @@ export const projects = [
 		description: 'Scene with 3D model with deformation effect',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: false,
-		imgSrc: '/projectThumbnails/model-deformation.png'
+		imgSrc: '/projectThumbnails/model-deformation.png',
+		date: new Date('2025-02-10')
 	},
 	{
 		href: '/31-three-js-shaders-minecraft',
@@ -264,7 +307,8 @@ export const projects = [
 		description: 'Bigger project with minecraft like procedurally generated terrain, animated',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
-		imgSrc: '/projectThumbnails/minecraft.mp4'
+		imgSrc: '/projectThumbnails/minecraft.mp4',
+		date: new Date('2025-02-19')
 	},
 	{
 		href: '/32-three-js-postprocesing',
@@ -272,7 +316,8 @@ export const projects = [
 		description: 'Various post procesing effects on 3D models together with html tags',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: true,
-		imgSrc: '/projectThumbnails/postprocessing-helmet.png'
+		imgSrc: '/projectThumbnails/postprocessing-helmet.png',
+		date: new Date('2025-02-19')
 	},
 	{
 		href: '/33-three-js-tags',
@@ -280,7 +325,8 @@ export const projects = [
 		description: 'Applying descriptive html tags to 3D scenes',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/tags-sword.mp4'
+		imgSrc: '/projectThumbnails/tags-sword.mp4',
+		date: new Date('2025-02-23')
 	},
 	{
 		href: '/34-three-js-random-blocks',
@@ -289,7 +335,8 @@ export const projects = [
 			'Scene with random moving cubes with cool animation and transition to normal 2D page layout',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/random-blocks.mp4'
+		imgSrc: '/projectThumbnails/random-blocks.mp4',
+		date: new Date('2025-02-28')
 	},
 	{
 		href: '/35-three-js-interactive-grid',
@@ -297,7 +344,8 @@ export const projects = [
 		description: 'Background scene with interactive grid of colorfull cubes, has 2 modes',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/interactive-grid.mp4'
+		imgSrc: '/projectThumbnails/interactive-grid.mp4',
+		date: new Date('2025-03-07')
 	},
 	{
 		href: '/36-three-js-shaders-pixelated',
@@ -305,7 +353,8 @@ export const projects = [
 		description: 'Simple Image load pixelated effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/pixelation-effect.mp4'
+		imgSrc: '/projectThumbnails/pixelation-effect.mp4',
+		date: new Date('2025-03-07')
 	},
 	{
 		href: '/37-three-js-shaders-ring',
@@ -314,7 +363,8 @@ export const projects = [
 			'Scene with ring shape with noice generated alumination distortion effect, and text transition animation',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/ring-shader.mp4'
+		imgSrc: '/projectThumbnails/ring-shader.mp4',
+		date: new Date('2025-03-15')
 	},
 	{
 		href: '/38-three-js-shaders-gradients',
@@ -322,7 +372,8 @@ export const projects = [
 		description: 'Cards with fragment and vertex Lava lamp like gradient shaders',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/lava-lamp.mp4'
+		imgSrc: '/projectThumbnails/lava-lamp.mp4',
+		date: new Date('2025-03-18')
 	},
 	{
 		href: '/39-three-js-tsl-honeycomb',
@@ -330,7 +381,8 @@ export const projects = [
 		description: 'Scene with honeycomb like transition effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/honeycomb-transition.mp4'
+		imgSrc: '/projectThumbnails/honeycomb-transition.mp4',
+		date: new Date('2025-03-22')
 	},
 	{
 		href: '/40-three-js-shaders-gradient-glass',
@@ -338,7 +390,8 @@ export const projects = [
 		description: 'Scene with smooth gradient background and glass effect round shape',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/gradient-glass.mp4'
+		imgSrc: '/projectThumbnails/gradient-glass.mp4',
+		date: new Date('2025-03-29')
 	},
 	{
 		href: '/41-three-js-shaders-hover-pixelation',
@@ -346,7 +399,8 @@ export const projects = [
 		description: 'Image pixelation distortion onhover effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/pixelation-onhover.mp4'
+		imgSrc: '/projectThumbnails/pixelation-onhover.mp4',
+		date: new Date('2025-04-02')
 	},
 	{
 		href: '/42-three-js-shaders-element-distortion',
@@ -355,7 +409,8 @@ export const projects = [
 			'Effect where regular images are distorted to the point they act as a abstract background',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/element-distortion.mp4'
+		imgSrc: '/projectThumbnails/element-distortion.mp4',
+		date: new Date('2025-04-02')
 	},
 	{
 		href: '/43-three-js-instanced-mesh',
@@ -364,7 +419,8 @@ export const projects = [
 			'Scene with many animated cubes with instanced mesh technique, with custom shader material',
 		technologies: ['THREE.js'],
 		shared: true,
-		imgSrc: '/projectThumbnails/instanced-mesh.mp4'
+		imgSrc: '/projectThumbnails/instanced-mesh.mp4',
+		date: new Date('2025-04-09')
 	},
 	{
 		href: '/44-raymarching-shapes',
@@ -372,7 +428,8 @@ export const projects = [
 		description: 'Simple 2D html animated shapes that merge into themselfs',
 		technologies: ['THREE.js'],
 		shared: false,
-		imgSrc: '/projectThumbnails/raymarching-shapes.mp4'
+		imgSrc: '/projectThumbnails/raymarching-shapes.mp4',
+		date: new Date('2025-04-16')
 	},
 	{
 		href: '/45-three-js-text-mobius',
@@ -380,7 +437,8 @@ export const projects = [
 		description: 'Text with mobius strip effect',
 		technologies: ['THREE.js'],
 		shared: false,
-		imgSrc: '/projectThumbnails/text-mobius.png'
+		imgSrc: '/projectThumbnails/text-mobius.png',
+		date: new Date('2025-04-16')
 	},
 	{
 		href: '/46-boxed-image-relevation',
@@ -388,8 +446,8 @@ export const projects = [
 		description: 'Cool image reveal effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/boxed-image-relevation.mp4'
+		imgSrc: '/projectThumbnails/boxed-image-relevation.mp4',
+		date: new Date('2025-04-23')
 	},
 	{
 		href: '/47-button-hover',
@@ -397,8 +455,8 @@ export const projects = [
 		description: 'Cool button hover effect',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/button-hover.mp4'
+		imgSrc: '/projectThumbnails/button-hover.mp4',
+		date: new Date('2025-04-23')
 	},
 	{
 		href: '/48-three-js-rome-column',
@@ -406,8 +464,8 @@ export const projects = [
 		description: 'Rotating scene around Rome column',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/roman-column.mp4'
+		imgSrc: '/projectThumbnails/roman-column.mp4',
+		date: new Date('2025-05-02')
 	},
 	{
 		href: '/49-three-js-portal-gateway',
@@ -415,8 +473,8 @@ export const projects = [
 		description: 'Scene with detailed gateway and animated portal effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/portal-gateway.mp4'
+		imgSrc: '/projectThumbnails/portal-gateway.mp4',
+		date: new Date('2025-05-03')
 	},
 	{
 		href: '/50-inverted-border',
@@ -424,8 +482,8 @@ export const projects = [
 		description: 'Shapes with inverted borders using svg masks',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/inverted-border.png'
+		imgSrc: '/projectThumbnails/inverted-border.png',
+		date: new Date('2025-05-11')
 	},
 	{
 		href: '/51-three-js-postprocesing-scroll',
@@ -433,8 +491,8 @@ export const projects = [
 		description: 'Photo gallery with warping effect on scroll',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/galery-warp.mp4'
+		imgSrc: '/projectThumbnails/galery-warp.mp4',
+		date: new Date('2025-05-11')
 	},
 	{
 		href: '/52-three-js-shaders-art',
@@ -442,8 +500,8 @@ export const projects = [
 		description: 'Collection of noise gradient shaders',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/noice-gradient.mp4'
+		imgSrc: '/projectThumbnails/noice-gradient.mp4',
+		date: new Date('2025-05-18')
 	},
 	{
 		href: '/53-three-js-shaders-radar',
@@ -451,8 +509,8 @@ export const projects = [
 		description: 'Advanced radar simulation demo with shaders',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/radar.mp4'
+		imgSrc: '/projectThumbnails/radar.mp4',
+		date: new Date('2025-05-25')
 	},
 	{
 		href: '/54-three-js-shaders-studio-chain',
@@ -460,9 +518,9 @@ export const projects = [
 		description: 'Pixelated, animated effect used for background and mouse cursor',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
 		usedInRealProject: true,
-		imgSrc: '/projectThumbnails/studio-chain.mp4'
+		imgSrc: '/projectThumbnails/studio-chain.mp4',
+		date: new Date('2025-05-29')
 	},
 	{
 		href: '/55-three-js-glass-text',
@@ -470,9 +528,9 @@ export const projects = [
 		description: 'Torus with glass material and perlin noise metalness animation with text inside',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/glass-text.mp4'
+		imgSrc: '/projectThumbnails/glass-text.mp4',
+		date: new Date('2025-06-01')
 	},
 	{
 		href: '/56-three-js-sponsors',
@@ -480,9 +538,9 @@ export const projects = [
 		description: '',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/glass-text.png'
+		imgSrc: '/projectThumbnails/glass-text.png',
+		date: new Date('2025-06-01')
 	},
 	{
 		href: '/57-three-js-shaders-interactive-particles',
@@ -490,9 +548,9 @@ export const projects = [
 		description: 'Non responsive particles system scene using GPGPU technique',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/interactive-particles-1.mp4'
+		imgSrc: '/projectThumbnails/interactive-particles-1.mp4',
+		date: new Date('2025-06-08')
 	},
 	{
 		href: '/58-three-js-shaders-interactive-particles2',
@@ -501,9 +559,9 @@ export const projects = [
 			'Interactive particles system scene using GPGPU technique, with hover and click effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/interactive-particles-2.mp4'
+		imgSrc: '/projectThumbnails/interactive-particles-2.mp4',
+		date: new Date('2025-06-08')
 	},
 	{
 		href: '/59-three-js-shaders-interactive-particles3',
@@ -511,9 +569,9 @@ export const projects = [
 		description: '3D particles system scene using GPGPU technique',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/interactive-particles-3.mp4'
+		imgSrc: '/projectThumbnails/interactive-particles-3.mp4',
+		date: new Date('2025-06-15')
 	},
 	{
 		href: '/60-three-js-shaders-image-reveal',
@@ -521,9 +579,9 @@ export const projects = [
 		description: 'Randomized shader image reveal effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
 		usedInRealProject: false,
-		imgSrc: '/projectThumbnails/image-reveal.mp4'
+		imgSrc: '/projectThumbnails/image-reveal.mp4',
+		date: new Date('2025-06-15')
 	},
 	{
 		href: '/61-three-js-shaders-water-cursor',
@@ -531,8 +589,8 @@ export const projects = [
 		description: 'On hover water trail cursor effect',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/water-cursor.mp4'
+		imgSrc: '/projectThumbnails/water-cursor.mp4',
+		date: new Date('2025-06-19')
 	},
 	{
 		href: '/62-three-js-checkerboard-text',
@@ -540,8 +598,8 @@ export const projects = [
 		description: 'Pixelated text reveal effect',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/checkerboard-text.mp4'
+		imgSrc: '/projectThumbnails/checkerboard-text.mp4',
+		date: new Date('2025-06-19')
 	},
 	{
 		href: '/63-avalabs-test',
@@ -549,8 +607,8 @@ export const projects = [
 		description: 'Various testing of effects and shaders for Avalabs project',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/avalabs.mp4'
+		imgSrc: '/projectThumbnails/avalabs.mp4',
+		date: new Date('2025-06-25')
 	},
 	{
 		href: '/64-three-js-shaders-interactive-particles4',
@@ -558,8 +616,8 @@ export const projects = [
 		description: '2D particles system scene using GPGPU technique',
 		technologies: ['THREE.js'],
 		shared: true,
-		isForNextTuesday: false,
-		imgSrc: '/projectThumbnails/particles-4.mp4'
+		imgSrc: '/projectThumbnails/particles-4.mp4',
+		date: new Date('2025-06-28')
 	},
 	{
 		href: '/65-three-js-shaders-ribbons',
@@ -567,25 +625,38 @@ export const projects = [
 		description: 'Plane seperated into ribbons with animated shader effect',
 		technologies: ['THREE.js'],
 		shared: false,
-		isForNextTuesday: true,
-		imgSrc: '/projectThumbnails/particles-4.mp4'
+		imgSrc: '/projectThumbnails/particles-4.mp4',
+		date: new Date('2025-06-28')
 	},
 	{
 		href: '/66-three-js-rapier',
 		title: 'Rapier Experimentation',
 		description: 'Testing rapier physics engine with Three.js',
 		technologies: ['THREE.js'],
-		shared: false,
-		isForNextTuesday: true,
-		imgSrc: '/projectThumbnails/rapier.mp4'
+		shared: true,
+		imgSrc: '/projectThumbnails/rapier.mp4',
+		date: new Date('2025-06-30')
 	},
 	{
 		href: '/67-gsap-flip',
 		title: 'Tile highlight',
 		description: 'Tile highlight animation with smoothly transforming shape',
 		technologies: ['THREE.js'],
+		shared: true,
+		imgSrc: '/projectThumbnails/gsap-flip.mp4',
+		date: new Date('2025-07-01')
+	},
+	{
+		href: '/68-gsap-split-text',
+		title: 'Split text hover',
+		description: 'Team section with hover effect on each team member',
+		technologies: ['GSAP'],
 		shared: false,
-		isForNextTuesday: true,
-		imgSrc: '/projectThumbnails/gsap-flip.mp4'
+		imgSrc: '/projectThumbnails/gsap-flip.mp4',
+		date: new Date('2025-07-01')
 	}
 ];
+
+const reversedProjects = [...projects].reverse();
+
+export { reversedProjects as projects };

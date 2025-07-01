@@ -17,9 +17,10 @@
 	import Stats from 'stats.js';
 	import { gsap } from 'gsap';
 	import { onDestroy } from 'svelte';
-
+	import { createMouseExclusionPixelPass } from './MouseExclusionPixelPass.js';
 	let activePointText: number | null = null;
 	let activeGroup: 'helmet' | 'sword' | 'knot' = 'sword';
+	let mousePosition = { x: 0, y: 0 };
 
 	$effect(() => {
 		const gui = new GUI();
@@ -53,6 +54,11 @@
 			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 			effectComposer.setSize(sizes.width, sizes.height);
 			effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+			// Update resolution uniform for mouseExclusionPixelPass
+			if (mouseExclusionPixelPass) {
+				mouseExclusionPixelPass.uniforms.resolution.value.set(sizes.width, sizes.height);
+			}
 		});
 
 		// Base camera
@@ -599,10 +605,71 @@
 			.max(5)
 			.step(0.05)
 			.name('Vignette Strength');
-
 		const renderPixelatedPass = new RenderPixelatedPass(6, scene, camera);
 		renderPixelatedPass.enabled = false;
 		effectComposer.addPass(renderPixelatedPass);
+
+		// Add custom mouse exclusion pixel pass
+		const mouseExclusionPixelPass = createMouseExclusionPixelPass(renderer);
+		mouseExclusionPixelPass.enabled = false;
+		effectComposer.addPass(mouseExclusionPixelPass);
+		// Add mouse exclusion settings to GUI
+		const mouseExclusionParams = {
+			enabled: true, // Default to enabled for easier testing
+			size: 0.15,
+			borderWidth: 0.0015,
+			borderColor: [5, 5, 5],
+			easeSpeed: 0.1
+		};
+
+		const mouseExclusionFolder = gui.addFolder('Mouse Exclusion');
+		mouseExclusionFolder
+			.add(mouseExclusionParams, 'enabled')
+			.name('Enable Mouse Exclusion')
+			.onChange((value: any) => {
+				mouseExclusionPixelPass.uniforms.exclusionActive.value = value;
+			});
+
+		mouseExclusionFolder
+			.add(mouseExclusionParams, 'size', 0.05, 0.3, 0.01)
+			.name('Exclusion Size')
+			.onChange((value: any) => {
+				mouseExclusionPixelPass.uniforms.exclusionSize.value = value;
+			});
+
+		mouseExclusionFolder
+			.add(mouseExclusionParams, 'borderWidth', 0.001, 0.01, 0.001)
+			.name('Border Width')
+			.onChange((value: any) => {
+				mouseExclusionPixelPass.uniforms.borderWidth.value = value;
+			});
+
+		mouseExclusionFolder.add(mouseExclusionParams, 'easeSpeed', 0.01, 0.5, 0.01).name('Ease Speed');
+
+		mouseExclusionFolder
+			.addColor(mouseExclusionParams, 'borderColor')
+			.name('Border Color')
+			.onChange((value: any) => {
+				const normalizedColor = value.map((c) => c / 255);
+				mouseExclusionPixelPass.uniforms.borderColor.value.set(
+					normalizedColor[0],
+					normalizedColor[1],
+					normalizedColor[2]
+				);
+			});
+
+		// Initialize the mouse exclusion pass with parameters
+		mouseExclusionPixelPass.uniforms.exclusionActive.value = mouseExclusionParams.enabled;
+		mouseExclusionPixelPass.uniforms.exclusionSize.value = mouseExclusionParams.size;
+		mouseExclusionPixelPass.uniforms.borderWidth.value = mouseExclusionParams.borderWidth;
+
+		// Initialize border color (convert from 0-255 to 0-1 range)
+		const normalizedColor = mouseExclusionParams.borderColor.map((c) => c / 255);
+		mouseExclusionPixelPass.uniforms.borderColor.value.set(
+			normalizedColor[0],
+			normalizedColor[1],
+			normalizedColor[2]
+		);
 
 		const bloomParams = {
 			threshold: 0.6,
@@ -650,20 +717,18 @@
 		effectComposer.addPass(bloomPass);
 
 		const gammaCorrectionPass = new ShaderPass(GammaCorrectionShader);
-		effectComposer.addPass(gammaCorrectionPass);
-
-		// Add post processing controls
+		effectComposer.addPass(gammaCorrectionPass); // Add post processing controls
 		const postProcessingFolder = gui.addFolder('Post Processing');
 		const postProcessingParams = {
-			none: true,
+			none: false,
 			dotScreen: false,
 			glitch: false,
 			rgbShift: false,
 			pixels: false,
+			pixelsWithMouseExclusion: true, // Enable by default
 			displacement: false,
 			bloom: false
 		};
-
 		// Store controller references
 		const controllers = {
 			none: postProcessingFolder.add(postProcessingParams, 'none'),
@@ -672,18 +737,23 @@
 			rgbShift: postProcessingFolder.add(postProcessingParams, 'rgbShift'),
 			displacement: postProcessingFolder.add(postProcessingParams, 'displacement'),
 			pixels: postProcessingFolder.add(postProcessingParams, 'pixels'),
+			pixelsWithMouseExclusion: postProcessingFolder.add(
+				postProcessingParams,
+				'pixelsWithMouseExclusion'
+			),
 			bloom: postProcessingFolder.add(postProcessingParams, 'bloom')
 		};
 
+		// Initialize with the mouse exclusion pixel effect enabled
 		type PostProcessingPass =
 			| 'none'
 			| 'dotScreen'
 			| 'glitch'
 			| 'rgbShift'
 			| 'pixels'
+			| 'pixelsWithMouseExclusion'
 			| 'displacement'
 			| 'bloom';
-
 		const updatePasses = (selectedPass: PostProcessingPass, forceNone = false) => {
 			if (forceNone) {
 				selectedPass = 'none';
@@ -694,6 +764,7 @@
 			glitchPass.enabled = selectedPass === 'glitch';
 			rgbShiftPass.enabled = selectedPass === 'rgbShift';
 			renderPixelatedPass.enabled = selectedPass === 'pixels';
+			mouseExclusionPixelPass.enabled = selectedPass === 'pixelsWithMouseExclusion';
 			displacementPass.enabled = selectedPass === 'displacement';
 			bloomPass.enabled = selectedPass === 'bloom';
 
@@ -703,9 +774,11 @@
 			controllers.glitch.setValue(selectedPass === 'glitch');
 			controllers.rgbShift.setValue(selectedPass === 'rgbShift');
 			controllers.pixels.setValue(selectedPass === 'pixels');
+			controllers.pixelsWithMouseExclusion.setValue(selectedPass === 'pixelsWithMouseExclusion');
 			controllers.displacement.setValue(selectedPass === 'displacement');
 			controllers.bloom.setValue(selectedPass === 'bloom');
 		};
+		updatePasses('pixelsWithMouseExclusion');
 
 		// Modified controller event handlers
 		controllers.none.onChange((value: boolean) => {
@@ -734,6 +807,9 @@
 		);
 		controllers.pixels.onChange((value: boolean) =>
 			value ? updatePasses('pixels') : updatePasses('none', true)
+		);
+		controllers.pixelsWithMouseExclusion.onChange((value: boolean) =>
+			value ? updatePasses('pixelsWithMouseExclusion') : updatePasses('none', true)
 		);
 		controllers.bloom.onChange((value: boolean) =>
 			value ? updatePasses('bloom') : updatePasses('none', true)
@@ -779,7 +855,6 @@
 					}
 				});
 		};
-
 		gui
 			.add(params, 'pixelSize')
 			.min(1)
@@ -787,13 +862,21 @@
 			.step(1)
 			.onChange(() => {
 				renderPixelatedPass.setPixelSize(params.pixelSize);
+				// Also update the pixel size in our custom pass
+				if (mouseExclusionPixelPass) {
+					mouseExclusionPixelPass.uniforms.pixelSize.value = params.pixelSize;
+				}
 			});
+
+		// Set initial pixel size
+		if (mouseExclusionPixelPass) {
+			mouseExclusionPixelPass.uniforms.pixelSize.value = params.pixelSize;
+		}
 
 		// Add animation button
 		gui.add({ animate: triggerPixelAnimation }, 'animate').name('Trigger Pixel Animation');
 		gui.add(params, 'rotationSpeed').min(0).max(1).step(0.01).name('Rotation Speed');
 		gui.add(params, 'enableRotation').name('Enable Camera Rotation');
-
 		// Add these variables after the points array
 		const pointsScreenPositions = points.map(() => ({
 			x: 0,
@@ -801,7 +884,21 @@
 			visible: false,
 			lerpFactor: 1
 		}));
+		// Add mouse move event listener for the pixel exclusion effect
+		window.addEventListener('mousemove', (event) => {
+			// Get mouse coordinates within the viewport
+			const x = event.clientX;
+			const y = event.clientY - 56; // Adjust for header height
 
+			// Convert mouse position to normalized UV coordinates (0-1)
+			mousePosition.x = x / sizes.width;
+			mousePosition.y = 1.0 - y / sizes.height; // Invert Y for WebGL coordinates
+
+			// Update shader uniform
+			if (mouseExclusionPixelPass) {
+				mouseExclusionPixelPass.uniforms.mousePosition.value.set(mousePosition.x, mousePosition.y);
+			}
+		});
 		const clock = new THREE.Clock();
 		const radius = 6;
 
@@ -819,6 +916,17 @@
 				camera.position.x = Math.cos(angle) * radius;
 				camera.position.z = Math.sin(angle) * radius;
 				camera.lookAt(0, 0, 0);
+			}
+
+			// Update mouse exclusion staggered movement
+			if (mouseExclusionPixelPass && mouseExclusionPixelPass.uniforms.targetPosition) {
+				// Get the current target position
+				const targetPos = mouseExclusionPixelPass.uniforms.targetPosition.value;
+				const mousePos = mouseExclusionPixelPass.uniforms.mousePosition.value;
+
+				// Apply ease to move target position toward mouse position
+				targetPos.x += (mousePos.x - targetPos.x) * mouseExclusionParams.easeSpeed;
+				targetPos.y += (mousePos.y - targetPos.y) * mouseExclusionParams.easeSpeed;
 			}
 
 			// Update points

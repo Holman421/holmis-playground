@@ -57,7 +57,7 @@
 		// Sizes
 		const sizes = {
 			width: window.innerWidth,
-			height: window.innerHeight - 56,
+			height: window.innerHeight,
 			pixelRatio: Math.min(window.devicePixelRatio, 2)
 		};
 
@@ -112,7 +112,7 @@
 		};
 
 		const { material, mesh } = createShaderPlane(); // Initialize shader with first section values
-		const applyShaderConfig = (config) => {
+		const applyShaderConfig = (config: any) => {
 			material.uniforms.uNoiseScale.value = config.noiseScale;
 			material.uniforms.uPatternFrequency.value = config.patternFrequency;
 			material.uniforms.uFirstOffset.value = config.firstOffset;
@@ -255,7 +255,8 @@
 					const upperConfig = sectionConfigs[upperIndex];
 
 					// Smooth easing function for transitions
-					const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+					const easeInOutCubic = (t: any) =>
+						t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 					const smoothMix = easeInOutCubic(fraction);
 
 					// Interpolate all shader parameters

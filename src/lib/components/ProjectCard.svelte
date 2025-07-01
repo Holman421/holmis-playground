@@ -3,12 +3,22 @@
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 
-	const { title, description, href, technologies, usedInRealProject } = $props<{
+	const {
+		title,
+		description,
+		href,
+		technologies,
+		usedInRealProject,
+		children,
+		date
+	} = $props<{
 		title: string;
 		description: string;
 		href: string;
 		technologies: string[];
 		usedInRealProject: boolean;
+		children?: () => any;
+		date?: Date;
 	}>();
 
 	let cardElement: HTMLDivElement;
@@ -17,16 +27,83 @@
 		easing: cubicOut
 	});
 
+	// Video playback control variables
+	let videoPlaybackIntervals: Record<string, number> = {};
+	let videoDirections: Record<string, boolean> = {}; // true = forward, false = backward
+	const PLAYBACK_STEP = 0.05; // Adjust the playback speed
+	const INTERVAL_MS = 60; // Update interval in milliseconds
+
 	// Generate unique IDs for this instance
 	const uniqueId = crypto.randomUUID();
 	const gooFilterId = `goo-${uniqueId}`;
 	const borderFilterId = `border-${uniqueId}`;
 
+	// Custom video playback function
+	function setupVideoPlayback(video: HTMLVideoElement) {
+		const videoId =
+			video.id || `video-${Math.random().toString(36).substr(2, 9)}`;
+		if (!video.id) video.id = videoId;
+
+		// Wait for video metadata to load to get duration
+		if (video.readyState >= 2) {
+			startVideoOscillation(video);
+		} else {
+			video.addEventListener('loadedmetadata', () => {
+				startVideoOscillation(video);
+			});
+		}
+	}
+
+	function startVideoOscillation(video: HTMLVideoElement) {
+		const videoId = video.id;
+		videoDirections[videoId] = true; // Start by going forward
+
+		// Clear any existing interval for this video
+		if (videoPlaybackIntervals[videoId]) {
+			clearInterval(videoPlaybackIntervals[videoId]);
+		}
+
+		// Set video to beginning
+		video.currentTime = 0;
+
+		// Create a new interval for oscillating playback
+		videoPlaybackIntervals[videoId] = window.setInterval(() => {
+			if (videoDirections[videoId]) {
+				// Moving forward
+				video.currentTime += PLAYBACK_STEP;
+
+				// Check if we reached the end
+				if (video.currentTime >= video.duration - PLAYBACK_STEP) {
+					videoDirections[videoId] = false;
+				}
+			} else {
+				// Moving backward
+				video.currentTime -= PLAYBACK_STEP;
+
+				// Check if we reached the beginning
+				if (video.currentTime <= PLAYBACK_STEP) {
+					videoDirections[videoId] = true;
+				}
+			}
+		}, INTERVAL_MS);
+	}
+
+	function stopVideoOscillation(video: HTMLVideoElement) {
+		const videoId = video.id;
+		if (videoPlaybackIntervals[videoId]) {
+			clearInterval(videoPlaybackIntervals[videoId]);
+			delete videoPlaybackIntervals[videoId];
+		}
+		video.currentTime = 0;
+	}
+
 	onMount(() => {
 		const cardBorderEffect = cardElement.querySelector(
 			`#cardBorderEffect-${uniqueId}`
 		) as HTMLDivElement;
-		const cardGooEffect = cardElement.querySelector(`#cardGooEffect-${uniqueId}`) as HTMLDivElement;
+		const cardGooEffect = cardElement.querySelector(
+			`#cardGooEffect-${uniqueId}`
+		) as HTMLDivElement;
 
 		// Create and append filters dynamically
 		const gooFilter = `
@@ -74,7 +151,9 @@
 
 		// Update goo effect on hover
 		const updateGooFilter = (value: number) => {
-			const filter = cardElement.querySelector(`#${gooFilterId} feGaussianBlur`);
+			const filter = cardElement.querySelector(
+				`#${gooFilterId} feGaussianBlur`
+			);
 			if (filter) {
 				filter.setAttribute('stdDeviation', value.toString());
 			}
@@ -88,26 +167,29 @@
 		cardElement.addEventListener('mouseenter', () => {
 			gooEffect.set(10);
 
-			// Find video elements in slots and play them
+			// Find video elements in slots and play them with custom logic
 			const videos = cardElement.querySelectorAll('video');
 			videos.forEach((video) => {
-				video.play().catch((err) => console.error('Error playing video:', err));
+				setupVideoPlayback(video);
 			});
 		});
 
 		cardElement.addEventListener('mouseleave', () => {
 			gooEffect.set(1);
 
-			// Find video elements in slots and pause them
+			// Find video elements in slots and stop oscillation
 			const videos = cardElement.querySelectorAll('video');
 			videos.forEach((video) => {
-				video.pause();
-				video.currentTime = 0;
+				stopVideoOscillation(video);
 			});
 		});
 
 		return () => {
 			unsubscribe();
+			// Clean up any remaining intervals
+			Object.values(videoPlaybackIntervals).forEach((intervalId) => {
+				clearInterval(intervalId);
+			});
 		};
 	});
 </script>
@@ -124,14 +206,25 @@
 						<h3 class="main-text font-audiowide">{title}</h3>
 						<div class="flex justify-between">
 							<p class="secondary-text font-exo2 w-[60%]">{description}</p>
-							<div class="w-[38%] aspect-square translate-x-3 -translate-y-2 media-container">
-								<slot />
+							<div
+								class="w-[38%] aspect-square translate-x-3 -translate-y-2 media-container"
+							>
+								{@render children?.()}
 							</div>
 						</div>
 					</div>
-					{#if usedInRealProject}
-						<div class="absolute bottom-2 left-10 right-0 bg-opacity-50 text-white text-xs">
+					<!-- {#if usedInRealProject}
+						<div
+							class="absolute bottom-2 left-10 right-0 bg-opacity-50 text-white text-xs"
+						>
 							Used in real project
+						</div>
+					{/if} -->
+					{#if date}
+						<div
+							class="absolute bottom-1 md:bottom-2 left-0 flex justify-center w-[150px] md:w-[195px] bg-opacity-50 text-white text-xs"
+						>
+							{date.toLocaleDateString('cz')}
 						</div>
 					{/if}
 				</div>

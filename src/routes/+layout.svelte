@@ -12,6 +12,8 @@
 
 	setCounterState();
 
+	let { children } = $props();
+
 	$effect(() => {
 		getCounterState().restoreFromLocalStorage();
 	});
@@ -32,7 +34,9 @@
 
 		requestAnimationFrame(raf);
 
-		const tweakPaneContainer = document.querySelector('.tp-dfwv') as HTMLElement;
+		const tweakPaneContainer = document.querySelector(
+			'.tp-dfwv'
+		) as HTMLElement;
 		if (tweakPaneContainer) {
 			tweakPaneContainer.style.zIndex = '9999';
 		}
@@ -52,7 +56,11 @@
 			<h1 class="font-bold text-2xl font-audiowide">Holmis Playground</h1>
 		</a>
 	</nav>
-	<slot class="flex-1" />
+	<div>
+		{@render children?.()}
+	</div>
+
+	<!-- <slot class="flex-1" /> -->
 </div>
 
 <style>
