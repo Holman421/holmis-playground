@@ -130,7 +130,7 @@
 		// Camera
 		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
 		// Camera State
-		camera.position.set(-0.846, -0.169, 1.379);
+		camera.position.set(-0.846, -0.069, 1.379);
 		// camera.quaternion.set(0.05, -0.271, 0.014, 0.961);
 		camera.updateMatrix();
 		camera.updateMatrixWorld();
@@ -315,10 +315,5 @@
 <div>
 	<div class="w-fit overflow-hidden rounded-lg mx-auto mt-20 relative">
 		<canvas class="webgl"></canvas>
-		<h1
-			class="absolute text-black top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-bold whitespace-nowrap"
-		>
-			Wonder Makers
-		</h1>
 	</div>
 </div>

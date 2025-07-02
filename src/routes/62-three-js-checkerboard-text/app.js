@@ -51,7 +51,7 @@ export default class Sketch {
 		// Create settings first
 		this.settings = {
 			text: {
-				content: 'Wonder Makers',
+				content: 'Ales Holman',
 				fontSize: 0.5,
 				fillColor: '#ffcc00',
 				fillOpacity: 1.0
