@@ -654,6 +654,24 @@ const projects: Project[] = [
 		shared: false,
 		imgSrc: '/projectThumbnails/gsap-flip.mp4',
 		date: new Date('2025-07-01')
+	},
+	{
+		href: '/69-futuristic-card',
+		title: 'Futuristic card',
+		description: 'Simple css card with futuristic hover effect',
+		technologies: ['GSAP'],
+		shared: true,
+		imgSrc: '/projectThumbnails/futuristic-card.mp4',
+		date: new Date('2025-07-02')
+	},
+	{
+		href: '/70-video-scroll',
+		title: 'Video on scroll',
+		description: 'Video that plays on scroll',
+		technologies: ['GSAP'],
+		shared: true,
+		imgSrc: '/projectThumbnails/video-scroll.mp4',
+		date: new Date('2025-07-02')
 	}
 ];
 

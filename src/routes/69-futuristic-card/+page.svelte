@@ -2,72 +2,94 @@
 	import { gsap } from 'gsap';
 	import { SplitText } from 'gsap/SplitText';
 	import { onMount } from 'svelte';
-	
+
 	gsap.registerPlugin(SplitText);
-		let containerRef: HTMLDivElement;
+	let containerRef: HTMLDivElement;
 	let splitText1: SplitText;
 	let splitText2: SplitText;
 	let splitText3: SplitText;
-	
+
 	onMount(() => {
 		// Initialize SplitText for all text elements
 		splitText1 = new SplitText('.split-text-1', { type: 'chars' });
 		splitText2 = new SplitText('.split-text-2', { type: 'chars' });
 		splitText3 = new SplitText('.split-text-3', { type: 'chars' });
-		
+
 		// Set initial opacity to 0 for all characters
-		gsap.set([splitText1.chars, splitText2.chars, splitText3.chars], { opacity: 0 });
-				// Add hover listeners
+		gsap.set([splitText1.chars, splitText2.chars, splitText3.chars], {
+			opacity: 0
+		});
+		// Add hover listeners
 		const card = containerRef.querySelector('.card-hover-target');
-				card?.addEventListener('mouseenter', () => {
+		card?.addEventListener('mouseenter', () => {
 			// Kill any existing animations
 			gsap.killTweensOf([splitText1.chars, splitText2.chars, splitText3.chars]);
-			
+
 			// Create new timeline for each hover
 			const tl = gsap.timeline();
-			
+
 			// Animate each set of characters with instant opacity change (no fade)
-			tl.to(splitText1.chars, {
-				opacity: 1,
-				duration: 0,
-				ease: 'none',
-				stagger: {
-					amount: 0.4,
-					from: 'random'
-				}
-			}, 0)
-			.to(splitText2.chars, {
-				opacity: 1,
-				duration: 0,
-				ease: 'none',
-				stagger: {
-					amount: 0.4,
-					from: 'random'
-				}
-			}, 0.1)
-			.to(splitText3.chars, {
-				opacity: 1,
-				duration: 0,
-				ease: 'none',
-				stagger: {
-					amount: 0.4,
-					from: 'random'
-				}
-			}, 0.2);
+			tl.to(
+				splitText1.chars,
+				{
+					opacity: 1,
+					duration: 0,
+					ease: 'none',
+					stagger: {
+						amount: 0.4,
+						from: 'random'
+					}
+				},
+				0
+			)
+				.to(
+					splitText2.chars,
+					{
+						opacity: 1,
+						duration: 0,
+						ease: 'none',
+						stagger: {
+							amount: 0.4,
+							from: 'random'
+						}
+					},
+					0.1
+				)
+				.to(
+					splitText3.chars,
+					{
+						opacity: 1,
+						duration: 0,
+						ease: 'none',
+						stagger: {
+							amount: 0.4,
+							from: 'random'
+						}
+					},
+					0.2
+				);
 		});
-		
+
 		card?.addEventListener('mouseleave', () => {
 			// Kill any existing animations
 			gsap.killTweensOf([splitText1.chars, splitText2.chars, splitText3.chars]);
-			
+
 			// Reset all characters to opacity 0 instantly for next hover
-			gsap.set([splitText1.chars, splitText2.chars, splitText3.chars], { opacity: 0 });
+			gsap.set([splitText1.chars, splitText2.chars, splitText3.chars], {
+				opacity: 0
+			});
 		});
 	});
 </script>
 
-<div bind:this={containerRef} id="container" class="w-screen h-[calc(100vh-56px)] flex items-center justify-center">
-	<div class="cursor-pointer group card-hover-target size-[300px] overflow-hidden relative">
+<div
+	bind:this={containerRef}
+	id="container"
+	class="w-screen h-[calc(100vh-56px)] flex items-center justify-center"
+>
+	<div
+		class="cursor-pointer group card-hover-target size-[300px] overflow-hidden relative"
+	>
 		<img
 			src="/pictures/universe/universe-4.jpg"
 			alt="Futuristic Card"
