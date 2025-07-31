@@ -202,7 +202,10 @@ export default class Sketch {
 			fragmentShader: fragmentFBO
 		});
 
-		this.fboQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 1, 1), this.fboMaterial);
+		this.fboQuad = new THREE.Mesh(
+			new THREE.PlaneGeometry(2, 2, 1, 1),
+			this.fboMaterial
+		);
 		this.fboScene.add(this.fboQuad);
 
 		this.finalScene = new THREE.Scene();
@@ -215,6 +218,8 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
+		this.renderer.dispose();
+		this.pane.dispose();
 	}
 
 	play() {

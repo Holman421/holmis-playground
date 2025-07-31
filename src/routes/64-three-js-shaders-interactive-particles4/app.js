@@ -51,7 +51,12 @@ export default class Sketch {
 	}
 
 	setupCamera() {
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1024);
+		this.camera = new THREE.PerspectiveCamera(
+			70,
+			this.width / this.height,
+			0.01,
+			1024
+		);
 		this.camera.position.set(0.0, 0.0, 2.25);
 		this.camera.lookAt(0, 0, 0);
 
@@ -136,7 +141,8 @@ export default class Sketch {
 		this.renderer.setPixelRatio(this.pixelRatio);
 
 		this.shaderResetPointsOffset = this.isMobile ? 1 : 0;
-		this.fboMaterial.uniforms.shaderResetPointsOffset.value = this.shaderResetPointsOffset;
+		this.fboMaterial.uniforms.shaderResetPointsOffset.value =
+			this.shaderResetPointsOffset;
 		if (this.isMobile) {
 			this.fboMaterial.uniforms.uCurrentMouse.value = new THREE.Vector2(0, 0);
 		}
@@ -192,7 +198,8 @@ export default class Sketch {
 			for (let j = 0; j < this.size; j++) {
 				let index = (i + j * this.size) * 4;
 				// Distribute particles in a circle with random radius
-				let theta = (i * 2.0 * Math.PI) / this.size + (Math.random() * 0.2 - 0.1);
+				let theta =
+					(i * 2.0 * Math.PI) / this.size + (Math.random() * 0.2 - 0.1);
 				let radius = 1.0 + Math.random() * 0.5; // Random radius between 1.0 and 1.5
 				this.data[index + 0] = Math.random() * 2 - 1;
 				this.data[index + 1] = Math.random() * 2 - 1;
@@ -364,19 +371,30 @@ export default class Sketch {
 		});
 
 		// Simulation folder
-		const simulationFolder = this.pane.addFolder({ title: 'Simulation', expanded: false });
-
-		simulationFolder.addBinding(this.fboMaterial.uniforms.uNoiseScale, 'value', {
-			label: 'Noise Scale',
-			min: 0.1,
-			max: 10.0
+		const simulationFolder = this.pane.addFolder({
+			title: 'Simulation',
+			expanded: false
 		});
 
-		simulationFolder.addBinding(this.fboMaterial.uniforms.uNoiseStrength, 'value', {
-			label: 'Noise Strength',
-			min: 0.0,
-			max: 0.05
-		});
+		simulationFolder.addBinding(
+			this.fboMaterial.uniforms.uNoiseScale,
+			'value',
+			{
+				label: 'Noise Scale',
+				min: 0.1,
+				max: 10.0
+			}
+		);
+
+		simulationFolder.addBinding(
+			this.fboMaterial.uniforms.uNoiseStrength,
+			'value',
+			{
+				label: 'Noise Strength',
+				min: 0.0,
+				max: 0.05
+			}
+		);
 	}
 
 	render() {
@@ -409,6 +427,7 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
+		this.renderer.dispose();
 		this.pane.dispose();
 	}
 }

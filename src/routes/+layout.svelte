@@ -48,7 +48,7 @@
 	});
 </script>
 
-<div class="w-full min-h-screen flex flex-col">
+<div class="w-full min-h-screen flex flex-col overflow-hidden">
 	<nav
 		class="h-[56px] flex justify-center items-center z-[1] bg-black relative border-[#a6a8b1] border-b"
 	>

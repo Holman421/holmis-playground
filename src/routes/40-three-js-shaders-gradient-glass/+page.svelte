@@ -5,7 +5,11 @@
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
 	import bigSphereFragmentShader from './shaders/bigSphere/fragment.glsl';
 	import bigSpereVertexShader from './shaders/bigSphere/vertex.glsl';
-	import { EffectComposer, RenderPass, ShaderPass } from 'three/examples/jsm/Addons.js';
+	import {
+		EffectComposer,
+		RenderPass,
+		ShaderPass
+	} from 'three/examples/jsm/Addons.js';
 	import { DotScreenShader } from './shaders/postprocessing/vertex';
 
 	$effect(() => {
@@ -128,7 +132,12 @@
 		});
 
 		// Camera and Renderer setup
-		const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100);
+		const camera = new THREE.PerspectiveCamera(
+			35,
+			sizes.width / sizes.height,
+			0.1,
+			100
+		);
 		camera.position.set(0, 0, 1);
 		scene.add(camera);
 
@@ -174,7 +183,8 @@
 			const preloader = document.createElement('div');
 			preloader.className =
 				'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black z-50';
-			preloader.innerHTML = '<div class="text-white text-lg">Loading shader...</div>';
+			preloader.innerHTML =
+				'<div class="text-white text-lg">Loading shader...</div>';
 			document.body.appendChild(preloader);
 
 			// Initialize shader
@@ -246,8 +256,14 @@
 				else {
 					// Calculate which sections to interpolate between
 					const exactPosition = state.progressScale;
-					const lowerIndex = Math.min(Math.floor(exactPosition), sectionConfigs.length - 2);
-					const upperIndex = Math.min(lowerIndex + 1, sectionConfigs.length - 1);
+					const lowerIndex = Math.min(
+						Math.floor(exactPosition),
+						sectionConfigs.length - 2
+					);
+					const upperIndex = Math.min(
+						lowerIndex + 1,
+						sectionConfigs.length - 1
+					);
 					const fraction = exactPosition - lowerIndex;
 
 					// Get section configs
@@ -261,14 +277,17 @@
 
 					// Interpolate all shader parameters
 					material.uniforms.uNoiseSpeed.value =
-						lowerConfig.noiseSpeed + (upperConfig.noiseSpeed - lowerConfig.noiseSpeed) * smoothMix;
+						lowerConfig.noiseSpeed +
+						(upperConfig.noiseSpeed - lowerConfig.noiseSpeed) * smoothMix;
 
 					material.uniforms.uNoiseScale.value =
-						lowerConfig.noiseScale + (upperConfig.noiseScale - lowerConfig.noiseScale) * smoothMix;
+						lowerConfig.noiseScale +
+						(upperConfig.noiseScale - lowerConfig.noiseScale) * smoothMix;
 
 					material.uniforms.uPatternFrequency.value =
 						lowerConfig.patternFrequency +
-						(upperConfig.patternFrequency - lowerConfig.patternFrequency) * smoothMix;
+						(upperConfig.patternFrequency - lowerConfig.patternFrequency) *
+							smoothMix;
 
 					material.uniforms.uFirstOffset.value =
 						lowerConfig.firstOffset +

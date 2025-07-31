@@ -21,7 +21,12 @@ export default class Sketch {
 		this.renderer.setClearColor(0x000000, 1);
 		this.container.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(
+			70,
+			this.width / this.height,
+			0.01,
+			1000
+		);
 		this.camera.position.set(0, 0, 3);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -97,5 +102,7 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
+		this.renderer.dispose();
+		this.pane.dispose();
 	}
 }

@@ -328,7 +328,8 @@ export default class Sketch {
 						1: 1,
 						onUpdate: () => {
 							this.text.progress1 = this.settings.progress[1];
-							this.material.uniforms.uProgress1.value = this.settings.progress[1];
+							this.material.uniforms.uProgress1.value =
+								this.settings.progress[1];
 							this.progressBindings[1].refresh();
 						}
 					})
@@ -338,7 +339,8 @@ export default class Sketch {
 							2: 1,
 							onUpdate: () => {
 								this.text.progress2 = this.settings.progress[2];
-								this.material.uniforms.uProgress2.value = this.settings.progress[2];
+								this.material.uniforms.uProgress2.value =
+									this.settings.progress[2];
 								this.progressBindings[2].refresh();
 							}
 						},
@@ -350,7 +352,8 @@ export default class Sketch {
 							3: 1,
 							onUpdate: () => {
 								this.text.progress3 = this.settings.progress[3];
-								this.material.uniforms.uProgress3.value = this.settings.progress[3];
+								this.material.uniforms.uProgress3.value =
+									this.settings.progress[3];
 								this.progressBindings[3].refresh();
 							}
 						},
@@ -362,7 +365,8 @@ export default class Sketch {
 							4: 1,
 							onUpdate: () => {
 								this.text.progress4 = this.settings.progress[4];
-								this.material.uniforms.uProgress4.value = this.settings.progress[4];
+								this.material.uniforms.uProgress4.value =
+									this.settings.progress[4];
 								this.progressBindings[4].refresh();
 							}
 						},
@@ -387,6 +391,7 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
+		this.renderer.dispose();
 		this.pane.dispose();
 	}
 }

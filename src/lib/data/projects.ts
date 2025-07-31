@@ -672,6 +672,24 @@ const projects: Project[] = [
 		shared: true,
 		imgSrc: '/projectThumbnails/video-scroll.mp4',
 		date: new Date('2025-07-02')
+	},
+	{
+		href: '/71-tsl-webGPU-portfolio-twisting-column',
+		title: 'Twisting column',
+		description: 'Portfolio training - 1, twisting column with TSL and WebGPU',
+		technologies: ['webGPU'],
+		shared: true,
+		imgSrc: '/projectThumbnails/video-scroll.mp4',
+		date: new Date('2025-07-25')
+	},
+	{
+		href: '/72-tsl-webGPU-portfolio-disintegrate',
+		title: 'Disintegrate',
+		description: 'Portfolio training - 1, disintegrate effect with TSL and WebGPU',
+		technologies: ['webGPU'],
+		shared: true,
+		imgSrc: '/projectThumbnails/video-scroll.mp4',
+		date: new Date('2025-07-25')
 	}
 ];
 

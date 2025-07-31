@@ -20,7 +20,12 @@ export default class Sketch {
 		this.renderer.setClearColor(0x000000, 1);
 		this.container.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(
+			70,
+			this.width / this.height,
+			0.01,
+			1000
+		);
 		this.camera.position.set(0, 0, 3);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -126,14 +131,20 @@ export default class Sketch {
 		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
 		// Store reference to the controller
-		const progressInput = this.pane.addBinding(this.material.uniforms.uProgress, 'value', {
-			min: 0,
-			max: 1,
-			step: 0.01,
-			label: 'progress'
-		});
+		const progressInput = this.pane.addBinding(
+			this.material.uniforms.uProgress,
+			'value',
+			{
+				min: 0,
+				max: 1,
+				step: 0.01,
+				label: 'progress'
+			}
+		);
 
-		this.pane.addButton({ title: 'Toggle Animation' }).on('click', () => this.animateProgress());
+		this.pane
+			.addButton({ title: 'Toggle Animation' })
+			.on('click', () => this.animateProgress());
 
 		// Update the animateProgress method to work with TweakPane
 		this.progressController = progressInput;
@@ -151,6 +162,7 @@ export default class Sketch {
 
 	stop() {
 		this.isPlaying = false;
+		this.renderer.dispose();
 		this.pane.dispose();
 	}
 }
