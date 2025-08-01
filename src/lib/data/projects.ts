@@ -685,11 +685,11 @@ const projects: Project[] = [
 	{
 		href: '/72-tsl-webGPU-portfolio-disintegrate',
 		title: 'Disintegrate',
-		description: 'Portfolio training - 1, disintegrate effect with TSL and WebGPU',
+		description: 'Portfolio training - 2, disintegrate effect with TSL and WebGPU',
 		technologies: ['webGPU'],
 		shared: true,
 		imgSrc: '/projectThumbnails/video-scroll.mp4',
-		date: new Date('2025-07-25')
+		date: new Date('2025-08-1')
 	}
 ];
 

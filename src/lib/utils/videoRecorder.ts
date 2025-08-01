@@ -51,7 +51,7 @@ export class VideoRecorder {
 
 		const {
 			mimeType = this.getBestMimeType(),
-			videoBitsPerSecond = this.getBitrate(options.quality || 'medium'),
+			videoBitsPerSecond = this.getBitrate(options.quality || 'high'),
 			frameRate = 60
 		} = options;
 
@@ -199,11 +199,13 @@ export class VideoRecorder {
 	 */
 	static getSupportedMimeTypes(): string[] {
 		const types = [
+			'video/mp4;codecs=h264',
+			'video/mp4;codecs=avc1.42E01E',
+			'video/mp4;codecs=avc1.640028',
+			'video/mp4',
 			'video/webm;codecs=vp9',
 			'video/webm;codecs=vp8',
-			'video/webm',
-			'video/mp4;codecs=h264',
-			'video/mp4'
+			'video/webm'
 		];
 
 		return types.filter(type => MediaRecorder.isTypeSupported(type));
@@ -219,9 +221,9 @@ export class VideoRecorder {
 
 	private getBitrate(quality: 'low' | 'medium' | 'high'): number {
 		const bitrates = {
-			low: 1000000,    // 1 Mbps
-			medium: 2500000, // 2.5 Mbps
-			high: 5000000    // 5 Mbps
+			low: 2500000,    // 2.5 Mbps
+			medium: 8000000, // 8 Mbps
+			high: 20000000   // 20 Mbps
 		};
 		return bitrates[quality];
 	}
@@ -275,9 +277,9 @@ export class VideoRecorder {
 	}
 
 	private getFileExtension(mimeType: string): string {
-		if (mimeType.includes('webm')) return 'webm';
 		if (mimeType.includes('mp4')) return 'mp4';
-		return 'webm'; // fallback
+		if (mimeType.includes('webm')) return 'webm';
+		return 'mp4'; // fallback to mp4
 	}
 
 	private notifyStateChange(): void {

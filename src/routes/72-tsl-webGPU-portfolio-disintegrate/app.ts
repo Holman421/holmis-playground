@@ -372,30 +372,31 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.pane = new Pane();
+		(document.querySelector('.tp-dfwv') as HTMLElement)!.style.zIndex = '1000';
 
-		this.pane.addBinding(this.uniforms.progress, 'value', {
-			min: 0,
-			max: 1,
-			step: 0.01,
-			label: 'Progress'
-		});
+		// this.pane.addBinding(this.uniforms.progress, 'value', {
+		// 	min: 0,
+		// 	max: 1,
+		// 	step: 0.01,
+		// 	label: 'DisintegrateProgress'
+		// });
 
-		const btn = this.pane.addButton({
-			title: 'Animate progress'
-		});
+		// const btn = this.pane.addButton({
+		// 	title: 'Animate progress'
+		// });
 
-		btn.on('click', () => {
-			const animateTo = this.uniforms.progress.value <= 0.5 ? 1 : 0;
-			const duration = 8; // seconds
-			gsap.to(this.uniforms.progress, {
-				value: animateTo,
-				duration: duration,
-				ease: 'linear',
-				onUpdate: () => {
-					this.pane.refresh();
-				}
-			});
-		});
+		// btn.on('click', () => {
+		// 	const animateTo = this.uniforms.progress.value <= 0.5 ? 1 : 0;
+		// 	const duration = 8; // seconds
+		// 	gsap.to(this.uniforms.progress, {
+		// 		value: animateTo,
+		// 		duration: duration,
+		// 		ease: 'linear',
+		// 		onUpdate: () => {
+		// 			this.pane.refresh();
+		// 		}
+		// 	});
+		// });
 
 		this.pane.addBinding(this.uniforms.frequency, 'value', {
 			min: 0,
@@ -404,12 +405,12 @@ export default class Sketch {
 			label: 'Frequency'
 		});
 
-		this.pane.addBinding(this.uniforms.amplitude, 'value', {
-			min: 0,
-			max: 10,
-			step: 0.1,
-			label: 'Amplitude'
-		});
+		// this.pane.addBinding(this.uniforms.amplitude, 'value', {
+		// 	min: 0,
+		// 	max: 10,
+		// 	step: 0.1,
+		// 	label: 'Amplitude'
+		// });
 
 		// Text controls
 		const textFolder = this.pane.addFolder({

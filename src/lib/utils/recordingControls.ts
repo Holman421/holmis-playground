@@ -165,7 +165,7 @@ export class RecordingControls {
 	private async startVideoRecording(): Promise<void> {
 		try {
 			await this.videoRecorder.startRecording({
-				quality: 'medium',
+				quality: 'high',
 				frameRate: 60
 			});
 		} catch (error) {
