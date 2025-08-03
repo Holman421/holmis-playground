@@ -51,15 +51,17 @@ export default class Sketch {
 		// Create settings first
 		this.settings = {
 			text: {
-				content: 'Ales Holman',
+				content: 'Holmis playground',
 				fontSize: 0.5,
 				fillColor: '#ffcc00',
-				fillOpacity: 1.0
+				fillOpacity: 1.0,
+				finalColor: '#ffffff'
 			},
 			stroke: {
 				color: '#ffcc00',
 				opacity: 1.0,
-				width: 0.002
+				width: 0.002,
+				firstOutlineColor: '#ffffff'
 			},
 			wave: {
 				amplitude: 0.05,
@@ -120,12 +122,15 @@ export default class Sketch {
 		this.text.anchorX = 'center';
 		this.text.anchorY = 'middle';
 		this.text.font = './fonts/Audiowide.woff';
+		this.text.finalTextColor = this.settings.text.finalColor;
 
-		// Set initial progress values
-		this.text.progress1 = this.settings.progress[1];
-		this.text.progress2 = this.settings.progress[2];
-		this.text.progress3 = this.settings.progress[3];
-		this.text.progress4 = this.settings.progress[4];
+		// Set initial progress values - wait for text to be ready
+		this.text.sync(() => {
+			this.text.progress1 = this.settings.progress[1];
+			this.text.progress2 = this.settings.progress[2];
+			this.text.progress3 = this.settings.progress[3];
+			this.text.progress4 = this.settings.progress[4];
+		});
 
 		// Also set initial uniforms for the background material
 		this.material.uniforms.uProgress1.value = this.settings.progress[1];
@@ -137,6 +142,7 @@ export default class Sketch {
 		this.text.strokeWidth = this.settings.stroke.width;
 		this.text.strokeColor = new THREE.Color(this.settings.stroke.color);
 		this.text.strokeOpacity = this.settings.stroke.opacity;
+		this.text.firstOutlineColor = this.settings.stroke.firstOutlineColor;
 
 		this.scene.add(this.text);
 	}
@@ -208,6 +214,17 @@ export default class Sketch {
 			});
 
 		textFolder
+			.addBinding(this.settings.text, 'finalColor', {
+				label: 'Final Color',
+				view: 'color'
+			})
+			.on('change', (ev) => {
+				if (this.text) {
+					this.text.finalTextColor = ev.value;
+				}
+			});
+
+		textFolder
 			.addBinding(this.settings.stroke, 'color', {
 				label: 'Stroke Color',
 				view: 'color'
@@ -215,6 +232,17 @@ export default class Sketch {
 			.on('change', (ev) => {
 				if (this.text) {
 					this.text.strokeColor = new THREE.Color(ev.value);
+				}
+			});
+
+		textFolder
+			.addBinding(this.settings.stroke, 'firstOutlineColor', {
+				label: 'First Outline Color',
+				view: 'color'
+			})
+			.on('change', (ev) => {
+				if (this.text) {
+					this.text.firstOutlineColor = ev.value;
 				}
 			});
 
@@ -240,7 +268,7 @@ export default class Sketch {
 				step: 0.01
 			})
 			.on('change', (ev) => {
-				this.text.progress1 = ev.value;
+				if (this.text) this.text.progress1 = ev.value;
 				this.material.uniforms.uProgress1.value = ev.value;
 			});
 
@@ -252,7 +280,7 @@ export default class Sketch {
 				step: 0.01
 			})
 			.on('change', (ev) => {
-				this.text.progress2 = ev.value;
+				if (this.text) this.text.progress2 = ev.value;
 				this.material.uniforms.uProgress2.value = ev.value;
 			});
 
@@ -264,7 +292,7 @@ export default class Sketch {
 				step: 0.01
 			})
 			.on('change', (ev) => {
-				this.text.progress3 = ev.value;
+				if (this.text) this.text.progress3 = ev.value;
 				this.material.uniforms.uProgress3.value = ev.value;
 			});
 
@@ -276,7 +304,7 @@ export default class Sketch {
 				step: 0.01
 			})
 			.on('change', (ev) => {
-				this.text.progress4 = ev.value;
+				if (this.text) this.text.progress4 = ev.value;
 				this.material.uniforms.uProgress4.value = ev.value;
 			});
 
@@ -327,7 +355,7 @@ export default class Sketch {
 					.to(this.settings.progress, {
 						1: 1,
 						onUpdate: () => {
-							this.text.progress1 = this.settings.progress[1];
+							if (this.text) this.text.progress1 = this.settings.progress[1];
 							this.material.uniforms.uProgress1.value =
 								this.settings.progress[1];
 							this.progressBindings[1].refresh();
@@ -338,7 +366,7 @@ export default class Sketch {
 						{
 							2: 1,
 							onUpdate: () => {
-								this.text.progress2 = this.settings.progress[2];
+								if (this.text) this.text.progress2 = this.settings.progress[2];
 								this.material.uniforms.uProgress2.value =
 									this.settings.progress[2];
 								this.progressBindings[2].refresh();
@@ -351,7 +379,7 @@ export default class Sketch {
 						{
 							3: 1,
 							onUpdate: () => {
-								this.text.progress3 = this.settings.progress[3];
+								if (this.text) this.text.progress3 = this.settings.progress[3];
 								this.material.uniforms.uProgress3.value =
 									this.settings.progress[3];
 								this.progressBindings[3].refresh();
@@ -364,7 +392,7 @@ export default class Sketch {
 						{
 							4: 1,
 							onUpdate: () => {
-								this.text.progress4 = this.settings.progress[4];
+								if (this.text) this.text.progress4 = this.settings.progress[4];
 								this.material.uniforms.uProgress4.value =
 									this.settings.progress[4];
 								this.progressBindings[4].refresh();

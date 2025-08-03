@@ -92,6 +92,8 @@ uniform float uProgress1;
 uniform float uProgress2;
 uniform float uProgress3;
 uniform float uProgress4;
+uniform vec3 uFinalTextColor;
+uniform vec3 uFirstOutlineColor;
 varying vec2 vTroikaGlyphUV;
 varying vec4 vTroikaTextureUVBounds;
 varying float vTroikaTextureChannel;
@@ -182,7 +184,7 @@ float edgeAlpha = uTroikaSDFDebug ?
 #if !defined(IS_DEPTH_MATERIAL) && !defined(IS_DISTANCE_MATERIAL)
 vec4 fillRGBA = gl_FragColor;
 fillRGBA.a *= uTroikaFillOpacity;
-vec3 stroke1Color = vec3(1.0);
+vec3 stroke1Color = uFirstOutlineColor;
 vec4 strokeRGBA = uTroikaStrokeWidth == 0.0 ? fillRGBA : vec4(stroke1Color, uTroikaStrokeOpacity);
 vec4 strokeRGBA2 = uTroikaStrokeWidth == 0.0 ? fillRGBA : vec4(uTroikaStrokeColor, uTroikaStrokeOpacity);
 
@@ -221,9 +223,9 @@ float _p3 = 2.0 * p3 - pattern;
 vec4 whiteStroke = vec4(strokeRGBA.rgb, strokeRGBA.a * max(0.0, _p0));
 vec4 coloredStroke = vec4(strokeRGBA2.rgb, strokeRGBA2.a * max(0.0, _p1));
 
-// Fill colors - first original color, then white
+// Fill colors - first original color, then final color
 vec4 whiteFill = vec4(fillRGBA.rgb, fillRGBA.a * max(0.0, _p2));
-vec4 coloredFill = vec4(vec3(1.0), fillRGBA.a * max(0.0, _p3));
+vec4 coloredFill = vec4(uFinalTextColor, fillRGBA.a * max(0.0, _p3));
 
 // Initialize with black fill
 vec4 ultraFinalFillRGBA = vec4(vec3(0.0), fillRGBA.a);
@@ -244,10 +246,10 @@ if (_p2 > 0.0 && uProgress3 > 0.0) {
     ultraFinalFillRGBA = whiteFill;
 }
 if (_p3 > 0.0 && uProgress4 > 0.0) {
-    // Transition from original fill color to white based on _p3
-    vec3 lerpedColor = mix(fillRGBA.rgb, vec3(1.0), _p3);
+    // Transition from original fill color to final text color based on _p3
+    vec3 lerpedColor = mix(fillRGBA.rgb, uFinalTextColor, _p3);
     ultraFinalFillRGBA = vec4(lerpedColor, fillRGBA.a);
-    ultraFinalStrokeRGBA = vec4(vec3(1.0), strokeRGBA.a * max(0.0, _p3));
+    ultraFinalStrokeRGBA = vec4(uFinalTextColor, strokeRGBA.a * max(0.0, _p3));
 }
 
 if (fillRGBA.a == 0.0) fillRGBA.rgb = strokeRGBA.rgb;
@@ -294,7 +296,9 @@ export function createTextDerivedMaterial(baseMaterial) {
 			uProgress1: { value: 0 },
 			uProgress2: { value: 0 },
 			uProgress3: { value: 0 },
-			uProgress4: { value: 0 }
+			uProgress4: { value: 0 },
+			uFinalTextColor: { value: new Color(1.0, 1.0, 1.0) },
+			uFirstOutlineColor: { value: new Color(1.0, 1.0, 1.0) }
 		},
 		vertexDefs: VERTEX_DEFS,
 		vertexTransform: VERTEX_TRANSFORM,

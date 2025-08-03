@@ -679,7 +679,7 @@ const projects: Project[] = [
 		description: 'Portfolio training - 1, twisting column with TSL and WebGPU',
 		technologies: ['webGPU'],
 		shared: true,
-		imgSrc: '/projectThumbnails/video-scroll.mp4',
+		imgSrc: '/projectThumbnails/column.mp4',
 		date: new Date('2025-07-25')
 	},
 	{
@@ -688,7 +688,25 @@ const projects: Project[] = [
 		description: 'Portfolio training - 2, disintegrate effect with TSL and WebGPU',
 		technologies: ['webGPU'],
 		shared: true,
+		imgSrc: '/projectThumbnails/disintegrate.mp4',
+		date: new Date('2025-08-1')
+	},
+	{
+		href: '/73-tsl-webGPU-portfolio-msdf',
+		title: 'MSDF Text',
+		description: 'Portfolio training - 2, MSDF text with TSL and WebGPU',
+		technologies: ['webGPU'],
+		shared: false,
 		imgSrc: '/projectThumbnails/video-scroll.mp4',
+		date: new Date('2025-08-1')
+	},
+	{
+		href: '/74-tsl-webGPU-portfolio-sides',
+		title: 'Instanced mesh',
+		description: 'Portfolio training - 3, instanced mesh with worldPosition shader',
+		technologies: ['webGPU'],
+		shared: true,
+		imgSrc: '/projectThumbnails/sides.mp4',
 		date: new Date('2025-08-1')
 	}
 ];

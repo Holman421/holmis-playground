@@ -177,7 +177,8 @@ export const setupLightPane = ({
 	scene,
 	isActive = true,
 	positionRange = { min: -20, max: 20 },
-	targetRange = { min: -20, max: 20 }
+	targetRange = { min: -20, max: 20 },
+	showHelper = false
 }: {
 	pane: Pane;
 	light: DirectionalLight | SpotLight | PointLight;
@@ -186,6 +187,7 @@ export const setupLightPane = ({
 	isActive?: boolean;
 	positionRange?: { min: number; max: number };
 	targetRange?: { min: number; max: number };
+	showHelper?: boolean;
 }): FolderApi | undefined => {
 	if (!isActive) return;
 
@@ -193,7 +195,7 @@ export const setupLightPane = ({
 
 	// Light helper toggle
 	let helper: DirectionalLightHelper | SpotLightHelper | PointLightHelper | null = null;
-	const helperParams = { showHelper: false };
+	const helperParams = { showHelper };
 
 	const removeHelper = () => {
 		if (helper && helper.parent) {
@@ -203,10 +205,26 @@ export const setupLightPane = ({
 		}
 	};
 
+	const addHelper = () => {
+		if (light instanceof DirectionalLight) {
+			helper = new DirectionalLightHelper(light, 1);
+		} else if (light instanceof SpotLight) {
+			helper = new SpotLightHelper(light);
+		} else if (light instanceof PointLight) {
+			helper = new PointLightHelper(light, 1);
+		}
+		if (helper) scene.add(helper);
+	};
+
+	// Initialize helper based on showHelper parameter
+	if (showHelper) {
+		addHelper();
+	}
+
 	// Helper toggle
 	lightFolder
 		.addBinding(helperParams, 'showHelper', {
-			label: 'Show Helper'
+			label: 'Show Helper',
 		})
 		.on('change', ({ value }) => {
 			if (!value) {
@@ -214,14 +232,7 @@ export const setupLightPane = ({
 				return;
 			}
 
-			if (light instanceof DirectionalLight) {
-				helper = new DirectionalLightHelper(light, 1);
-			} else if (light instanceof SpotLight) {
-				helper = new SpotLightHelper(light);
-			} else if (light instanceof PointLight) {
-				helper = new PointLightHelper(light, 1);
-			}
-			if (helper) scene.add(helper);
+			addHelper();
 		});
 
 	// Position controls

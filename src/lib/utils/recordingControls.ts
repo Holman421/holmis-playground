@@ -19,27 +19,27 @@ export class RecordingControls {
 	private controlsElement!: HTMLElement;
 	private canvasCapture: CanvasCapture;
 	private videoRecorder: VideoRecorder;
-	
+
 	// UI Elements
 	private screenshotButton!: HTMLButtonElement;
 	private videoButton!: HTMLButtonElement;
 	private durationDisplay!: HTMLElement;
-	
+
 	// State
 	private isRecording: boolean = false;
 
 	constructor(options: RecordingControlsOptions) {
 		this.canvas = options.canvas;
 		this.container = options.container;
-		
+
 		// Initialize capture utilities
 		this.canvasCapture = new CanvasCapture(this.canvas);
 		this.videoRecorder = new VideoRecorder(this.canvas);
-		
+
 		// Set up video recorder callbacks
 		this.videoRecorder.onStateChange = this.handleVideoStateChange.bind(this);
 		this.videoRecorder.onError = this.handleVideoError.bind(this);
-		
+
 		// Create UI
 		this.createControls(options);
 	}
@@ -48,31 +48,31 @@ export class RecordingControls {
 		// Create main controls container
 		this.controlsElement = document.createElement('div');
 		this.controlsElement.className = this.getContainerClasses(options);
-		
+
 		// Screenshot button
 		this.screenshotButton = this.createButton('📷', 'Take Screenshot', () => {
 			this.takeScreenshot();
 		});
-		
+
 		// Video recording button
 		this.videoButton = this.createButton('🔴', 'Start Recording', () => {
 			this.toggleVideoRecording();
 		});
-		
+
 		// Duration display
 		this.durationDisplay = document.createElement('div');
 		this.durationDisplay.className = 'text-xs text-gray-400 mt-1 font-mono';
 		this.durationDisplay.textContent = '00:00';
 		this.durationDisplay.style.display = 'none';
-		
+
 		// Add elements to container
 		this.controlsElement.appendChild(this.screenshotButton);
 		this.controlsElement.appendChild(this.videoButton);
 		this.controlsElement.appendChild(this.durationDisplay);
-		
+
 		// Add to parent container
 		this.container.appendChild(this.controlsElement);
-		
+
 		// Check if video recording is supported
 		if (!VideoRecorder.isSupported()) {
 			this.videoButton.disabled = true;
@@ -82,8 +82,8 @@ export class RecordingControls {
 	}
 
 	private createButton(
-		text: string, 
-		title: string, 
+		text: string,
+		title: string,
 		onClick: () => void
 	): HTMLButtonElement {
 		const button = document.createElement('button');
@@ -97,16 +97,16 @@ export class RecordingControls {
 	private getContainerClasses(options: RecordingControlsOptions): string {
 		const position = options.position || 'top-left';
 		const customClass = options.className || '';
-		
+
 		const baseClasses = 'fixed z-50 flex flex-col gap-2 p-3';
-		
+
 		const positionClasses = {
 			'top-left': 'top-4 left-4',
 			'top-right': 'top-4 right-4',
 			'bottom-left': 'bottom-4 left-4',
 			'bottom-right': 'bottom-4 right-4'
 		};
-		
+
 		return `${baseClasses} ${positionClasses[position]} ${customClass}`;
 	}
 
@@ -131,19 +131,19 @@ export class RecordingControls {
 		try {
 			this.screenshotButton.disabled = true;
 			this.screenshotButton.textContent = '⏳';
-			
+
 			await this.canvasCapture.captureScreenshot({
 				quality: 0.9,
 				format: 'jpeg'
 			});
-			
+
 			// Visual feedback
 			this.screenshotButton.textContent = '✅';
 			setTimeout(() => {
 				this.screenshotButton.textContent = '📷';
 				this.screenshotButton.disabled = false;
 			}, 1000);
-			
+
 		} catch (error) {
 			console.error('Screenshot failed:', error);
 			this.screenshotButton.textContent = '❌';
@@ -180,7 +180,7 @@ export class RecordingControls {
 
 	private handleVideoStateChange(state: RecordingState): void {
 		this.isRecording = state.isRecording;
-		
+
 		if (state.isRecording) {
 			this.videoButton.textContent = '⏹️';
 			this.videoButton.title = 'Stop Recording';
@@ -195,13 +195,13 @@ export class RecordingControls {
 
 	private handleVideoError(error: Error): void {
 		console.error('Video recording error:', error);
-		
+
 		// Reset UI state
 		this.isRecording = false;
 		this.videoButton.textContent = '❌';
 		this.videoButton.title = `Recording error: ${error.message}`;
 		this.durationDisplay.style.display = 'none';
-		
+
 		// Reset button after delay
 		setTimeout(() => {
 			this.videoButton.textContent = '🔴';
@@ -216,7 +216,7 @@ export class RecordingControls {
 		if (this.isRecording) {
 			this.videoRecorder.stopRecording();
 		}
-		
+
 		if (this.controlsElement && this.controlsElement.parentNode) {
 			this.controlsElement.parentNode.removeChild(this.controlsElement);
 		}
@@ -239,12 +239,12 @@ export class RecordingControls {
 			'bottom-left': 'bottom-4 left-4',
 			'bottom-right': 'bottom-4 right-4'
 		};
-		
+
 		// Remove all position classes
 		Object.values(positionClasses).forEach(cls => {
 			this.controlsElement.classList.remove(...cls.split(' '));
 		});
-		
+
 		// Add new position classes
 		this.controlsElement.classList.add(...positionClasses[position].split(' '));
 	}

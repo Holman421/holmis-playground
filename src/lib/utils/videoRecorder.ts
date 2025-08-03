@@ -26,7 +26,7 @@ export class VideoRecorder {
 	private recordedChunks: Blob[] = [];
 	private startTime: number = 0;
 	private animationFrame: number | null = null;
-	
+
 	// State
 	private _isRecording: boolean = false;
 	private _isPaused: boolean = false;
@@ -58,7 +58,7 @@ export class VideoRecorder {
 		try {
 			// Create media stream from canvas
 			this.stream = this.canvas.captureStream(frameRate);
-			
+
 			if (!this.stream) {
 				throw new Error('Failed to capture stream from canvas');
 			}

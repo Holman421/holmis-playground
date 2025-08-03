@@ -547,7 +547,8 @@ class Text extends Mesh {
 			this._defaultMaterial ||
 			(this._defaultMaterial = defaultMaterial.clone());
 		if (!derivedMaterial || !derivedMaterial.isDerivedFrom(baseMaterial)) {
-			derivedMaterial = this._derivedMaterial = this.createDerivedMaterial(baseMaterial);
+			derivedMaterial = this._derivedMaterial =
+				this.createDerivedMaterial(baseMaterial);
 			// dispose the derived material when its base material is disposed:
 			baseMaterial.addEventListener('dispose', function onDispose() {
 				baseMaterial.removeEventListener('dispose', onDispose);
@@ -561,9 +562,12 @@ class Text extends Mesh {
 		if (this.hasOutline()) {
 			let outlineMaterial = derivedMaterial._outlineMtl;
 			if (!outlineMaterial) {
-				outlineMaterial = derivedMaterial._outlineMtl = Object.create(derivedMaterial, {
-					id: { value: derivedMaterial.id + 0.1 }
-				});
+				outlineMaterial = derivedMaterial._outlineMtl = Object.create(
+					derivedMaterial,
+					{
+						id: { value: derivedMaterial.id + 0.1 }
+					}
+				);
 				outlineMaterial.isTextOutlineMaterial = true;
 				outlineMaterial.depthWrite = false;
 				outlineMaterial.map = null; //???
@@ -588,7 +592,12 @@ class Text extends Mesh {
 	}
 
 	hasOutline() {
-		return !!(this.outlineWidth || this.outlineBlur || this.outlineOffsetX || this.outlineOffsetY);
+		return !!(
+			this.outlineWidth ||
+			this.outlineBlur ||
+			this.outlineOffsetX ||
+			this.outlineOffsetY
+		);
 	}
 
 	get glyphGeometryDetail() {
@@ -609,8 +618,14 @@ class Text extends Mesh {
 	get customDepthMaterial() {
 		return first(this.material).getDepthMaterial();
 	}
+	set customDepthMaterial(value) {
+		// Ignore setter calls - this property is read-only and computed
+	}
 	get customDistanceMaterial() {
 		return first(this.material).getDistanceMaterial();
+	}
+	set customDistanceMaterial(value) {
+		// Ignore setter calls - this property is read-only and computed
 	}
 
 	_prepareForRender(material) {
@@ -620,11 +635,15 @@ class Text extends Mesh {
 		if (textInfo) {
 			const { sdfTexture, blockBounds } = textInfo;
 			uniforms.uTroikaSDFTexture.value = sdfTexture;
-			uniforms.uTroikaSDFTextureSize.value.set(sdfTexture.image.width, sdfTexture.image.height);
+			uniforms.uTroikaSDFTextureSize.value.set(
+				sdfTexture.image.width,
+				sdfTexture.image.height
+			);
 			uniforms.uTroikaSDFGlyphSize.value = textInfo.sdfGlyphSize;
 			uniforms.uTroikaSDFExponent.value = textInfo.sdfExponent;
 			uniforms.uTroikaTotalBounds.value.fromArray(blockBounds);
-			uniforms.uTroikaUseGlyphColors.value = !isOutline && !!textInfo.glyphColors;
+			uniforms.uTroikaUseGlyphColors.value =
+				!isOutline && !!textInfo.glyphColors;
 
 			let distanceOffset = 0;
 			let blurRadius = 0;
@@ -636,7 +655,13 @@ class Text extends Mesh {
 			let offsetY = 0;
 
 			if (isOutline) {
-				let { outlineWidth, outlineOffsetX, outlineOffsetY, outlineBlur, outlineOpacity } = this;
+				let {
+					outlineWidth,
+					outlineOffsetX,
+					outlineOffsetY,
+					outlineBlur,
+					outlineOpacity
+				} = this;
 				distanceOffset = this._parsePercent(outlineWidth) || 0;
 				blurRadius = Math.max(0, this._parsePercent(outlineBlur) || 0);
 				fillOpacity = outlineOpacity;
@@ -683,8 +708,11 @@ class Text extends Mesh {
 		uniforms.uProgress2.value = this.progress2;
 		uniforms.uProgress3.value = this.progress3;
 		uniforms.uProgress4.value = this.progress4;
+		uniforms.uFinalTextColor.value.set(this.finalTextColor || 0xffffff);
+		uniforms.uFirstOutlineColor.value.set(this.firstOutlineColor || 0xffffff);
 		material.polygonOffset = !!this.depthOffset;
-		material.polygonOffsetFactor = material.polygonOffsetUnits = this.depthOffset || 0;
+		material.polygonOffsetFactor = material.polygonOffsetUnits =
+			this.depthOffset || 0;
 
 		// Shortcut for setting material color via `color` prop on the mesh; this is
 		// applied only to the derived material to avoid mutating a shared base material.
@@ -706,7 +734,9 @@ class Text extends Mesh {
 		if (orient !== material._orientation) {
 			let rotMat = uniforms.uTroikaOrient.value;
 			orient = orient.replace(/[^-+xyz]/g, '');
-			let match = orient !== defaultOrient && orient.match(/^([-+])([xyz])([-+])([xyz])$/);
+			let match =
+				orient !== defaultOrient &&
+				orient.match(/^([-+])([xyz])([-+])([xyz])$/);
 			if (match) {
 				let [, hSign, hAxis, vSign, vAxis] = match;
 				tempVec3a.set(0, 0, 0)[hAxis] = hSign === '-' ? 1 : -1;
@@ -737,7 +767,9 @@ class Text extends Mesh {
 		const r = this.curveRadius;
 		if (r) {
 			//flatten the curve
-			target.x = Math.atan2(position.x, Math.abs(r) - Math.abs(position.z)) * Math.abs(r);
+			target.x =
+				Math.atan2(position.x, Math.abs(r) - Math.abs(position.z)) *
+				Math.abs(r);
 		}
 		return target;
 	}
@@ -758,7 +790,9 @@ class Text extends Mesh {
 		const { textRenderInfo, curveRadius } = this;
 		if (textRenderInfo) {
 			const bounds = textRenderInfo.blockBounds;
-			const raycastMesh = curveRadius ? getCurvedRaycastMesh() : getFlatRaycastMesh();
+			const raycastMesh = curveRadius
+				? getCurvedRaycastMesh()
+				: getFlatRaycastMesh();
 			const geom = raycastMesh.geometry;
 			const { position, uv } = geom.attributes;
 			for (let i = 0; i < uv.count; i++) {
