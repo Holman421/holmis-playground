@@ -71,7 +71,7 @@ export default class Sketch {
 			0.01,
 			1000
 		);
-		this.camera.position.set(0, 0, 3);
+		this.camera.position.set(8.75, 3.85, 12.45);
 
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -159,11 +159,11 @@ export default class Sketch {
 		await this.renderer.init();
 
 		// Initialize recording controls after renderer is ready
-		this.recordingControls = createRecordingControls({
-			canvas: this.renderer.domElement,
-			container: this.container,
-			position: 'top-left'
-		});
+		// this.recordingControls = createRecordingControls({
+		// 	canvas: this.renderer.domElement,
+		// 	container: this.container,
+		// 	position: 'top-left'
+		// });
 
 		this.render();
 	}
@@ -438,17 +438,17 @@ export default class Sketch {
 
 		const circleSDFMaxValue = 10; // Maximum value for circle size
 
-		const circleBinding = this.pane.addBinding(this.uniforms.circleSize, 'value', {
-			min: 0.0,
-			max: circleSDFMaxValue,
-			step: 0.01,
-			label: 'Circle Size',
-		});
+		// const circleBinding = this.pane.addBinding(this.uniforms.circleSize, 'value', {
+		// 	min: 0.0,
+		// 	max: circleSDFMaxValue,
+		// 	step: 0.01,
+		// 	label: 'Circle Size',
+		// });
 
 		let isAtMax = false;
 
 		const btn = this.pane.addButton({
-			title: 'Animate',
+			title: 'Animate grid color',
 		});
 
 		btn.on('click', () => {
@@ -461,7 +461,7 @@ export default class Sketch {
 				ease: 'linear',
 				onUpdate: () => {
 					this.uniforms.circleSize.value = animationObject.value;
-					circleBinding.refresh();
+					// circleBinding.refresh();
 				},
 				onComplete: () => {
 					isAtMax = !isAtMax;
@@ -470,7 +470,7 @@ export default class Sketch {
 		});
 
 		const randomMoveBtn = this.pane.addButton({
-			title: 'Random Move',
+			title: 'Animate cubes positions',
 		});
 
 		randomMoveBtn.on('click', () => {
@@ -710,13 +710,14 @@ export default class Sketch {
 			label: 'Rotation Speed',
 		});
 
-		// setupCameraPane({
-		// 	camera: this.camera,
-		// 	pane: this.pane,
-		// 	controls: this.controls,
-		// 	scene: this.scene,
-		// 	defaultOpen: false,
-		// });
+		setupCameraPane({
+			camera: this.camera,
+			pane: this.pane,
+			controls: this.controls,
+			scene: this.scene,
+			defaultOpen: false,
+			isActive: false,
+		});
 
 		setupLightPane({
 			pane: this.pane,
