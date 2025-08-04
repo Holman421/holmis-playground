@@ -708,6 +708,15 @@ const projects: Project[] = [
 		shared: true,
 		imgSrc: '/projectThumbnails/sides.mp4',
 		date: new Date('2025-08-1')
+	},
+	{
+		href: '/75-tsl-webGPU-portfolio-particle-system',
+		title: 'GPU Particle System',
+		description: 'Portfolio training - 4, particle system',
+		technologies: ['webGPU'],
+		shared: true,
+		imgSrc: '/projectThumbnails/sides.mp4',
+		date: new Date('2025-08-1')
 	}
 ];
 

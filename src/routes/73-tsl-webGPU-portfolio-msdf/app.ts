@@ -19,7 +19,10 @@ import {
 	float,
 	Fn,
 	step,
-	mix
+	mix,
+	positionWorld,
+	length,
+	abs
 } from 'three/tsl';
 
 interface SketchOptions {
@@ -67,11 +70,14 @@ export default class Sketch {
 	ambientLight!: THREE.AmbientLight;
 	pointLight!: THREE.PointLight;
 	textMesh!: THREE.Mesh;
+	uniforms!: {
+		circleSize: any;
+	};
 
 	// Text control uniforms
 	textScale = uniform(0.0025);
 	planePadding = uniform(2.0);
-	lineSpacing = uniform(1.45);
+	lineSpacing = uniform(1.7);
 
 	constructor(options: SketchOptions) {
 		this.scene = new THREE.Scene();
@@ -83,6 +89,10 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setClearColor(new THREE.Color(0x000000), 1);
 		this.container.appendChild(this.renderer.domElement);
+
+		this.uniforms = {
+			circleSize: uniform(1.0)
+		};
 
 		this.camera = new THREE.PerspectiveCamera(
 			70,
@@ -131,8 +141,8 @@ export default class Sketch {
 		try {
 			// Load font assets
 			const [fontTexture, fontData] = await Promise.all([
-				new THREE.TextureLoader().loadAsync('/fonts/font.png'),
-				fetch('/fonts/font.json').then(res => res.json())
+				new THREE.TextureLoader().loadAsync('/fonts/Audiowide-msdf.png'),
+				fetch('/fonts/Audiowide-msdf.json').then((res) => res.json())
 			]);
 
 			// Configure texture
@@ -147,9 +157,16 @@ export default class Sketch {
 				throw new Error('Invalid font data');
 			}
 
-			const charMap = new Map(fontData.chars.map((char: MsdfChar) => [String.fromCharCode(char.id), char]));
-			const atlasWidth = fontData.atlas?.width ?? fontData.common?.scaleW ?? 512;
-			const atlasHeight = fontData.atlas?.height ?? fontData.common?.scaleH ?? 512;
+			const charMap = new Map(
+				fontData.chars.map((char: MsdfChar) => [
+					String.fromCharCode(char.id),
+					char
+				])
+			);
+			const atlasWidth =
+				fontData.atlas?.width ?? fontData.common?.scaleW ?? 512;
+			const atlasHeight =
+				fontData.atlas?.height ?? fontData.common?.scaleH ?? 512;
 
 			// Process text into character data - separate by lines
 			const text = 'BORING WEBSITES\nI DONT LIKE';
@@ -157,19 +174,28 @@ export default class Sketch {
 			const scale = this.textScale.value;
 			const lines = text.split('\n');
 			console.log('Lines:', lines); // Debug: check line splitting
-			console.log('Line lengths:', lines.map(line => line.length)); // Debug: check line lengths
+			console.log(
+				'Line lengths:',
+				lines.map((line) => line.length)
+			); // Debug: check line lengths
 
 			// Create separate character arrays for each line with proper positioning
 			const line1Characters: Array<{
 				char: string;
-				uvX1: number; uvY1: number; uvX2: number; uvY2: number;
+				uvX1: number;
+				uvY1: number;
+				uvX2: number;
+				uvY2: number;
 				xPosition: number; // Actual position of this character in the line
 				width: number; // Actual width of this character
 			}> = [];
 
 			const line2Characters: Array<{
 				char: string;
-				uvX1: number; uvY1: number; uvX2: number; uvY2: number;
+				uvX1: number;
+				uvY1: number;
+				uvX2: number;
+				uvY2: number;
 				xPosition: number; // Actual position of this character in the line
 				width: number; // Actual width of this character
 			}> = [];
@@ -259,21 +285,29 @@ export default class Sketch {
 			// Use the maximum line width for consistent geometry
 			const maxActualLineWidth = maxLineWidth;
 
-			console.log('Line 1 characters:', line1Characters.map(c => c.char)); // Debug
-			console.log('Line 2 characters:', line2Characters.map(c => c.char)); // Debug
+			console.log(
+				'Line 1 characters:',
+				line1Characters.map((c) => c.char)
+			); // Debug
+			console.log(
+				'Line 2 characters:',
+				line2Characters.map((c) => c.char)
+			); // Debug
 			console.log('Line 1 actual width:', line1ActualWidth); // Debug
 			console.log('Line 2 actual width:', line2ActualWidth); // Debug
 
 			// Use actual font metrics for proper proportions
-			const fontLineHeight = fontData.metrics?.lineHeight || fontData.common?.lineHeight || 64;
-			const lineHeight = fontLineHeight * scale * this.lineSpacing.value;
+			const fontLineHeight =
+				fontData.metrics?.lineHeight || fontData.common?.lineHeight || 64;
+			
+			// Calculate a more reasonable text height - use the actual character height instead of font line height
+			// Get the average character height from the font data
+			const avgCharHeight = fontData.chars.reduce((sum: number, char: MsdfChar) => sum + char.height, 0) / fontData.chars.length;
+			const textLineHeight = avgCharHeight * scale * this.lineSpacing.value;
 
-			// Calculate geometry dimensions using actual text width and proper aspect ratio
+			// Calculate geometry dimensions using actual text width and more proportional height
 			const textWidth = maxActualLineWidth;
-			const totalTextHeight = lineHeight * lines.length;
-
-			// Calculate proper aspect ratio based on font metrics
-			const fontAspectRatio = fontLineHeight / (fontData.common?.scaleW || atlasWidth);
+			const totalTextHeight = textLineHeight * lines.length;
 
 			// Create geometry and material using uniforms with proper padding
 			const totalWidth = textWidth * this.planePadding.value;
@@ -292,6 +326,9 @@ export default class Sketch {
 			const vUv = varying(uv());
 			const vLocalPos = varying(positionLocal);
 
+			// Use the already initialized uniform
+			const circleSizeUniform = this.uniforms.circleSize;
+
 			// Simplified shader with clear line separation and proper padding
 			material.colorNode = Fn(() => {
 				const texCoord = vUv;
@@ -302,8 +339,10 @@ export default class Sketch {
 				const paddedUV = texCoord.sub(0.5).mul(this.planePadding).add(0.5);
 
 				// Only render within the padded area
-				const isWithinPaddedArea = step(float(0.0), paddedUV.x).mul(step(paddedUV.x, float(1.0)))
-					.mul(step(float(0.0), paddedUV.y)).mul(step(paddedUV.y, float(1.0)));
+				const isWithinPaddedArea = step(float(0.0), paddedUV.x)
+					.mul(step(paddedUV.x, float(1.0)))
+					.mul(step(float(0.0), paddedUV.y))
+					.mul(step(paddedUV.y, float(1.0)));
 
 				// Calculate which line we're on (0 = top line, 1 = bottom line)
 				const numLines = float(lines.length);
@@ -352,7 +391,9 @@ export default class Sketch {
 					.mul(isWithinTextArea);
 
 				// Build character selection for line 1 based on position
-				const buildLine1UV = (index: number): { uvX1: any, uvY1: any, uvX2: any, uvY2: any, localU: any } => {
+				const buildLine1UV = (
+					index: number
+				): { uvX1: any; uvY1: any; uvX2: any; uvY2: any; localU: any } => {
 					if (index >= Math.min(line1Characters.length, 20)) {
 						return {
 							uvX1: float(0.0),
@@ -368,10 +409,14 @@ export default class Sketch {
 					const charEndPos = charStartPos.add(float(char.width));
 
 					// Use smoothstep for smoother character boundaries instead of hard step
-					const charMask = step(charStartPos, currentPixelX).mul(step(currentPixelX, charEndPos));
+					const charMask = step(charStartPos, currentPixelX).mul(
+						step(currentPixelX, charEndPos)
+					);
 
 					// Calculate local U position within this character (0.0 to 1.0)
-					const charLocalU = currentPixelX.sub(charStartPos).div(float(char.width));
+					const charLocalU = currentPixelX
+						.sub(charStartPos)
+						.div(float(char.width));
 					const clampedLocalU = max(float(0.0), min(float(1.0), charLocalU));
 
 					const nextUV = buildLine1UV(index + 1);
@@ -386,7 +431,9 @@ export default class Sketch {
 				};
 
 				// Build character selection for line 2 based on position
-				const buildLine2UV = (index: number): { uvX1: any, uvY1: any, uvX2: any, uvY2: any, localU: any } => {
+				const buildLine2UV = (
+					index: number
+				): { uvX1: any; uvY1: any; uvX2: any; uvY2: any; localU: any } => {
 					if (index >= Math.min(line2Characters.length, 20)) {
 						return {
 							uvX1: float(0.0),
@@ -402,10 +449,14 @@ export default class Sketch {
 					const charEndPos = charStartPos.add(float(char.width));
 
 					// Use smoothstep for smoother character boundaries instead of hard step
-					const charMask = step(charStartPos, currentPixelX).mul(step(currentPixelX, charEndPos));
+					const charMask = step(charStartPos, currentPixelX).mul(
+						step(currentPixelX, charEndPos)
+					);
 
 					// Calculate local U position within this character (0.0 to 1.0)
-					const charLocalU = currentPixelX.sub(charStartPos).div(float(char.width));
+					const charLocalU = currentPixelX
+						.sub(charStartPos)
+						.div(float(char.width));
 					const clampedLocalU = max(float(0.0), min(float(1.0), charLocalU));
 
 					const nextUV = buildLine2UV(index + 1);
@@ -436,18 +487,39 @@ export default class Sketch {
 				);
 
 				// Only sample if we have valid UV coordinates (avoid sampling (0,0) which causes artifacts)
-				const hasValidUV = step(float(0.001), uvX2.sub(uvX1)).mul(step(float(0.001), uvY2.sub(uvY1)));
+				const hasValidUV = step(float(0.001), uvX2.sub(uvX1)).mul(
+					step(float(0.001), uvY2.sub(uvY1))
+				);
 
 				const fontSample = texture(fontTexture, charUV);
-				const median = max(min(fontSample.r, fontSample.g), min(max(fontSample.r, fontSample.g), fontSample.b));
-				const textAlpha = smoothstep(float(0.45), float(0.55), median).mul(isValidChar).mul(hasValidUV);
+				const median = max(
+					min(fontSample.r, fontSample.g),
+					min(max(fontSample.r, fontSample.g), fontSample.b)
+				);
+				const textAlpha = smoothstep(float(0.45), float(0.55), median)
+					.mul(isValidChar)
+					.mul(hasValidUV);
 
 				// Background gradient
-				const gradientFactor = localPos.x.add(1.0).mul(0.5);
-				const bgColor = vec3(gradientFactor.mul(0.3), gradientFactor.oneMinus().mul(0.2), float(0.15));
+				const bgColor = vec3(0.0);
 				const textColor = vec3(1.0, 1.0, 1.0);
 
-				return vec4(mix(bgColor, textColor, textAlpha), max(textAlpha, float(0.1)));
+				const finalText = vec4(mix(bgColor, textColor, textAlpha), max(textAlpha, float(0.1)));
+
+				const localUv = uv();
+				const worldUv = positionWorld;
+
+				const sphereCenter = vec3(0.0, 0.0, 0.0);
+				const sphereRadius = float(circleSizeUniform);
+				const sphereSdf = length(worldUv.sub(sphereCenter)).sub(sphereRadius);
+				const sphereFinal = smoothstep(-0.5, 0.0, sphereSdf);
+
+				const worldStepX = worldUv.mul(20.0).x.fract().step(float(0.9));
+				const worldStepY = worldUv.mul(20.0).y.fract().step(float(0.9));
+				const worldStep = worldStepX.add(worldStepY).div(float(2.0));
+				const pattern = vec3(abs(worldStep));
+
+				return mix(vec4(pattern, 1.8), finalText, sphereFinal);
 			})();
 
 			// Create and add mesh
@@ -464,7 +536,7 @@ export default class Sketch {
 			this.scene.remove(this.textMesh);
 			this.textMesh.geometry.dispose();
 			if (Array.isArray(this.textMesh.material)) {
-				this.textMesh.material.forEach(mat => mat.dispose());
+				this.textMesh.material.forEach((mat) => mat.dispose());
 			} else {
 				this.textMesh.material.dispose();
 			}
@@ -476,6 +548,7 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.pane = new Pane();
+		(document.querySelector('.tp-dfwv') as HTMLElement)!.style.zIndex = '1000';
 
 		setupCameraPane({
 			camera: this.camera,
@@ -483,6 +556,7 @@ export default class Sketch {
 			controls: this.controls,
 			scene: this.scene,
 			defaultOpen: false,
+			isActive: false
 		});
 
 		setupLightPane({
@@ -491,34 +565,47 @@ export default class Sketch {
 			name: 'Point Light',
 			scene: this.scene,
 			positionRange: { min: -15, max: 15 },
-			targetRange: { min: -15, max: 15 }
+			targetRange: { min: -15, max: 15 },
+			isActive: false
 		});
 
 		// Add text control uniforms to the pane
 		const textFolder = this.pane.addFolder({ title: 'Text Controls' });
 
 		// Add uniform controls with update callbacks
-		textFolder.addBinding(this.textScale, 'value', {
-			label: 'Text Scale',
-			min: 0.001,
-			max: 0.01,
-			step: 0.0001
-		}).on('change', () => this.updateTextGeometry());
+		textFolder
+			.addBinding(this.textScale, 'value', {
+				label: 'Text Scale',
+				min: 0.001,
+				max: 0.01,
+				step: 0.0001
+			})
+			.on('change', () => this.updateTextGeometry());
 
-		textFolder.addBinding(this.planePadding, 'value', {
-			label: 'Plane Padding',
-			min: 1.0,
-			max: 5.0,
-			step: 0.1
-		}).on('change', () => this.updateTextGeometry());
+		textFolder
+			.addBinding(this.planePadding, 'value', {
+				label: 'Plane Padding',
+				min: 1.0,
+				max: 5.0,
+				step: 0.1
+			})
+			.on('change', () => this.updateTextGeometry());
 
-		textFolder.addBinding(this.lineSpacing, 'value', {
-			label: 'Line Spacing',
-			min: 0.5,
-			max: 5.0,
-			step: 0.1
-		}).on('change', () => this.updateTextGeometry());
+		textFolder
+			.addBinding(this.lineSpacing, 'value', {
+				label: 'Line Spacing',
+				min: 0.5,
+				max: 5.0,
+				step: 0.1
+			})
+			.on('change', () => this.updateTextGeometry());
 
+		textFolder.addBinding(this.uniforms.circleSize, 'value', {
+			label: 'Circle Size',
+			min: 0.0,
+			max: 1.0,
+			step: 0.01
+		});
 	}
 
 	async render() {
