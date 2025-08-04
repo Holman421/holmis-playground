@@ -195,7 +195,8 @@
 </script>
 
 <div bind:this={cardElement} id="projectCardWrapper" class="project-card">
-	<a {href}>
+	<!-- Use normal anchor link -->
+	<a href={href} class="w-full h-full block">
 		<div id="cardBorderEffect-{uniqueId}">
 			<div id="cardGooEffect-{uniqueId}">
 				<div

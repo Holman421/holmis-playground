@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
+	import LazyMedia from '$lib/components/LazyMedia.svelte';
 	import Button from '$lib/components/ui/button.svelte';
 	import { projects } from '$lib/data/projects';
 	import { page } from '$app/stores';
@@ -84,7 +85,7 @@
 <div
 	class="text-black mx-auto mt-16 flex gap-8 flex-wrap w-full justify-center p-4"
 >
-	{#each currentProjects as { href, date, title, description, technologies, imgSrc, usedInRealProject }}
+	{#each currentProjects as { href, date, title, description, technologies, imgSrc, usedInRealProject }, index}
 		<ProjectCard
 			{href}
 			{title}
@@ -93,12 +94,12 @@
 			{date}
 			usedInRealProject={usedInRealProject ?? false}
 		>
-			{#if getMediaType(getOptimizedSrc(imgSrc)) === 'video'}
-				<video src={getOptimizedSrc(imgSrc)} muted loop preload="metadata"
-				></video>
-			{:else}
-				<img src={getOptimizedSrc(imgSrc)} alt="Project thumbnail" />
-			{/if}
+			<LazyMedia
+				src={getOptimizedSrc(imgSrc)}
+				mediaType={getMediaType(getOptimizedSrc(imgSrc))}
+				alt="Project thumbnail"
+				{index}
+			/>
 		</ProjectCard>
-	{/each}
-</div>
+		{/each}
+	</div>
