@@ -696,8 +696,8 @@ const projects: Project[] = [
 		title: 'MSDF Text',
 		description: 'Portfolio training - 2, MSDF text with TSL and WebGPU',
 		technologies: ['webGPU'],
-		shared: false,
-		imgSrc: '/projectThumbnails/video-scroll.mp4',
+		shared: true,
+		imgSrc: '/projectThumbnails/msdf.mp4',
 		date: new Date('2025-08-1')
 	},
 	{

@@ -22,8 +22,13 @@ import {
 	mix,
 	positionWorld,
 	length,
-	abs
+	abs,
+	sub,
+	mul,
+	add
 } from 'three/tsl';
+import { text } from '@sveltejs/kit';
+import gsap from 'gsap';
 
 interface SketchOptions {
 	dom: HTMLElement;
@@ -73,6 +78,8 @@ export default class Sketch {
 	uniforms!: {
 		circleSize: any;
 	};
+	/** Animation state for bidirectional circle tween */
+	private circleTween: gsap.core.Tween | null = null;
 
 	// Text control uniforms
 	textScale = uniform(0.0025);
@@ -91,7 +98,7 @@ export default class Sketch {
 		this.container.appendChild(this.renderer.domElement);
 
 		this.uniforms = {
-			circleSize: uniform(1.0)
+			circleSize: uniform(0.0)
 		};
 
 		this.camera = new THREE.PerspectiveCamera(
@@ -299,10 +306,14 @@ export default class Sketch {
 			// Use actual font metrics for proper proportions
 			const fontLineHeight =
 				fontData.metrics?.lineHeight || fontData.common?.lineHeight || 64;
-			
+
 			// Calculate a more reasonable text height - use the actual character height instead of font line height
 			// Get the average character height from the font data
-			const avgCharHeight = fontData.chars.reduce((sum: number, char: MsdfChar) => sum + char.height, 0) / fontData.chars.length;
+			const avgCharHeight =
+				fontData.chars.reduce(
+					(sum: number, char: MsdfChar) => sum + char.height,
+					0
+				) / fontData.chars.length;
 			const textLineHeight = avgCharHeight * scale * this.lineSpacing.value;
 
 			// Calculate geometry dimensions using actual text width and more proportional height
@@ -329,9 +340,26 @@ export default class Sketch {
 			// Use the already initialized uniform
 			const circleSizeUniform = this.uniforms.circleSize;
 
-			// Simplified shader with clear line separation and proper padding
-			material.colorNode = Fn(() => {
-				const texCoord = vUv;
+			const gridShader: any = Fn(([uv]: any) => {
+				const worldStepX = uv.mul(20.0).x.fract().step(float(0.9));
+				const worldStepY = uv.mul(20.0).y.fract().step(float(0.9));
+				const worldStep = worldStepX.add(worldStepY).div(float(2.0));
+				const pattern = vec3(abs(worldStep));
+
+				return vec4(pattern, 2.0);
+			});
+
+			const sphereShader: any = Fn(([uv]: any) => {
+				const sphereCenter = vec3(0.0, 0.0, 0.0);
+				const sphereRadius = float(circleSizeUniform);
+				const sphereSdf = length(uv.sub(sphereCenter)).sub(sphereRadius);
+				const sphereFinal = smoothstep(-0.5, 0.0, sphereSdf);
+
+				return sphereFinal;
+			});
+
+			const fontShader: any = Fn(([uv]: any) => {
+				const texCoord = uv;
 				const localPos = vLocalPos;
 
 				// Account for padding - map UV coordinates to the inner text area
@@ -500,26 +528,49 @@ export default class Sketch {
 					.mul(isValidChar)
 					.mul(hasValidUV);
 
-				// Background gradient
 				const bgColor = vec3(0.0);
 				const textColor = vec3(1.0, 1.0, 1.0);
 
-				const finalText = vec4(mix(bgColor, textColor, textAlpha), max(textAlpha, float(0.1)));
+				const finalText = vec4(
+					mix(bgColor, textColor, textAlpha),
+					max(textAlpha, float(0.1))
+				);
 
-				const localUv = uv();
+				return finalText;
+			});
+
+			const circleWipe: any = Fn(([uv, radius, sharpness]: any) => {
+				const dist = length(sub(uv, vec2(0.5)));
+				return sub(1.0, smoothstep(sub(radius, sharpness), radius, dist));
+			});
+
+			// Simplified shader with clear line separation and proper padding
+			material.colorNode = Fn(() => {
 				const worldUv = positionWorld;
+				const worldUv2d = vec2(worldUv.x, worldUv.y);
+				const localUv = vUv;
 
-				const sphereCenter = vec3(0.0, 0.0, 0.0);
-				const sphereRadius = float(circleSizeUniform);
-				const sphereSdf = length(worldUv.sub(sphereCenter)).sub(sphereRadius);
-				const sphereFinal = smoothstep(-0.5, 0.0, sphereSdf);
+				const progress = float(circleSizeUniform);
+				const circleProgress = circleWipe(localUv, mul(progress, 0.9), 0.25);
+				const centerVector = sub(localUv, vec2(0.5));
 
-				const worldStepX = worldUv.mul(20.0).x.fract().step(float(0.9));
-				const worldStepY = worldUv.mul(20.0).y.fract().step(float(0.9));
-				const worldStep = worldStepX.add(worldStepY).div(float(2.0));
-				const pattern = vec3(abs(worldStep));
+				const distortedGridUv = sub(
+					worldUv2d,
+					mul(centerVector, circleProgress, 1.0)
+				);
+				const distortedTextUv = add(
+					localUv,
+					mul(centerVector, sub(circleProgress, 0.0))
+				);
 
-				return mix(vec4(pattern, 1.8), finalText, sphereFinal);
+				const text = fontShader(distortedTextUv);
+				const grid = gridShader(distortedGridUv);
+				const sphere = sphereShader(worldUv);
+
+				// return mix(grid, text, sphere);
+				// return mix(grid, text, circleProgress);
+				return mix(text, 0.0, circleProgress);
+				// return grid
 			})();
 
 			// Create and add mesh
@@ -605,6 +656,25 @@ export default class Sketch {
 			min: 0.0,
 			max: 1.0,
 			step: 0.01
+		});
+
+		// Animation state tracking for bidirectional animation
+		textFolder.addButton({ title: 'Play animation' }).on('click', () => {
+			const currentValue = this.uniforms.circleSize.value;
+			if (this.circleTween && this.circleTween.isActive()) {
+				this.circleTween.reverse();
+				return;
+			}
+			const toValue = currentValue < 0.25 ? 0.5 : 0.0;
+			const duration = Math.abs(toValue - currentValue) * 2.5;
+			this.circleTween = gsap.to(this.uniforms.circleSize, {
+				value: toValue,
+				duration,
+				ease: 'linear',
+				onUpdate: () => {
+					this.pane.refresh();
+				}
+			});
 		});
 	}
 

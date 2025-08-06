@@ -10,7 +10,8 @@
 
 	let elementRef: HTMLDivElement;
 	let isVisible = $state(false);
-	let isLoaded = $state(false);
+let isLoaded = $state(false);
+let fallbackToImage = $state(false);
 
 	onMount(() => {
 		const observer = new IntersectionObserver(
@@ -40,16 +41,19 @@
 		isLoaded = true;
 	}
 
-	function handleError() {
-		console.warn(`Failed to load ${mediaType}: ${src}`);
+function handleError() {
+	console.warn(`Failed to load ${mediaType}: ${src}`);
+	if (mediaType === 'video') {
+		fallbackToImage = true;
 	}
+}
 </script>
 
 <div bind:this={elementRef} class="w-full h-full relative">
 	{#if !isVisible}
 		<!-- Placeholder while not in viewport -->
 		<div class="w-full h-full bg-black animate-pulse rounded"></div>
-	{:else if mediaType === 'video'}
+	{:else if mediaType === 'video' && !fallbackToImage}
 		<video
 			{src}
 			muted
