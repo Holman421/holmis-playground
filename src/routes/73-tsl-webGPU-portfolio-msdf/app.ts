@@ -25,7 +25,9 @@ import {
 	abs,
 	sub,
 	mul,
-	add
+	add,
+	Loop,
+	int
 } from 'three/tsl';
 import { text } from '@sveltejs/kit';
 import gsap from 'gsap';
@@ -292,17 +294,6 @@ export default class Sketch {
 			// Use the maximum line width for consistent geometry
 			const maxActualLineWidth = maxLineWidth;
 
-			console.log(
-				'Line 1 characters:',
-				line1Characters.map((c) => c.char)
-			); // Debug
-			console.log(
-				'Line 2 characters:',
-				line2Characters.map((c) => c.char)
-			); // Debug
-			console.log('Line 1 actual width:', line1ActualWidth); // Debug
-			console.log('Line 2 actual width:', line2ActualWidth); // Debug
-
 			// Use actual font metrics for proper proportions
 			const fontLineHeight =
 				fontData.metrics?.lineHeight || fontData.common?.lineHeight || 64;
@@ -544,6 +535,43 @@ export default class Sketch {
 				return sub(1.0, smoothstep(sub(radius, sharpness), radius, dist));
 			});
 
+			const gaussianBlur: any = Fn(([inputTexture, texUV, direction, blurAmount]: any) => {
+				// Pre-calculated weights for a 9-tap Gaussian blur
+				const weights = [
+					float(0.227027),
+					float(0.1945946),
+					float(0.1216216),
+					float(0.054054),
+					float(0.016216)
+				];
+
+				// --- Using a constant for resolution ---
+				// This is not ideal for production but is great for testing the blur logic.
+				// It pretends the texture is always 512x512 pixels.
+				const resolution = vec2(512.0, 512.0);
+				const texelSize = vec2(1.0).div(resolution);
+
+				// Define a vec3 variable named 'result' and initialize it using .toVar()
+				const result = mul(texture(inputTexture, texUV).rgb, weights[0]).toVar();
+
+				// --- Using the correct Loop syntax ---
+				Loop({ start: int(1), end: int(5) }, ({ i }) => {
+					// Calculate the offset for this sample tap, scaled by the blur amount
+					const offset = mul(i, texelSize, direction, blurAmount);
+
+					// Sample to the "right" (or "down"), apply weight, and add to the result
+					const sample1 = texture(inputTexture, add(texUV, offset)).rgb;
+					result.addAssign(mul(sample1, weights[i]));
+
+					// Sample to the "left" (or "up"), apply weight, and add to the result
+					const sample2 = texture(inputTexture, sub(texUV, offset)).rgb;
+					result.addAssign(mul(sample2, weights[i]));
+				});
+
+				return result;
+			});
+
+
 			// Simplified shader with clear line separation and proper padding
 			material.colorNode = Fn(() => {
 				const worldUv = positionWorld;
@@ -551,25 +579,37 @@ export default class Sketch {
 				const localUv = vUv;
 
 				const progress = float(circleSizeUniform);
-				const circleProgress = circleWipe(localUv, mul(progress, 0.9), 0.25);
+				const circleProgressText = circleWipe(localUv, mul(progress, 1.8), 0.25);
+				const circleProgressGrid = circleWipe(localUv, mul(progress, 0.8), 0.1);
 				const centerVector = sub(localUv, vec2(0.5));
 
 				const distortedGridUv = sub(
 					worldUv2d,
-					mul(centerVector, circleProgress, 1.0)
+					mul(centerVector, circleProgressGrid, 1.0)
 				);
 				const distortedTextUv = add(
 					localUv,
-					mul(centerVector, sub(circleProgress, 0.0))
+					mul(centerVector, sub(circleProgressText, 0.0))
 				);
 
 				const text = fontShader(distortedTextUv);
 				const grid = gridShader(distortedGridUv);
 				const sphere = sphereShader(worldUv);
 
+				const gridMix = mix(0.0, grid, circleProgressGrid);
+				const textMix = mix(text, 0.0, circleProgressText);
+
+				// Blur
+				const textColor = text.rgb;
+				const blurAmount = float(4.0);
+
 				// return mix(grid, text, sphere);
 				// return mix(grid, text, circleProgress);
-				return mix(text, 0.0, circleProgress);
+				// return mix(text, 0.0, circleProgress);
+				// return mix(0.0, grid, circleProgress);
+				return gridMix.add(textMix);
+				return text;
+
 				// return grid
 			})();
 
@@ -665,7 +705,7 @@ export default class Sketch {
 				this.circleTween.reverse();
 				return;
 			}
-			const toValue = currentValue < 0.25 ? 0.5 : 0.0;
+			const toValue = currentValue < 0.5 ? 1.0 : 0.0;
 			const duration = Math.abs(toValue - currentValue) * 2.5;
 			this.circleTween = gsap.to(this.uniforms.circleSize, {
 				value: toValue,
