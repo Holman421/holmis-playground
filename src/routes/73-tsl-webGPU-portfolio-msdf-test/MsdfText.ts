@@ -61,8 +61,6 @@ export class MSDFText {
 		showCircles: uniform(1),
 		circleRadius: uniform(0.4),
 		circleFeather: uniform(1.5),
-		circleIsoLevel: uniform(0.6), // threshold for fusion (metaball iso-surface)
-		circleIsoFeather: uniform(0.15), // softness around iso threshold
 		charHeight: uniform(0.0), // average glyph pixel height * scale (baseline to top approximation)
 		glyphPad: uniform(0.0), // extra horizontal padding for debug circle mask (in glyph width units after scale)
 		glyphPadY: uniform(0.0) // vertical padding for circle presence (does not affect layout)
@@ -93,8 +91,6 @@ export class MSDFText {
 			showCircles: uniform(1),
 			circleRadius: uniform(0.4),
 			circleFeather: uniform(1.5),
-			circleIsoLevel: uniform(0.6),
-			circleIsoFeather: uniform(0.15),
 			glyphPad: uniform(0.0),
 			glyphPadY: uniform(0.0)
 		});
@@ -124,7 +120,7 @@ export class MSDFText {
 	public async setText(text: string) { if (text !== this.options.text) { this.options.text = text; await this.createMesh(true); } }
 
 	/** Update parameters that only affect layout/shader. Geometry remains unless text changed. */
-	public async updateParameters(p: Partial<{ textScale: number; planePadding: number; lineSpacing: number; edgeCenter: number; edgeWidth: number; showCircles: number; circleRadius: number; circleFeather: number; circleIsoLevel: number; circleIsoFeather: number; glyphPad: number; glyphPadY: number; }>) {
+	public async updateParameters(p: Partial<{ textScale: number; planePadding: number; lineSpacing: number; edgeCenter: number; edgeWidth: number; showCircles: number; circleRadius: number; circleFeather: number; glyphPad: number; glyphPadY: number; }>) {
 		let relayout = false;
 		let shaderOnly = false;
 		if (p.textScale !== undefined) { this.uniforms.textScale.value = p.textScale; relayout = true; }
@@ -135,8 +131,6 @@ export class MSDFText {
 		if (p.showCircles !== undefined) { this.uniforms.showCircles.value = p.showCircles; shaderOnly = true; }
 		if (p.circleRadius !== undefined) { this.uniforms.circleRadius.value = p.circleRadius; shaderOnly = true; }
 		if (p.circleFeather !== undefined) { this.uniforms.circleFeather.value = p.circleFeather; shaderOnly = true; }
-		if (p.circleIsoLevel !== undefined) { this.uniforms.circleIsoLevel.value = p.circleIsoLevel; shaderOnly = true; }
-		if (p.circleIsoFeather !== undefined) { this.uniforms.circleIsoFeather.value = p.circleIsoFeather; shaderOnly = true; }
 		if (relayout) { this.computeLayout(); this.rebuildShader(); }
 		else if (shaderOnly) { this.rebuildShader(); }
 	}
@@ -271,18 +265,15 @@ export class MSDFText {
 			const edgeEnd = float(this.uniforms.edgeCenter).add(halfW);
 			const textAlpha = smoothstep(edgeStart, edgeEnd, median).mul(validChar).mul(hasUV);
 			let baseColor = mix(vec3(0.0), vec3(1.0), textAlpha);
-			// --- Fused Metaball Circle Field (additive then iso-threshold) ---
+			// --- Fused Circle Field (additive clamp, no iso threshold) ---
 			const showCircles = float(this.uniforms.showCircles);
 			const radius = float(this.uniforms.circleRadius);
-			const feather = float(this.uniforms.circleFeather); // fraction of radius used for each circle's falloff
-			const isoLevel = float(this.uniforms.circleIsoLevel);
-			const isoFeather = float(this.uniforms.circleIsoFeather);
+			const feather = float(this.uniforms.circleFeather);
 			const charH = float(this.uniforms.charHeight);
 			const lineSpacing = float(this.uniforms.lineSpacing);
 			const lineHeight = charH.mul(lineSpacing);
 			const numLinesHeight = lineHeight.mul(numLines);
 			const pixelYGlobal = paddedUV.y.mul(numLinesHeight);
-			// Single circle contribution (1 at center -> 0 at radius)
 			const circleAccum = (chars: any[], i: number, lineY: any): any => i >= Math.min(chars.length, 64)
 				? float(0.0)
 				: (() => {
@@ -298,9 +289,8 @@ export class MSDFText {
 				})();
 			const sum0 = circleAccum(l1, 0, float(0.0));
 			const sum1 = circleAccum(l2, 0, lineHeight);
-			const fieldSum = sum0.add(sum1); // raw additive field (metaball style)
-			// Convert additive field to fused mask via iso-threshold
-			const fused = smoothstep(isoLevel.sub(isoFeather), isoLevel.add(isoFeather), fieldSum);
+			// Clamp summed field to 1 for fusion (smooth union look without Voronoi seams)
+			const fused = min(float(1.0), sum0.add(sum1)).step(0.5);
 			const circleMask = showCircles;
 			const circleColor = vec3(1.0).mul(fused);
 			baseColor = mix(baseColor, circleColor, fused.mul(circleMask));

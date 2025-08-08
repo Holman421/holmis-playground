@@ -33,7 +33,12 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.container.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(
+			70,
+			this.width / this.height,
+			0.01,
+			1000
+		);
 		this.camera.position.set(0, 0, 3);
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.isPlaying = true;
@@ -67,57 +72,67 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.pane = new Pane();
-		(document.querySelector('.tp-dfwv') as HTMLElement)?.style && ((document.querySelector('.tp-dfwv') as HTMLElement).style.zIndex = '1000');
+		(document.querySelector('.tp-dfwv') as HTMLElement)?.style &&
+			((document.querySelector('.tp-dfwv') as HTMLElement).style.zIndex =
+				'1000');
 
 		const textFolder = this.pane.addFolder({ title: 'Text Controls' });
-		textFolder.addBinding(this.msdfText.uniforms.textScale, 'value', {
-			label: 'Scale',
-			min: 0.001,
-			max: 0.01,
-			step: 0.0001
-		}).on('change', () => this.updateTextGeometry());
-		textFolder.addBinding(this.msdfText.uniforms.planePadding, 'value', {
-			label: 'Padding',
-			min: 1.0,
-			max: 5.0,
-			step: 0.1
-		}).on('change', () => this.updateTextGeometry());
-		textFolder.addBinding(this.msdfText.uniforms.lineSpacing, 'value', {
-			label: 'Line Spacing',
-			min: 0.5,
-			max: 3.0,
-			step: 0.05
-		}).on('change', () => this.updateTextGeometry());
+		textFolder
+			.addBinding(this.msdfText.uniforms.textScale, 'value', {
+				label: 'Scale',
+				min: 0.001,
+				max: 0.01,
+				step: 0.0001
+			})
+			.on('change', () => this.updateTextGeometry());
+		textFolder
+			.addBinding(this.msdfText.uniforms.planePadding, 'value', {
+				label: 'Padding',
+				min: 1.0,
+				max: 5.0,
+				step: 0.1
+			})
+			.on('change', () => this.updateTextGeometry());
+		textFolder
+			.addBinding(this.msdfText.uniforms.lineSpacing, 'value', {
+				label: 'Line Spacing',
+				min: 0.5,
+				max: 3.0,
+				step: 0.05
+			})
+			.on('change', () => this.updateTextGeometry());
 
 		// Circle debug
 		const circleOpts = { circles: false };
-		textFolder.addBinding(circleOpts, 'circles', { label: 'Show Circles' })
-			.on('change', (e) => this.msdfText.updateParameters({ showCircles: e.value ? 1 : 0 }));
-		textFolder.addBinding(this.msdfText.uniforms.circleRadius, 'value', {
-			label: 'Circle Radius',
-			min: 0,
-			max: 0.5,
-			step: 0.01
-		}).on('change', () => this.msdfText.updateParameters({ circleRadius: this.msdfText.uniforms.circleRadius.value as number }));
-		textFolder.addBinding(this.msdfText.uniforms.circleFeather, 'value', {
-			label: 'Circle Feather',
-			min: 0,
-			max: 3,
-			step: 0.01
-		}).on('change', () => this.msdfText.updateParameters({ circleFeather: this.msdfText.uniforms.circleFeather.value as number }));
-		// Iso-surface controls for metaball fusion
-		textFolder.addBinding(this.msdfText.uniforms.circleIsoLevel, 'value', {
-			label: 'Iso Level',
-			min: 0.0,
-			max: 5.0,
-			step: 0.01
-		}).on('change', () => this.msdfText.updateParameters({ circleIsoLevel: this.msdfText.uniforms.circleIsoLevel.value as number }));
-		textFolder.addBinding(this.msdfText.uniforms.circleIsoFeather, 'value', {
-			label: 'Iso Feather',
-			min: 0.0,
-			max: 1.0,
-			step: 0.005
-		}).on('change', () => this.msdfText.updateParameters({ circleIsoFeather: this.msdfText.uniforms.circleIsoFeather.value as number }));
+		textFolder
+			.addBinding(circleOpts, 'circles', { label: 'Show Circles' })
+			.on('change', (e) =>
+				this.msdfText.updateParameters({ showCircles: e.value ? 1 : 0 })
+			);
+		textFolder
+			.addBinding(this.msdfText.uniforms.circleRadius, 'value', {
+				label: 'Circle Radius',
+				min: 0,
+				max: 0.5,
+				step: 0.01
+			})
+			.on('change', () =>
+				this.msdfText.updateParameters({
+					circleRadius: this.msdfText.uniforms.circleRadius.value as number
+				})
+			);
+		textFolder
+			.addBinding(this.msdfText.uniforms.circleFeather, 'value', {
+				label: 'Circle Feather',
+				min: 0,
+				max: 3,
+				step: 0.01
+			})
+			.on('change', () =>
+				this.msdfText.updateParameters({
+					circleFeather: this.msdfText.uniforms.circleFeather.value as number
+				})
+			);
 	}
 
 	stop() {
