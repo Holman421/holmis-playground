@@ -2,26 +2,14 @@ import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
 import { MSDFText } from './MsdfText';
-import {
-	add,
-	float,
-	Fn,
-	int,
-	Loop,
-	mul,
-	sub,
-	texture,
-	uniform,
-	uv,
-	varying,
-	vec2
-} from 'three/tsl';
 
 interface SketchOptions {
+	/** DOM element container */
 	dom: HTMLElement;
 }
 
 export default class Sketch {
+	// Core
 	scene: THREE.Scene;
 	container: HTMLElement;
 	width: number;
@@ -30,21 +18,10 @@ export default class Sketch {
 	camera: THREE.PerspectiveCamera;
 	controls: OrbitControls;
 	isPlaying: boolean;
-	resizeListener: boolean = false;
+	resizeListener = false;
+
 	pane!: Pane;
 	msdfText!: MSDFText;
-
-	// --- Post-processing properties ---
-	private renderTargetA!: THREE.RenderTarget;
-	private renderTargetB!: THREE.RenderTarget;
-	private postProcessScene!: THREE.Scene;
-	private postProcessCamera!: THREE.OrthographicCamera;
-	private fullscreenQuad!: THREE.Mesh;
-
-	// --- Keep direct references to the uniforms for easy access ---
-	private blurAmount!: ReturnType<typeof uniform>;
-	private blurInputTexture!: ReturnType<typeof uniform>;
-	private blurDirection!: ReturnType<typeof uniform>;
 
 	constructor(options: SketchOptions) {
 		this.scene = new THREE.Scene();
@@ -54,18 +31,13 @@ export default class Sketch {
 		this.renderer = new THREE.WebGPURenderer();
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.renderer.setSize(this.width, this.height);
-		// The clear color will be managed in the render passes
 		this.container.appendChild(this.renderer.domElement);
 
-		this.camera = new THREE.PerspectiveCamera(
-			70,
-			this.width / this.height,
-			0.01,
-			1000
-		);
+		this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 1000);
 		this.camera.position.set(0, 0, 3);
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.isPlaying = true;
+
 		this.resize();
 		this.init();
 	}
@@ -82,54 +54,8 @@ export default class Sketch {
 		await this.msdfText.createMesh();
 		this.scene.add(this.msdfText.mesh);
 
-		this.setupPostProcessing();
 		this.setUpSettings();
 		this.render();
-	}
-
-	setupPostProcessing() {
-		this.renderTargetA = new THREE.RenderTarget(this.width, this.height);
-		this.renderTargetB = new THREE.RenderTarget(this.width, this.height);
-
-		this.postProcessScene = new THREE.Scene();
-		this.postProcessCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
-		const quadGeometry = new THREE.PlaneGeometry(2, 2);
-		const postProcessMaterial = new THREE.NodeMaterial();
-		this.fullscreenQuad = new THREE.Mesh(quadGeometry, postProcessMaterial);
-		this.postProcessScene.add(this.fullscreenQuad);
-
-		// Store uniforms as class properties for easy access later
-		this.blurInputTexture = uniform(this.renderTargetA.texture);
-		this.blurDirection = uniform(new THREE.Vector2(1, 0));
-		this.blurAmount = uniform(2.0);
-
-		const gaussianBlur = Fn(([tex, texUV, dir, blurAmt]: any) => {
-			const weights = [
-				float(0.227027),
-				float(0.1945946),
-				float(0.1216216),
-				float(0.054054),
-				float(0.016216)
-			];
-			const resolution = vec2(this.width, this.height);
-			const texelSize = vec2(1.0).div(resolution);
-			const result = mul(texture(tex, texUV), weights[0]).toVar();
-
-			Loop({ start: int(1), end: int(5) }, ({ i }) => {
-				const offset = mul(i, texelSize, dir, blurAmt);
-				result.addAssign(mul(texture(tex, add(texUV, offset)), weights[i]));
-				result.addAssign(mul(texture(tex, sub(texUV, offset)), weights[i]));
-			});
-			return result;
-		});
-
-		postProcessMaterial.colorNode = gaussianBlur(
-			this.blurInputTexture,
-			varying(uv()),
-			this.blurDirection,
-			this.blurAmount
-		);
 	}
 
 	async updateTextGeometry() {
@@ -141,35 +67,72 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.pane = new Pane();
-		(document.querySelector('.tp-dfwv') as HTMLElement)!.style.zIndex = '1000';
+		(document.querySelector('.tp-dfwv') as HTMLElement)?.style && ((document.querySelector('.tp-dfwv') as HTMLElement).style.zIndex = '1000');
 
 		const textFolder = this.pane.addFolder({ title: 'Text Controls' });
-		// Add the blur amount to the pane for real-time control
-		textFolder.addBinding(this.blurAmount, 'value', {
-			label: 'Blur Amount',
-			min: 0,
-			max: 20,
+		textFolder.addBinding(this.msdfText.uniforms.textScale, 'value', {
+			label: 'Scale',
+			min: 0.001,
+			max: 0.01,
+			step: 0.0001
+		}).on('change', () => this.updateTextGeometry());
+		textFolder.addBinding(this.msdfText.uniforms.planePadding, 'value', {
+			label: 'Padding',
+			min: 1.0,
+			max: 5.0,
 			step: 0.1
-		});
+		}).on('change', () => this.updateTextGeometry());
+		textFolder.addBinding(this.msdfText.uniforms.lineSpacing, 'value', {
+			label: 'Line Spacing',
+			min: 0.5,
+			max: 3.0,
+			step: 0.05
+		}).on('change', () => this.updateTextGeometry());
+
+		// Circle debug
+		const circleOpts = { circles: false };
+		textFolder.addBinding(circleOpts, 'circles', { label: 'Show Circles' })
+			.on('change', (e) => this.msdfText.updateParameters({ showCircles: e.value ? 1 : 0 }));
+		textFolder.addBinding(this.msdfText.uniforms.circleRadius, 'value', {
+			label: 'Circle Radius',
+			min: 0,
+			max: 0.5,
+			step: 0.01
+		}).on('change', () => this.msdfText.updateParameters({ circleRadius: this.msdfText.uniforms.circleRadius.value as number }));
+		textFolder.addBinding(this.msdfText.uniforms.circleFeather, 'value', {
+			label: 'Circle Feather',
+			min: 0,
+			max: 3,
+			step: 0.01
+		}).on('change', () => this.msdfText.updateParameters({ circleFeather: this.msdfText.uniforms.circleFeather.value as number }));
+		// Iso-surface controls for metaball fusion
+		textFolder.addBinding(this.msdfText.uniforms.circleIsoLevel, 'value', {
+			label: 'Iso Level',
+			min: 0.0,
+			max: 5.0,
+			step: 0.01
+		}).on('change', () => this.msdfText.updateParameters({ circleIsoLevel: this.msdfText.uniforms.circleIsoLevel.value as number }));
+		textFolder.addBinding(this.msdfText.uniforms.circleIsoFeather, 'value', {
+			label: 'Iso Feather',
+			min: 0.0,
+			max: 1.0,
+			step: 0.005
+		}).on('change', () => this.msdfText.updateParameters({ circleIsoFeather: this.msdfText.uniforms.circleIsoFeather.value as number }));
 	}
 
 	stop() {
 		this.isPlaying = false;
-		window.removeEventListener('resize', this.resize.bind(this));
+		window.removeEventListener('resize', this.resizeHandler);
 		this.msdfText?.dispose();
-
-		// --- NEW: Dispose post-processing resources ---
-		this.renderTargetA?.dispose();
-		this.renderTargetB?.dispose();
-		(this.fullscreenQuad?.material as THREE.Material)?.dispose();
-
 		this.renderer.dispose();
 		if (this.pane) this.pane.dispose();
 	}
 
+	private resizeHandler = () => this.resize();
+
 	resize() {
 		if (!this.resizeListener) {
-			window.addEventListener('resize', this.resize.bind(this));
+			window.addEventListener('resize', this.resizeHandler);
 			this.resizeListener = true;
 		}
 		this.width = this.container.offsetWidth;
@@ -177,44 +140,12 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
-
-		// --- NEW: Resize render targets on window resize ---
-		if (this.renderTargetA) {
-			this.renderTargetA.setSize(this.width, this.height);
-			this.renderTargetB.setSize(this.width, this.height);
-		}
 	}
 
 	async render() {
 		if (!this.isPlaying) return;
 		this.controls.update();
-
-		// --- NEW: Correct multi-pass rendering pipeline ---
-
-		// Pass 1: Render the main scene (with text) to RenderTargetA
-		this.renderer.setRenderTarget(this.renderTargetA);
-		this.renderer.setClearColor(0x000000, 0); // Clear with transparent background
-		this.renderer.clear();
 		await this.renderer.renderAsync(this.scene, this.camera);
-
-		// Pass 2: Render a horizontal blur to RenderTargetB
-		this.renderer.setRenderTarget(this.renderTargetB);
-		this.blurInputTexture.value = this.renderTargetA.texture;
-		(this.blurDirection.value as THREE.Vector2).set(1, 0); // Set direction to horizontal
-		await this.renderer.renderAsync(
-			this.postProcessScene,
-			this.postProcessCamera
-		);
-
-		// Pass 3: Render a vertical blur to the screen
-		this.renderer.setRenderTarget(null); // Set output back to the screen
-		this.blurInputTexture.value = this.renderTargetB.texture;
-		this.blurDirection.value.set(0, 1); // Set direction to vertical
-		await this.renderer.renderAsync(
-			this.postProcessScene,
-			this.postProcessCamera
-		);
-
 		requestAnimationFrame(() => this.render());
 	}
 }
