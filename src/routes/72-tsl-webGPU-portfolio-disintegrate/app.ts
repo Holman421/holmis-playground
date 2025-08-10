@@ -1,4 +1,6 @@
 import * as THREE from 'three/webgpu';
+import { pass, mrt, output, emissive } from 'three/tsl';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
 import { setupCameraPane, setupLightPane } from '$lib/utils/Tweakpane/utils';
@@ -15,25 +17,20 @@ import {
 	Fn,
 	fract,
 	mix,
-	mul,
-	sub,
-	uv,
-	vec2,
 	vec3,
 	uniform,
 	positionLocal,
-	abs,
-	vec4,
-	mod,
-	step,
-	div,
-	add,
-	sin,
 	If,
 	select,
 	Discard,
 	greaterThan,
-	smoothstep
+	smoothstep,
+	texture,
+	screenUV,
+	pow,
+	clamp,
+	normalize,
+	instancedArray
 } from 'three/tsl';
 import gsap from 'gsap';
 
@@ -68,24 +65,42 @@ export default class Sketch {
 		currentText: 'Frontend Developer',
 		texts: [
 			'Frontend Developer',
-			'Three.js Specialist',
+			'WebGPU Explorer',
 			'Creative Coder',
-			'WebGPU Explorer'
+			'Three.js Specialist'
 		],
 		currentIndex: 0,
 		fontSize: 0.3,
 		textColor: '#29c4ce',
 		padding: 0.25 // Extra space around text
 	};
+	bloomOptions = {
+		color: '#29c4ce', // Cyan color
+		intensity: 3.0
+	};
 	uniforms: {
 		progress: any;
 		frequency: any;
 		amplitude: any;
+		bloomStrength: any;
+		bloomRadius: any;
+		bloomThreshold: any;
+		bloomColor: any;
+		bloomIntensity: any;
 	} = {
 		progress: null,
 		frequency: null,
-		amplitude: null
+		amplitude: null,
+		bloomStrength: null,
+		bloomRadius: null,
+		bloomThreshold: null,
+		bloomColor: null,
+		bloomIntensity: null
 	};
+
+	// Bloom effect properties
+	postProcessing!: THREE.PostProcessing;
+	bloomPass: any;
 
 	constructor(options: SketchOptions) {
 		this.scene = new THREE.Scene();
@@ -112,6 +127,7 @@ export default class Sketch {
 		this.createGroup();
 		this.createMesh();
 		this.createText();
+		this.setupBloom();
 		this.resize();
 		this.setUpSettings();
 		this.startCycleAnimation();
@@ -122,11 +138,11 @@ export default class Sketch {
 		await this.renderer.init();
 
 		// Initialize recording controls after renderer is ready
-		this.recordingControls = createRecordingControls({
-			canvas: this.renderer.domElement,
-			container: this.container,
-			position: 'top-left'
-		});
+		// this.recordingControls = createRecordingControls({
+		// 	canvas: this.renderer.domElement,
+		// 	container: this.container,
+		// 	position: 'top-left'
+		// });
 
 		this.render();
 	}
@@ -138,6 +154,45 @@ export default class Sketch {
 		this.pointLight = new THREE.PointLight(0xffffff, 15);
 		this.pointLight.position.set(-1.6, 0.7, 1.7);
 		this.scene.add(this.pointLight);
+	}
+
+	setupBloom() {
+		// Create bloom uniforms for the controls
+		const bloomStrengthUniform = uniform(0.5);
+		const bloomRadiusUniform = uniform(0.5);
+		const bloomThresholdUniform = uniform(0.85);
+		const bloomColorUniform = uniform(new THREE.Color('#29c4ce')); // Cyan color
+		const bloomIntensityUniform = uniform(3.0);
+
+		this.uniforms.bloomStrength = bloomStrengthUniform;
+		this.uniforms.bloomRadius = bloomRadiusUniform;
+		this.uniforms.bloomThreshold = bloomThresholdUniform;
+		this.uniforms.bloomColor = bloomColorUniform;
+		this.uniforms.bloomIntensity = bloomIntensityUniform;
+
+		// Create scene pass with MRT (Multiple Render Targets) for output and emissive
+		const scenePass = pass(this.scene, this.camera);
+		scenePass.setMRT(
+			mrt({
+				output,
+				emissive
+			})
+		);
+
+		// Get the output and emissive textures
+		const outputPass = scenePass.getTextureNode();
+		const emissivePass = scenePass.getTextureNode('emissive');
+
+		// Create bloom pass using the emissive channel
+		this.bloomPass = bloom(
+			emissivePass,
+			bloomStrengthUniform,
+			bloomRadiusUniform
+		);
+
+		// Initialize post-processing
+		this.postProcessing = new THREE.PostProcessing(this.renderer);
+		this.postProcessing.outputNode = outputPass.add(this.bloomPass);
 	}
 
 	createGroup() {
@@ -163,6 +218,30 @@ export default class Sketch {
 		loader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
 			this.font = font;
 			this.updateText();
+
+			const newText = new TextGeometry('I am a', {
+				font: this.font,
+				size: this.textOptions.fontSize,
+				depth: 0.05,
+				curveSegments: 12,
+				bevelEnabled: true,
+				bevelThickness: 0.02,
+				bevelSize: 0.01,
+				bevelOffset: 0,
+				bevelSegments: 5
+			});
+
+			const newTextMaterial = new THREE.MeshStandardMaterial({
+				color: this.textOptions.textColor,
+				metalness: 0.1,
+				roughness: 0.3,
+				transparent: true,
+				opacity: 1
+			});
+
+			const newTextMesh = new THREE.Mesh(newText, newTextMaterial);
+			newTextMesh.position.set(-3, -0.2, 0);
+			this.scene.add(newTextMesh);
 		});
 	}
 
@@ -191,10 +270,16 @@ export default class Sketch {
 
 		// Center the text
 		this.textGeometry.computeBoundingBox();
-		const textWidth = this.textGeometry.boundingBox!.max.x - this.textGeometry.boundingBox!.min.x;
-		const textHeight = this.textGeometry.boundingBox!.max.y - this.textGeometry.boundingBox!.min.y;
-		const textDepth = this.textGeometry.boundingBox!.max.z - this.textGeometry.boundingBox!.min.z;
-		
+		const textWidth =
+			this.textGeometry.boundingBox!.max.x -
+			this.textGeometry.boundingBox!.min.x;
+		const textHeight =
+			this.textGeometry.boundingBox!.max.y -
+			this.textGeometry.boundingBox!.min.y;
+		const textDepth =
+			this.textGeometry.boundingBox!.max.z -
+			this.textGeometry.boundingBox!.min.z;
+
 		const centerOffsetX = -0.5 * textWidth;
 		const centerOffsetY = -0.5 * textHeight;
 		const centerOffsetZ = -0.5 * textDepth;
@@ -203,7 +288,7 @@ export default class Sketch {
 		const boxWidth = textWidth + this.textOptions.padding * 2;
 		const boxHeight = Math.max(textHeight + this.textOptions.padding * 2, 1); // Minimum height of 1
 		const boxDepth = Math.max(textDepth + this.textOptions.padding * 2, 1); // Minimum depth of 1
-		
+
 		// Remove old geometry and create new one
 		if (this.geometry) this.geometry.dispose();
 		this.geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
@@ -244,11 +329,9 @@ export default class Sketch {
 		const amplitudeUniform = uniform(1);
 		const progressUniform = uniform(0);
 
-		this.uniforms = {
-			progress: progressUniform,
-			frequency: frequencyUniform,
-			amplitude: amplitudeUniform
-		};
+		this.uniforms.progress = progressUniform;
+		this.uniforms.frequency = frequencyUniform;
+		this.uniforms.amplitude = amplitudeUniform;
 
 		// Alternative hash
 		const hash32: any = Fn(([p]: any) => {
@@ -343,20 +426,31 @@ export default class Sketch {
 			const finalNoise = scaledNoise.add(progressUniform.mul(2.0)).sub(1.0);
 
 			const isOutOfRange = finalNoise.greaterThan(0.0);
-			const cornerRadius = 0.25; // Adjust as needed
+			const cornerRadius = 0.1; // Adjust as needed
 			const isCorner = finalNoise
 				.lessThan(0.0)
 				.and(finalNoise.greaterThan(-cornerRadius));
 
 			const finalColor = vec3(0.05).toVar();
-			const edgeColor = vec3(206 / 255, 108 / 255, 41 / 255).toVar();
+			const edgeColor = vec3(5.0, 2.0, 0.3).toVar(); // Very bright orange for bloom-like effect
+			const bloomIntensity = float(8.0); // Much higher values for stronger glow
 
 			If(isOutOfRange, () => {
 				Discard();
 			}).ElseIf(isCorner, () => {
-				// Blend edgeColor and finalColor based on smoothstep
+				// Create a more intense bloom-like edge effect
 				const edgeAlpha = smoothstep(-cornerRadius, 0.0, finalNoise);
-				finalColor.rgb = mix(finalColor, edgeColor, edgeAlpha);
+				const bloomColor = edgeColor.mul(bloomIntensity);
+
+				// Create a more gradual falloff for bloom-like effect
+				const falloff = smoothstep(
+					-cornerRadius * 2.0,
+					-cornerRadius * 0.5,
+					finalNoise
+				);
+				const finalBloomColor = bloomColor.mul(falloff);
+
+				finalColor.rgb = mix(finalColor, finalBloomColor, edgeAlpha);
 			});
 
 			return finalColor;
@@ -364,6 +458,38 @@ export default class Sketch {
 
 		// The correct way to assign the node to the material
 		this.material.colorNode = disintegrateShader();
+
+		// For bloom effect, we need to output bright edges to the emissive channel
+		const emissiveShader = Fn(() => {
+			const localPos = positionLocal.xyz;
+			const scaledPos = localPos.mul(frequencyUniform);
+			const noiseValue = gradientNoise(scaledPos);
+			const scaledNoise = noiseValue.mul(amplitudeUniform);
+			const finalNoise = scaledNoise.add(progressUniform.mul(2.0)).sub(1.0);
+
+			const isOutOfRange = finalNoise.greaterThan(0.0);
+			const cornerRadius = 0.1;
+			const isCorner = finalNoise
+				.lessThan(0.0)
+				.and(finalNoise.greaterThan(-cornerRadius));
+
+			const emissiveOutput = vec3(0.0).toVar();
+
+			If(isOutOfRange, () => {
+				// Don't output anything for discarded fragments
+			}).ElseIf(isCorner, () => {
+				// Output bright colors for bloom on edges using uniform color
+				const edgeAlpha = smoothstep(-cornerRadius, 0.0, finalNoise);
+				const bloomColor = this.uniforms.bloomColor.rgb.mul(
+					this.uniforms.bloomIntensity
+				);
+				emissiveOutput.assign(bloomColor.mul(edgeAlpha));
+			});
+
+			return emissiveOutput;
+		});
+
+		this.material.emissiveNode = emissiveShader();
 
 		this.mesh = new THREE.Mesh(this.geometry, this.material);
 		this.mesh.position.set(0, 0, 0); // Reset position since group handles positioning
@@ -404,6 +530,47 @@ export default class Sketch {
 			step: 0.1,
 			label: 'Frequency'
 		});
+
+		// Bloom controls
+		const bloomFolder = this.pane.addFolder({
+			title: 'Bloom Settings',
+			expanded: true
+		});
+
+		bloomFolder.addBinding(this.bloomPass.strength, 'value', {
+			min: 0,
+			max: 1,
+			step: 0.01,
+			label: 'Bloom Strength'
+		});
+
+		// bloomFolder.addBinding(this.bloomPass.radius, 'value', {
+		// 	min: 0,
+		// 	max: 0.25,
+		// 	step: 0.01,
+		// 	label: 'Bloom Radius'
+		// });
+
+		bloomFolder
+			.addBinding(this.bloomOptions, 'color', {
+				label: 'Bloom Color'
+			})
+			.on('change', () => {
+				this.uniforms.bloomColor.value.setHex(
+					this.bloomOptions.color.replace('#', '0x')
+				);
+			});
+
+		bloomFolder
+			.addBinding(this.bloomOptions, 'intensity', {
+				min: 0,
+				max: 10,
+				step: 0.1,
+				label: 'Bloom Intensity'
+			})
+			.on('change', () => {
+				this.uniforms.bloomIntensity.value = this.bloomOptions.intensity;
+			});
 
 		// this.pane.addBinding(this.uniforms.amplitude, 'value', {
 		// 	min: 0,
@@ -493,33 +660,39 @@ export default class Sketch {
 				duration: 2,
 				ease: 'power4.inOut'
 			})
-			.to(this.uniforms.progress, {
-				value: 1,
-				duration: 1.5,
-				ease: 'none',
-				onUpdate: () => {
-					this.pane.refresh();
-				}
-			}, "-=0.6") // Start at the same time as position animation
-			.to({}, {
-				duration: 0.3,
-				ease: 'power2.inOut',
-				onStart: () => {
-					// Fade out the current text
-					if (this.textMaterial) {
-						gsap.to(this.textMaterial, {
-							opacity: 0,
-							duration: 0.3,
-							ease: 'power2.inOut'
-						});
+			.to(
+				this.uniforms.progress,
+				{
+					value: 1,
+					duration: 2.5,
+					ease: 'none',
+					onUpdate: () => {
+						this.pane.refresh();
 					}
+				},
+				'-=0.6'
+			) // Start at the same time as position animation
+			.call(() => {
+				// Fade out the current text
+				if (this.textMaterial) {
+					gsap.to(this.textMaterial, {
+						opacity: 0,
+						duration: 0.3,
+						ease: 'power2.inOut'
+					});
 				}
-			}) // Start fade out 0.5s before the end
+			})
+			.to({}, { duration: 0.3 }) // Wait for fade out to complete
 			.call(() => {
 				this.nextText(); // Change text after fade out
 			})
 			.set(this.group.position, { x: 10 })
-			.set(this.textMaterial, { opacity: 1 }) // Reset opacity for next text
+			.call(() => {
+				// Reset opacity for next text
+				if (this.textMaterial) {
+					this.textMaterial.opacity = 1;
+				}
+			})
 			.set(this.uniforms.progress, { value: 0 });
 	}
 
@@ -527,7 +700,10 @@ export default class Sketch {
 		if (!this.isPlaying) return;
 
 		this.controls.update();
-		await this.renderer.renderAsync(this.scene, this.camera);
+
+		// Use the PostProcessing system for bloom effect
+		this.postProcessing.render();
+
 		requestAnimationFrame(() => this.render());
 	}
 
@@ -547,6 +723,9 @@ export default class Sketch {
 		if (this.group) {
 			this.scene.remove(this.group);
 		}
+
+		// Dispose of post-processing
+		if (this.postProcessing) this.postProcessing.dispose();
 
 		this.renderer.dispose();
 		if (this.pane) this.pane.dispose();

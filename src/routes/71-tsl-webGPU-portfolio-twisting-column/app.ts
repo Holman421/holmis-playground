@@ -8,7 +8,19 @@ import gsap from 'gsap';
 // Add shader imports
 import { setupCameraPane, setupLightPane } from '$lib/utils/Tweakpane/utils';
 import { Pane } from 'tweakpane';
-import { add, color, Fn, uniform, uv, vec3, mul, sin, cos, float, positionLocal } from 'three/src/nodes/TSL.js';
+import {
+	add,
+	color,
+	Fn,
+	uniform,
+	uv,
+	vec3,
+	mul,
+	sin,
+	cos,
+	float,
+	positionLocal
+} from 'three/src/nodes/TSL.js';
 
 interface SketchOptions {
 	dom: HTMLElement;
@@ -41,7 +53,7 @@ export default class Sketch {
 	uniforms!: {
 		baseColorUniform: any;
 		redShiftAmountUniform: any;
-	}
+	};
 
 	// Scroll control properties
 	scrollControlEnabled: boolean = false;
@@ -122,10 +134,14 @@ export default class Sketch {
 
 	setupEvents() {
 		// Add scroll event listener
-		window.addEventListener('wheel', this.onScroll.bind(this), { passive: false });
+		window.addEventListener('wheel', this.onScroll.bind(this), {
+			passive: false
+		});
 
 		// Add mouse move event listener
-		window.addEventListener('mousemove', this.onMouseMove.bind(this), { passive: true });
+		window.addEventListener('mousemove', this.onMouseMove.bind(this), {
+			passive: true
+		});
 	}
 
 	onScroll(event: WheelEvent) {
@@ -158,8 +174,14 @@ export default class Sketch {
 			}
 		} else {
 			// Optional: Clamp the Y positions to reasonable bounds (non-infinite mode)
-			this.targetCameraY = Math.max(-this.maxScrollDistance, Math.min(this.scrollResetPosition, this.targetCameraY));
-			this.targetControlsTargetY = Math.max(-this.maxScrollDistance, Math.min(this.scrollResetPosition, this.targetControlsTargetY));
+			this.targetCameraY = Math.max(
+				-this.maxScrollDistance,
+				Math.min(this.scrollResetPosition, this.targetCameraY)
+			);
+			this.targetControlsTargetY = Math.max(
+				-this.maxScrollDistance,
+				Math.min(this.scrollResetPosition, this.targetControlsTargetY)
+			);
 		}
 	}
 
@@ -203,7 +225,7 @@ export default class Sketch {
 		this.spotlight1 = new THREE.SpotLight(0xffffff, 50.0);
 		this.spotlight1.position.set(-8.4, 9.8, 20);
 		this.spotlight1.target.position.set(-1, 9, 0);
-		this.spotlight1.angle = 0.8
+		this.spotlight1.angle = 0.8;
 		this.spotlight1.penumbra = 0.7;
 		this.spotlight1.decay = 1.0;
 		this.spotlight1.distance = 62;
@@ -218,8 +240,8 @@ export default class Sketch {
 		this.createGeometry();
 		this.createMaterial();
 
-		const columnTopOffset = 40
-		const columnYPosition = columnTopOffset - (this.columnHeight / 2);
+		const columnTopOffset = 40;
+		const columnYPosition = columnTopOffset - this.columnHeight / 2;
 
 		this.mesh = new THREE.Mesh(this.geometry, this.material);
 		this.mesh.position.set(0, columnYPosition, 0);
@@ -231,7 +253,14 @@ export default class Sketch {
 	createGeometry() {
 		const columnWidth = 10.0;
 		const columnDepth = 10.0;
-		this.geometry = new THREE.BoxGeometry(columnWidth, this.columnHeight, columnDepth, this.widthSegments, this.heightSegments, this.widthSegments);
+		this.geometry = new THREE.BoxGeometry(
+			columnWidth,
+			this.columnHeight,
+			columnDepth,
+			this.widthSegments,
+			this.heightSegments,
+			this.widthSegments
+		);
 	}
 
 	createMaterial() {
@@ -242,7 +271,7 @@ export default class Sketch {
 		this.material = new THREE.MeshStandardNodeMaterial({
 			color: '#222222', // Dark gray instead of pure black
 			side: THREE.DoubleSide,
-			wireframe: this.wireframe,
+			wireframe: this.wireframe
 		});
 
 		const rotateGeometry = Fn(() => {
@@ -250,7 +279,10 @@ export default class Sketch {
 
 			// Use the actual Y position instead of UV coordinates for more predictable results
 			// Normalize the Y position based on the geometry height
-			const normalizedY = mul(transformedPosition.y, float(2.0).div(this.columnHeightUniform)); // Normalize to -1 to 1 range
+			const normalizedY = mul(
+				transformedPosition.y,
+				float(2.0).div(this.columnHeightUniform)
+			); // Normalize to -1 to 1 range
 			const twist = mul(normalizedY, this.rotationStrengthUniform);
 
 			// Apply rotation around Y axis based on height
@@ -258,11 +290,17 @@ export default class Sketch {
 			const sinTheta = sin(twist);
 
 			// Rotate X and Z coordinates
-			const newX = add(mul(transformedPosition.x, cosTheta), mul(transformedPosition.z, sinTheta));
-			const newZ = add(mul(transformedPosition.z, cosTheta), mul(transformedPosition.x, sinTheta.negate()));
+			const newX = add(
+				mul(transformedPosition.x, cosTheta),
+				mul(transformedPosition.z, sinTheta)
+			);
+			const newZ = add(
+				mul(transformedPosition.z, cosTheta),
+				mul(transformedPosition.x, sinTheta.negate())
+			);
 
 			return vec3(newX, transformedPosition.y, newZ);
-		})
+		});
 
 		this.material.positionNode = rotateGeometry();
 	}
@@ -287,44 +325,59 @@ export default class Sketch {
 
 	setUpSettings() {
 		this.pane = new Pane();
+		(document.querySelector('.tp-dfwv') as HTMLElement)!.style.zIndex = '1000';
 
 		// Add main column controls
-		const columnFolder = this.pane.addFolder({ title: 'Main Column', expanded: false });
-
-		columnFolder.addBinding(this, 'wireframe', {
-			label: 'Wireframe'
-		}).on('change', ({ value }) => {
-			this.material.wireframe = value;
+		const columnFolder = this.pane.addFolder({
+			title: 'Main Column',
+			expanded: false
 		});
 
-		columnFolder.addBinding(this, 'rotationStrength', {
-			label: 'Rotation Strength',
-			min: 0,
-			max: 10,
-			step: 0.1
-		}).on('change', ({ value }) => {
-			this.rotationStrengthUniform.value = value;
-		});
+		columnFolder
+			.addBinding(this, 'wireframe', {
+				label: 'Wireframe'
+			})
+			.on('change', ({ value }) => {
+				this.material.wireframe = value;
+			});
+
+		columnFolder
+			.addBinding(this, 'rotationStrength', {
+				label: 'Rotation Strength',
+				min: 0,
+				max: 10,
+				step: 0.1
+			})
+			.on('change', ({ value }) => {
+				this.rotationStrengthUniform.value = value;
+			});
 
 		// Add column rotation control
-		columnFolder.addBinding(this, 'columnRotationY', {
-			label: 'Rotation Y',
-			min: -Math.PI / 2,
-			max: Math.PI / 2,
-			step: 0.01,
-		}).on('change', ({ value }) => {
-			this.mesh.rotation.y = value;
-		});
+		columnFolder
+			.addBinding(this, 'columnRotationY', {
+				label: 'Rotation Y',
+				min: -Math.PI / 2,
+				max: Math.PI / 2,
+				step: 0.01
+			})
+			.on('change', ({ value }) => {
+				this.mesh.rotation.y = value;
+			});
 
 		// Add scroll control settings
-		const scrollFolder = this.pane.addFolder({ title: 'Scroll Controls', expanded: false });
-
-		scrollFolder.addBinding(this, 'scrollControlEnabled', {
-			label: 'Enable Scroll Camera'
-		}).on('change', ({ value }) => {
-			// Disable/enable orbit controls based on scroll control state
-			this.controls.enabled = !value;
+		const scrollFolder = this.pane.addFolder({
+			title: 'Scroll Controls',
+			expanded: false
 		});
+
+		scrollFolder
+			.addBinding(this, 'scrollControlEnabled', {
+				label: 'Enable Scroll Camera'
+			})
+			.on('change', ({ value }) => {
+				// Disable/enable orbit controls based on scroll control state
+				this.controls.enabled = !value;
+			});
 
 		scrollFolder.addBinding(this, 'scrollSensitivity', {
 			label: 'Scroll Sensitivity',
@@ -359,7 +412,10 @@ export default class Sketch {
 		});
 
 		// Add mouse camera movement controls
-		const mouseCameraFolder = this.pane.addFolder({ title: 'Mouse Camera Movement', expanded: false });
+		const mouseCameraFolder = this.pane.addFolder({
+			title: 'Mouse Camera Movement',
+			expanded: false
+		});
 
 		mouseCameraFolder.addBinding(this, 'mouseCameraEnabled', {
 			label: 'Enable Mouse Camera'
@@ -384,7 +440,7 @@ export default class Sketch {
 			pane: this.pane,
 			controls: this.controls,
 			scene: this.scene,
-			defaultOpen: false,
+			defaultOpen: false
 		});
 
 		// setupLightPane({
@@ -422,7 +478,6 @@ export default class Sketch {
 		// 	positionRange: { min: -20, max: 20 },
 		// 	targetRange: { min: -20, max: 20 }
 		// });
-
 	}
 
 	async render() {
@@ -431,8 +486,11 @@ export default class Sketch {
 
 		// Apply easing to camera Y position and controls target when scroll control is enabled
 		if (this.scrollControlEnabled) {
-			this.currentCameraY += (this.targetCameraY - this.currentCameraY) * this.easingSpeed;
-			this.currentControlsTargetY += (this.targetControlsTargetY - this.currentControlsTargetY) * this.easingSpeed;
+			this.currentCameraY +=
+				(this.targetCameraY - this.currentCameraY) * this.easingSpeed;
+			this.currentControlsTargetY +=
+				(this.targetControlsTargetY - this.currentControlsTargetY) *
+				this.easingSpeed;
 
 			this.camera.position.y = this.currentCameraY;
 			this.controls.target.y = this.currentControlsTargetY;
@@ -444,8 +502,12 @@ export default class Sketch {
 		// Apply eased mouse-based camera wobble
 		if (this.mouseCameraEnabled) {
 			// Apply easing to mouse offset
-			this.currentMouseOffset.x += (this.targetMouseOffset.x - this.currentMouseOffset.x) * this.mouseEasingSpeed;
-			this.currentMouseOffset.y += (this.targetMouseOffset.y - this.currentMouseOffset.y) * this.mouseEasingSpeed;
+			this.currentMouseOffset.x +=
+				(this.targetMouseOffset.x - this.currentMouseOffset.x) *
+				this.mouseEasingSpeed;
+			this.currentMouseOffset.y +=
+				(this.targetMouseOffset.y - this.currentMouseOffset.y) *
+				this.mouseEasingSpeed;
 
 			// Store the current camera position from controls
 			const baseX = this.camera.position.x;
