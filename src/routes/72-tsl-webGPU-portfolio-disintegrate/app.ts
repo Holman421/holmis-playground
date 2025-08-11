@@ -186,8 +186,8 @@ export default class Sketch {
 		// Create bloom pass using the emissive channel
 		this.bloomPass = bloom(
 			emissivePass,
-			bloomStrengthUniform,
-			bloomRadiusUniform
+			bloomStrengthUniform.value,
+			bloomRadiusUniform.value
 		);
 
 		// Initialize post-processing
@@ -241,7 +241,7 @@ export default class Sketch {
 
 			const newTextMesh = new THREE.Mesh(newText, newTextMaterial);
 			newTextMesh.position.set(-3, -0.2, 0);
-			this.scene.add(newTextMesh);
+			// this.scene.add(newTextMesh);
 		});
 	}
 
