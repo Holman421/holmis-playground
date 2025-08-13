@@ -9,9 +9,7 @@ import {
 	uniform,
 	vec3,
 	vec4,
-	time,
-	texture,
-	uv
+	time
 } from 'three/tsl';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
@@ -38,7 +36,7 @@ export default class Sketch {
 	// Particle system properties
 	updateCompute!: any;
 	particleMesh!: THREE.InstancedMesh;
-	gridSize: number = 256; // 64x64 grid of particles
+	gridSize: number = 64; // 64x64 grid of particles
 	count: number = this.gridSize * this.gridSize;
 
 	// Wave animation uniforms
@@ -104,41 +102,39 @@ export default class Sketch {
 	}
 
 	setupWaveParticles() {
-		const textureLoader = new THREE.TextureLoader();
-		const circleTexture = textureLoader.load('/particles/9.png');
-
+		// Create a material for the particles
 		const material = new THREE.SpriteNodeMaterial({
 			blending: THREE.AdditiveBlending,
 			depthWrite: false,
-			transparent: true,
-			map: circleTexture
+			transparent: true
 		});
 
-		// Define the uniform for the texture
-		const map = uniform(circleTexture);
-
-		// Custom Fragment Shader to handle transparency
-		material.colorNode = Fn(() => {
-			const samplerColor = texture(material.map!, uv());
-			return vec4(samplerColor.xyz, samplerColor.w);
-		})();
-
-		material.scaleNode = this.particleSize;
-
+		// Create position buffer for all particles
 		const positionBuffer = instancedArray(this.count, 'vec3');
 
+		// Initialize particles in a grid
 		const init = Fn(() => {
 			const index = instanceIndex;
 
+			// Convert index and grid size to float for calculations
 			const indexFloat = float(index);
 			const gridSizeFloat = float(this.gridSize);
 
+			// Calculate x and z grid coordinates from the 1D index
+			// x: column index in the grid (0 to gridSize-1)
 			const col = indexFloat.mod(gridSizeFloat);
+			// z: row index in the grid (0 to gridSize-1)
 			const row = indexFloat.div(gridSizeFloat).floor();
 
-			const x = col.sub(gridSizeFloat.div(2)).div(gridSizeFloat.div(4)).mul(10);
+			// Center the grid around (0, 0) and scale to fit nicely in view
+			// Subtract half the grid size to center, then scale down
+			const x = col
+				.sub(gridSizeFloat.div(2)) // center
+				.div(gridSizeFloat.div(4)); // scale
 
-			const z = row.sub(gridSizeFloat.div(2)).div(gridSizeFloat.div(4)).mul(10);
+			const z = row
+				.sub(gridSizeFloat.div(2)) // center
+				.div(gridSizeFloat.div(4)); // scale
 
 			const y = float(0); // Start at y = 0
 
@@ -146,23 +142,30 @@ export default class Sketch {
 			position.assign(vec3(x, y, z));
 		});
 
+		// Initialize the positions
 		const initCompute = init().compute(this.count);
 		this.renderer.computeAsync(initCompute);
 
+		// Update particles with wave animation
 		const update = Fn(() => {
 			const position = positionBuffer.element(instanceIndex);
 			const index = instanceIndex;
 
+			// Calculate grid position (convert to float first)
 			const indexFloat = float(index);
 			const gridSizeFloat = float(this.gridSize);
 
-			const col = indexFloat.mod(gridSizeFloat);
-			const row = indexFloat.div(gridSizeFloat).floor();
+			const x = indexFloat
+				.mod(gridSizeFloat)
+				.sub(gridSizeFloat.div(2))
+				.div(gridSizeFloat.div(4));
+			const z = indexFloat
+				.div(gridSizeFloat)
+				.floor()
+				.sub(gridSizeFloat.div(2))
+				.div(gridSizeFloat.div(4));
 
-			const x = col.sub(gridSizeFloat.div(2)).div(gridSizeFloat.div(4)).mul(10);
-
-			const z = row.sub(gridSizeFloat.div(2)).div(gridSizeFloat.div(4)).mul(10);
-
+			// Create wave animation
 			const waveX = sin(
 				x.mul(this.waveFrequency).add(time.mul(this.waveSpeed))
 			);
@@ -176,8 +179,24 @@ export default class Sketch {
 
 		this.updateCompute = update().compute(this.count);
 
+		// Set up material nodes
 		material.positionNode = positionBuffer.toAttribute();
 
+		// Color based on height
+		material.colorNode = Fn(() => {
+			const position = positionBuffer.toAttribute();
+			const height = position.y.add(1).div(2); // Normalize height to 0-1
+			const color = vec3(
+				height.mul(0.5).add(0.5),
+				height.mul(0.3).add(0.7),
+				1.0
+			);
+			return vec4(color, 1.0);
+		})();
+
+		material.scaleNode = this.particleSize;
+
+		// Create the particle mesh
 		const geometry = new THREE.PlaneGeometry(1, 1);
 		this.particleMesh = new THREE.InstancedMesh(geometry, material, this.count);
 		this.scene.add(this.particleMesh);
@@ -203,14 +222,58 @@ export default class Sketch {
 			positionRange: { min: -15, max: 15 },
 			targetRange: { min: -15, max: 15 }
 		});
+
+		// Wave animation controls
+		const waveFolder = this.pane.addFolder({ title: 'Wave Animation' });
+
+		waveFolder.addBinding(this.waveAmplitude, 'value', {
+			label: 'Wave Amplitude',
+			min: 0,
+			max: 2,
+			step: 0.01
+		});
+
+		waveFolder.addBinding(this.waveFrequency, 'value', {
+			label: 'Wave Frequency',
+			min: 0.1,
+			max: 10,
+			step: 0.1
+		});
+
+		waveFolder.addBinding(this.waveSpeed, 'value', {
+			label: 'Wave Speed',
+			min: 0,
+			max: 5,
+			step: 0.1
+		});
+
+		waveFolder.addBinding(this.particleSize, 'value', {
+			label: 'Particle Size',
+			min: 0.005,
+			max: 0.1,
+			step: 0.005
+		});
+
+		waveFolder.addButton({ title: 'Reset Animation' }).on('click', () => {
+			this.resetWave();
+		});
+	}
+
+	resetWave() {
+		// Reset wave parameters to defaults
+		this.waveAmplitude.value = 0.15;
+		this.waveFrequency.value = 2.0;
+		this.waveSpeed.value = 1.0;
+		this.particleSize.value = 0.02;
 	}
 
 	async render() {
 		if (!this.isPlaying) return;
 		this.controls.update();
 
+		// Update particle compute shader
 		if (this.updateCompute) {
-			this.renderer.computeAsync(this.updateCompute);
+			this.renderer.compute(this.updateCompute);
 		}
 
 		await this.renderer.renderAsync(this.scene, this.camera);
