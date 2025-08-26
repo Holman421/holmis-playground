@@ -6,7 +6,6 @@ import gsap from 'gsap';
 // Add shader imports
 import vertexShader from './shaders/vertex.glsl';
 import fragmentShader from './shaders/fragment.glsl';
-import { setupCameraPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 
 export default class Sketch {

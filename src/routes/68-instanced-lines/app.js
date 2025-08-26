@@ -9,7 +9,6 @@ import fragmentShader from './shaders/fragment.glsl';
 import mouseVertexShader from './shaders/mouseVertex.glsl';
 import mouseFragmentShader from './shaders/mouseFragment.glsl';
 import postprocessFragmentShader from './shaders/postprocess.glsl';
-import { setupCameraPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 
 export default class Sketch {
