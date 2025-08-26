@@ -1,19 +1,11 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { simplexNoise } from 'tsl-textures';
-import gsap from 'gsap';
-
 // Add shader imports
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 import {
 	add,
-	color,
 	Fn,
 	uniform,
-	uv,
 	vec3,
 	mul,
 	sin,
@@ -21,6 +13,7 @@ import {
 	float,
 	positionLocal
 } from 'three/src/nodes/TSL.js';
+import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
 
 interface SketchOptions {
 	dom: HTMLElement;
