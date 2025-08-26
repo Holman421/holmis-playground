@@ -16,7 +16,6 @@ import simVertex from './shaders/simVertex.glsl';
 import simFragment from './shaders/simFragment.glsl';
 
 import vertexParticles from './shaders/vertexParticles.glsl';
-import { setupLightGUI } from '$lib/utils/lightGUI';
 
 export default class Sketch {
 	constructor(options) {

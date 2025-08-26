@@ -181,7 +181,9 @@ export default class Sketch {
 		this.text.color = this.settings.text.fillColor;
 		this.text.fontSize = this.settings.text.fontSize;
 		this.text.position.z = 0.5;
-	this.text.anchorX = 'center'; // string is valid for troika-text
+	// @ts-ignore: Troika Text allows string anchorX
+	this.text.anchorX = 'center';
+	// @ts-ignore: Troika Text allows string anchorY
 	this.text.anchorY = 'middle';
 		this.text.font = './fonts/Audiowide.woff';
 	// @ts-ignore: custom property for shader
@@ -189,9 +191,13 @@ export default class Sketch {
 
 		// Set initial progress values - wait for text to be ready
 		this.text.sync(() => {
+			// @ts-ignore: Troika Text allows dynamic progress properties
 			this.text.progress1 = this.settings.progress[1];
+			// @ts-ignore
 			this.text.progress2 = this.settings.progress[2];
+			// @ts-ignore
 			this.text.progress3 = this.settings.progress[3];
+			// @ts-ignore
 			this.text.progress4 = this.settings.progress[4];
 		});
 
@@ -203,6 +209,7 @@ export default class Sketch {
 
 		// Set stroke properties using Troika's built-in properties
 	this.text.strokeWidth = this.settings.stroke.width;
+	// @ts-ignore: Troika Text allows string or number for strokeColor
 	this.text.strokeColor = this.settings.stroke.color;
 	this.text.strokeOpacity = this.settings.stroke.opacity;
 	// @ts-ignore: custom property for shader
@@ -289,6 +296,7 @@ export default class Sketch {
 			})
 			.on('change', (ev) => {
 				if (this.text) {
+					// @ts-ignore: Troika Text allows string or number for strokeColor
 					this.text.strokeColor = ev.value;
 				}
 			});
@@ -396,9 +404,13 @@ export default class Sketch {
 
 				// Reset all progress values
 				[1, 2, 3, 4].forEach((i) => {
+					// @ts-ignore: index signature for progress
 					this.settings.progress[i] = 0;
 					this.material.uniforms[`uProgress${i}`].value = 0;
-					if (this.text) this.text[`progress${i}`] = 0;
+					if (this.text) {
+						// @ts-ignore: dynamic property on Troika Text
+						this.text[`progress${i}`] = 0;
+					}
 				});
 
 				// Create and store new timeline
