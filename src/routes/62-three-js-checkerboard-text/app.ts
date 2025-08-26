@@ -1,20 +1,76 @@
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import gsap from 'gsap';
 import { Text } from './troika-text/index.js'; // Import the modified Text class from the local path
-
-// Add shader imports
 import vertexShader from './shaders/vertex.glsl';
 import fragmentShader from './shaders/fragment.glsl';
-import textVertexShader from './shaders/textVertex.glsl';
-import textFragmentShader from './shaders/textFragment.glsl';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
-import { on } from 'svelte/events';
+
+interface SketchOptions {
+	dom: HTMLElement;
+}
+
+interface Settings {
+	text: {
+		content: string;
+		fontSize: number;
+		fillColor: string;
+		fillOpacity: number;
+		finalColor: string;
+	};
+	stroke: {
+		color: string;
+		opacity: number;
+		width: number;
+		firstOutlineColor: string;
+	};
+	wave: {
+		amplitude: number;
+		frequency: number;
+	};
+	debug: {
+		showBoundingBox: boolean;
+		showCharacterBoxes: boolean;
+	};
+	progress: {
+		1: number;
+		2: number;
+		3: number;
+		4: number;
+	};
+	animation: {
+		duration: number;
+		delay: number;
+	};
+}
+
+type ProgressBindings = {
+	[key: number]: any;
+};
 
 export default class Sketch {
-	constructor(options) {
+	scene: THREE.Scene;
+	container: HTMLElement;
+	width: number;
+	height: number;
+	renderer: THREE.WebGLRenderer;
+	camera: THREE.OrthographicCamera;
+	controls: OrbitControls;
+	time: number = 0;
+	doTheLog: boolean = true;
+	isPlaying: boolean = true;
+	settings: Settings;
+	timeline: gsap.core.Timeline | null = null;
+	text?: Text;
+	material!: THREE.ShaderMaterial;
+	geometry!: THREE.PlaneGeometry;
+	mesh!: THREE.Mesh;
+	pane!: Pane;
+	progressBindings: ProgressBindings = {};
+	resizeListener?: boolean;
+
+	constructor(options: SketchOptions) {
 		this.scene = new THREE.Scene();
 		this.container = options.dom;
 		this.width = this.container.offsetWidth;
@@ -107,8 +163,14 @@ export default class Sketch {
 		this.width = this.container.offsetWidth;
 		this.height = this.container.offsetHeight;
 		this.renderer.setSize(this.width, this.height);
-		this.camera.aspect = this.width / this.height;
-		this.camera.updateProjectionMatrix();
+	// OrthographicCamera does not have aspect property, update left/right/top/bottom
+	let frustumSize = 5;
+	let aspect = this.width / this.height;
+	this.camera.left = (frustumSize * aspect) / -2;
+	this.camera.right = (frustumSize * aspect) / 2;
+	this.camera.top = frustumSize / 2;
+	this.camera.bottom = frustumSize / -2;
+	this.camera.updateProjectionMatrix();
 	}
 
 	async loadFont() {
@@ -119,10 +181,11 @@ export default class Sketch {
 		this.text.color = this.settings.text.fillColor;
 		this.text.fontSize = this.settings.text.fontSize;
 		this.text.position.z = 0.5;
-		this.text.anchorX = 'center';
-		this.text.anchorY = 'middle';
+	this.text.anchorX = 'center'; // string is valid for troika-text
+	this.text.anchorY = 'middle';
 		this.text.font = './fonts/Audiowide.woff';
-		this.text.finalTextColor = this.settings.text.finalColor;
+	// @ts-ignore: custom property for shader
+	this.text.finalTextColor = this.settings.text.finalColor;
 
 		// Set initial progress values - wait for text to be ready
 		this.text.sync(() => {
@@ -139,10 +202,11 @@ export default class Sketch {
 		this.material.uniforms.uProgress4.value = this.settings.progress[4];
 
 		// Set stroke properties using Troika's built-in properties
-		this.text.strokeWidth = this.settings.stroke.width;
-		this.text.strokeColor = new THREE.Color(this.settings.stroke.color);
-		this.text.strokeOpacity = this.settings.stroke.opacity;
-		this.text.firstOutlineColor = this.settings.stroke.firstOutlineColor;
+	this.text.strokeWidth = this.settings.stroke.width;
+	this.text.strokeColor = this.settings.stroke.color;
+	this.text.strokeOpacity = this.settings.stroke.opacity;
+	// @ts-ignore: custom property for shader
+	this.text.firstOutlineColor = this.settings.stroke.firstOutlineColor;
 
 		this.scene.add(this.text);
 	}
@@ -178,16 +242,9 @@ export default class Sketch {
 
 	setupSettings() {
 		this.pane = new Pane();
-		document.querySelector('.tp-dfwv').style.zIndex = 1000;
+	const tpElem = document.querySelector('.tp-dfwv');
+	if (tpElem && tpElem instanceof HTMLElement) tpElem.style.zIndex = '1000';
 		this.progressBindings = {};
-
-		setupCameraPane({
-			pane: this.pane,
-			camera: this.camera,
-			controls: this.controls,
-			scene: this.scene,
-			isActive: false
-		});
 
 		const textFolder = this.pane.addFolder({ title: 'Text' });
 
@@ -220,6 +277,7 @@ export default class Sketch {
 			})
 			.on('change', (ev) => {
 				if (this.text) {
+					// @ts-ignore: custom property for shader
 					this.text.finalTextColor = ev.value;
 				}
 			});
@@ -231,7 +289,7 @@ export default class Sketch {
 			})
 			.on('change', (ev) => {
 				if (this.text) {
-					this.text.strokeColor = new THREE.Color(ev.value);
+					this.text.strokeColor = ev.value;
 				}
 			});
 
@@ -242,6 +300,7 @@ export default class Sketch {
 			})
 			.on('change', (ev) => {
 				if (this.text) {
+					// @ts-ignore: custom property for shader
 					this.text.firstOutlineColor = ev.value;
 				}
 			});
@@ -261,7 +320,7 @@ export default class Sketch {
 
 		// Store each binding
 		this.progressBindings[1] = textFolder
-			.addBinding(this.settings.progress, '1', {
+			.addBinding(this.settings.progress, 1, {
 				label: 'Progress 1',
 				min: 0,
 				max: 1,
@@ -273,7 +332,7 @@ export default class Sketch {
 			});
 
 		this.progressBindings[2] = textFolder
-			.addBinding(this.settings.progress, '2', {
+			.addBinding(this.settings.progress, 2, {
 				label: 'Progress 2',
 				min: 0,
 				max: 1,
@@ -285,7 +344,7 @@ export default class Sketch {
 			});
 
 		this.progressBindings[3] = textFolder
-			.addBinding(this.settings.progress, '3', {
+			.addBinding(this.settings.progress, 3, {
 				label: 'Progress 3',
 				min: 0,
 				max: 1,
@@ -297,7 +356,7 @@ export default class Sketch {
 			});
 
 		this.progressBindings[4] = textFolder
-			.addBinding(this.settings.progress, '4', {
+			.addBinding(this.settings.progress, 4, {
 				label: 'Progress 4',
 				min: 0,
 				max: 1,

@@ -80,12 +80,12 @@ export const setupCameraPane = ({
 	});
 
 	// Position controls
-	const positionFolder = cameraFolder.addFolder({ title: 'Position' });
-	const positionBindings = {
-		x: positionFolder.addBinding(camera.position, 'x', { min: -20, max: 20, step: 0.01 }),
-		y: positionFolder.addBinding(camera.position, 'y', { min: -20, max: 20, step: 0.01 }),
-		z: positionFolder.addBinding(camera.position, 'z', { min: -20, max: 20, step: 0.01 })
-	};
+		const positionFolder = cameraFolder.addFolder({ title: 'Position' });
+		const positionBindings = {
+			x: positionFolder.addBinding(camera.position, 'x', { min: -20, max: 20, step: 0.01 }),
+			y: positionFolder.addBinding(camera.position, 'y', { min: -20, max: 20, step: 0.01 }),
+			z: positionFolder.addBinding(camera.position, 'z', { min: -20, max: 20, step: 0.01 })
+		};
 
 	// FOV control
 	const fovBinding = cameraFolder
