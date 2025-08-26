@@ -79,14 +79,3 @@
 		</h2>
 	</div>
 </div>
-
-<style>
-	.char {
-		display: inline-block !important;
-		position: relative !important;
-		transform-origin: center bottom;
-		will-change: transform, opacity;
-		white-space: nowrap;
-		float: none !important;
-	}
-</style>
