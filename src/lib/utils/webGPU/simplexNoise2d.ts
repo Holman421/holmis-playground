@@ -2,7 +2,7 @@
 // Three.js Transpiler r170
 import { Fn, abs, dot, floor, fract, max, mod, mul, select, sub, vec2, vec3, vec4 } from 'three/tsl';
 
-export const permute = /*#__PURE__*/ Fn(([x_immutable]) => {
+export const permute: any = /*#__PURE__*/ Fn(([x_immutable]: any) => {
     const x = vec3(x_immutable).toVar();
 
     return mod(x.mul(34.0).add(1.0).mul(x), 289.0);
@@ -12,7 +12,7 @@ export const permute = /*#__PURE__*/ Fn(([x_immutable]) => {
     inputs: [{ name: 'x', type: 'vec3' }],
 });
 
-export const snoise = /*#__PURE__*/ Fn(([v_immutable]) => {
+export const snoise: any = /*#__PURE__*/ Fn(([v_immutable]: any) => {
     const v = vec2(v_immutable).toVar();
     const C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
     const i = vec2(floor(v.add(dot(v, C.yy)))).toVar();
