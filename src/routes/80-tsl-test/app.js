@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import gsap from 'gsap';
 
 // Add shader imports
-import { setupCameraPane } from '$lib/utils/Tweakpane/utils';
+import { setupCameraPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 
 export default class Sketch {

@@ -21,7 +21,8 @@ export const setupCameraPane = ({
 	controls,
 	scene,
 	isActive = true,
-	defaultOpen = true
+	defaultOpen = true,
+	helperSize = 0.05,
 }: {
 	pane: Pane;
 	camera: PerspectiveCamera;
@@ -29,12 +30,13 @@ export const setupCameraPane = ({
 	scene: Scene;
 	isActive?: boolean;
 	defaultOpen?: boolean;
+	helperSize?: number;
 }): FolderApi | undefined => {
 	if (!isActive) return;
 
 	// Create debug sphere
 	const debugSphere = new Mesh(
-		new SphereGeometry(0.05, 50, 50),
+		new SphereGeometry(helperSize, 50, 50),
 		new MeshBasicMaterial({ color: 0xff0000 })
 	);
 	scene.add(debugSphere);

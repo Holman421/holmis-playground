@@ -221,13 +221,13 @@
 							Used in real project
 						</div>
 					{/if} -->
-					{#if date}
+					<!-- {#if date}
 						<div
 							class="absolute bottom-1 md:bottom-2 left-0 flex justify-center w-[150px] md:w-[195px] bg-opacity-50 text-white text-xs"
 						>
 							{date.toLocaleDateString('cz')}
 						</div>
-					{/if}
+					{/if} -->
 				</div>
 			</div>
 		</div>

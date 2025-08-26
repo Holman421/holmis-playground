@@ -6,7 +6,7 @@ import { simplexNoise } from 'tsl-textures';
 import gsap from 'gsap';
 
 // Add shader imports
-import { setupCameraPane, setupLightPane } from '$lib/utils/Tweakpane/utils';
+import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 import {
 	add,
