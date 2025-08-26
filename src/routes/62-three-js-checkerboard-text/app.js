@@ -9,7 +9,7 @@ import vertexShader from './shaders/vertex.glsl';
 import fragmentShader from './shaders/fragment.glsl';
 import textVertexShader from './shaders/textVertex.glsl';
 import textFragmentShader from './shaders/textFragment.glsl';
-import { setupCameraPane } from '$lib/utils/tweakpane/utils.js';
+import { setupCameraPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 import { on } from 'svelte/events';
 
