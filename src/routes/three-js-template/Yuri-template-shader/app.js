@@ -6,7 +6,7 @@ import gsap from 'gsap';
 // Add shader imports
 import vertexShader from './shaders/vertex.glsl';
 import fragmentShader from './shaders/fragment.glsl';
-import { setupCameraPane } from '$lib/utils/tweakpane/utils';
+// import { setupCameraPane } from '$lib/utils/tweakpane/utils';
 import { Pane } from 'tweakpane';
 
 export default class Sketch {
@@ -83,12 +83,12 @@ export default class Sketch {
 		this.pane = new Pane();
 		document.querySelector('.tp-dfwv').style.zIndex = 1000;
 
-		setupCameraPane({
-			camera: this.camera,
-			pane: this.pane,
-			controls: this.controls,
-			scene: this.scene
-		});
+		// setupCameraPane({
+		// 	camera: this.camera,
+		// 	pane: this.pane,
+		// 	controls: this.controls,
+		// 	scene: this.scene
+		// });
 	}
 
 	render() {
