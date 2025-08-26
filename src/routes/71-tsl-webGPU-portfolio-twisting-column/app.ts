@@ -13,7 +13,7 @@ import {
 	float,
 	positionLocal
 } from 'three/src/nodes/TSL.js';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
+import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpaneUtils/utils';
 
 interface SketchOptions {
 	dom: HTMLElement;

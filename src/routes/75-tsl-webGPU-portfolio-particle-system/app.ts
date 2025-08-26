@@ -15,7 +15,7 @@ import {
 } from 'three/tsl';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
+import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpaneUtils/utils';
 
 interface SketchOptions {
 	dom: HTMLElement;

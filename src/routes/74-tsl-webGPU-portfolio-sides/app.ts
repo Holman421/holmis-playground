@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
+import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpaneUtils/utils';
 import { abs, Discard, float, Fn, If, length, positionWorld, smoothstep, uniform, uv, vec2, vec3, attribute } from 'three/tsl';
 import { gsap } from 'gsap';
 import { createRecordingControls, RecordingControls } from '$lib/utils/recordingControls';

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WebGPURenderer, MeshStandardNodeMaterial } from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpane/utils';
+import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpaneUtils/utils';
 import { MSDFTextNodeMaterial, MSDFTextGeometry } from './src/index';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import {
