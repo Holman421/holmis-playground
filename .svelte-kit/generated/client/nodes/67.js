@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/66-three-js-rapier/+page.svelte";

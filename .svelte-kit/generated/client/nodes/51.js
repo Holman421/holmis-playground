@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/51-three-js-postprocesing-scroll/+page.svelte";

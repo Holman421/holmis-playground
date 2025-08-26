@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/29-three-js-shaders-can-brush/+page.svelte";

@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/16-three-js-shaders-galaxy/+page.svelte";

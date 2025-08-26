@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/12-clamp-calculate/+page.svelte";

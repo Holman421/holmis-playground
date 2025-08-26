@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/56-three-js-sponsors/+page.svelte";

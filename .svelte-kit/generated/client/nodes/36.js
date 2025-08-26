@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/38-three-js-shaders-gradients/+page.svelte";

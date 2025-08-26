@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/three-js-template/Yuri-template-shader/+page.svelte";

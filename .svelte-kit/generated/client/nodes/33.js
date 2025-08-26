@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/35-three-js-interactive-grid/+page.svelte";

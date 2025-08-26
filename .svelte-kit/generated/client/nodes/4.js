@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/10-three-js-physics/+page.svelte";

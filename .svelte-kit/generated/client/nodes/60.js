@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/6-three-js-particles/+page.svelte";

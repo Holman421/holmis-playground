@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/27-three-js-shaders-terrain/+page.svelte";

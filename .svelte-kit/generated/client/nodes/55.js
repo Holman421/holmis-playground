@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/55-three-js-glass-text/+page.svelte";

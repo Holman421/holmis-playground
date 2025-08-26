@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/19-three-js-shaders-fireworks/+page.svelte";

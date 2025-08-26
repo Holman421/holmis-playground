@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/76-tsl-webGPU-portfolio-msdf-library/+page.svelte";

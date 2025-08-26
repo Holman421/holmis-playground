@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/22-three-js-shaders-moving-particles/+page.svelte";

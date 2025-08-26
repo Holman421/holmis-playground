@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/15-three-js-shaders-sea/+page.svelte";

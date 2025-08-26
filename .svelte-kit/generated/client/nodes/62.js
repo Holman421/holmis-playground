@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/61-three-js-shaders-water-cursor/+page.svelte";

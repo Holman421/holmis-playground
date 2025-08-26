@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/74-tsl-webGPU-portfolio-sides/+page.svelte";

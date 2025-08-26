@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/63-avalabs-test/+page.svelte";

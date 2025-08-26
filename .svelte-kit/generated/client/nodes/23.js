@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/26-three-js-shaders-wobbly-sphere/+page.svelte";

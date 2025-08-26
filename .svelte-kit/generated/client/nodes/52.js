@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/52-three-js-shaders-art/+page.svelte";

@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/4-three-js-lights/+page.svelte";

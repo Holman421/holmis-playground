@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/75-tsl-webGPU-portfolio-particle-system/+page.svelte";

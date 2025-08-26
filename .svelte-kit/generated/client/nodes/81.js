@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/77-tsl-portfolio-column-grid/+page.svelte";

@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/28-three-js-shaders-sliced-model/+page.svelte";

@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/50-inverted-border/+page.svelte";

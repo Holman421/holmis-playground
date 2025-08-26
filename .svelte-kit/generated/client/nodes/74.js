@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/71-tsl-webGPU-portfolio-twisting-column/+page.svelte";

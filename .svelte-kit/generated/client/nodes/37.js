@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/39-three-js-tsl-honeycomb/+page.svelte";

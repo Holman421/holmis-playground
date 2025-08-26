@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/17-three-js-coffe-smoke/+page.svelte";

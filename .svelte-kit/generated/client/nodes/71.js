@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/69-futuristic-card/+page.svelte";

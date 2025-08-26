@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/18-three-js-shaders-halftone/+page.svelte";

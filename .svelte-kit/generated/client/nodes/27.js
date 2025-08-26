@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/3-training-store/+page.svelte";

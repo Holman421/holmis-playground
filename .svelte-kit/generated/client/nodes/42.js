@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/43-three-js-instanced-mesh/+page.svelte";
