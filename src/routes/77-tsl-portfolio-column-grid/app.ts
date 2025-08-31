@@ -454,22 +454,25 @@ export default class Sketch {
 				.mul(radialMultiplier)
 				.add(zOffsetUniform);
 
-			// NEW: Smooth hover transition
+			// FIXED: Bidirectional smooth hover transition
 			const timeSinceChange = currentTimeUniform.sub(timestamp);
-			const smoothHover = hoverState.mul(
-				float(1.0)
-					.sub(
-						float(-1.0).mul(timeSinceChange.mul(transitionSpeedUniform)).exp()
-					)
-					.clamp(0.0, 1.0)
-			);
+			const transitionProgress = float(1.0)
+				.sub(float(-1.0).mul(timeSinceChange.mul(transitionSpeedUniform)).exp())
+				.clamp(0.0, 1.0);
 
-			// NEW: Hover effect - slight elevation
-			const hoverOffset = smoothHover.mul(1.5); // Lift by 1.5 units when hovered
+			// Simple bidirectional transition:
+			// - When hoverState = 1 (hovering): animate from 0 to 1
+			// - When hoverState = 0 (not hovering): animate from 1 to 0
+			const finalHoverValue = hoverState
+				.equal(1.0)
+				.select(transitionProgress, float(1.0).sub(transitionProgress));
+
+			// Hover effect - slight elevation
+			const hoverOffset = finalHoverValue.mul(1.5);
 			const finalZOffset = baseZOffset.add(hoverOffset);
 
 			vWaveHeight.assign(finalZOffset);
-			vHoverState.assign(smoothHover); // Pass to fragment shader
+			vHoverState.assign(finalHoverValue); // Pass the smooth value to fragment shader
 
 			return vec3(position.x, position.y, position.z.add(finalZOffset));
 		});
@@ -550,7 +553,7 @@ export default class Sketch {
 
 		const xyz = new THREE.AxesHelper(50);
 		this.scene.add(xyz);
-		xyz.visible = true;
+		xyz.visible = false;
 
 		// Add frequency, amplitude, zOffset, and scale controls
 		// this.pane.addBinding(this.uniforms.frequency, 'value', {

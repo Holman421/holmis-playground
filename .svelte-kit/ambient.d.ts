@@ -21,34 +21,38 @@
  * 
  * You can override `.env` values from the command line like so:
  * 
- * ```bash
+ * ```sh
  * MY_FEATURE_FLAG="enabled" npm run dev
  * ```
  */
 declare module '$env/static/private' {
 	export const ALLUSERSPROFILE: string;
+	export const AMDRMSDKPATH: string;
 	export const APPDATA: string;
-	export const APPLICATION_INSIGHTS_NO_STATSBEAT: string;
-	export const ChocolateyInstall: string;
-	export const ChocolateyLastPathUpdate: string;
-	export const CHROME_CRASHPAD_PIPE_NAME: string;
 	export const CommonProgramFiles: string;
 	export const CommonProgramW6432: string;
 	export const COMPUTERNAME: string;
 	export const ComSpec: string;
 	export const DriverData: string;
-	export const EFC_22828: string;
-	export const ELECTRON_NO_ASAR: string;
-	export const ELECTRON_NO_ATTACH_CONSOLE: string;
-	export const ELECTRON_RUN_AS_NODE: string;
 	export const HOMEDRIVE: string;
 	export const HOMEPATH: string;
 	export const LOCALAPPDATA: string;
 	export const LOGONSERVER: string;
+	export const NODE: string;
 	export const NODE_ENV: string;
+	export const npm_command: string;
+	export const npm_config_local_prefix: string;
+	export const npm_config_user_agent: string;
+	export const npm_execpath: string;
+	export const npm_lifecycle_event: string;
+	export const npm_lifecycle_script: string;
+	export const npm_node_execpath: string;
+	export const npm_package_json: string;
+	export const npm_package_name: string;
+	export const npm_package_version: string;
 	export const NUMBER_OF_PROCESSORS: string;
 	export const OneDrive: string;
-	export const ORIGINAL_XDG_CURRENT_DESKTOP: string;
+	export const OneDriveConsumer: string;
 	export const OS: string;
 	export const Path: string;
 	export const PATHEXT: string;
@@ -62,6 +66,7 @@ declare module '$env/static/private' {
 	export const PROMPT: string;
 	export const PSModulePath: string;
 	export const PUBLIC: string;
+	export const PWD: string;
 	export const SESSIONNAME: string;
 	export const SystemDrive: string;
 	export const SystemRoot: string;
@@ -71,19 +76,10 @@ declare module '$env/static/private' {
 	export const USERDOMAIN_ROAMINGPROFILE: string;
 	export const USERNAME: string;
 	export const USERPROFILE: string;
-	export const VSCODE_CLI: string;
-	export const VSCODE_CODE_CACHE_PATH: string;
-	export const VSCODE_CRASH_REPORTER_PROCESS_TYPE: string;
-	export const VSCODE_CWD: string;
-	export const VSCODE_ESM_ENTRYPOINT: string;
-	export const VSCODE_HANDLES_UNCAUGHT_ERRORS: string;
-	export const VSCODE_IPC_HOOK: string;
-	export const VSCODE_L10N_BUNDLE_LOCATION: string;
-	export const VSCODE_NLS_CONFIG: string;
-	export const VSCODE_PID: string;
 	export const windir: string;
-	export const ZES_ENABLE_SYSMAN: string;
-	export const __PSLockDownPolicy: string;
+	export const WSLENV: string;
+	export const WT_PROFILE_ID: string;
+	export const WT_SESSION: string;
 }
 
 /**
@@ -116,28 +112,32 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		ALLUSERSPROFILE: string;
+		AMDRMSDKPATH: string;
 		APPDATA: string;
-		APPLICATION_INSIGHTS_NO_STATSBEAT: string;
-		ChocolateyInstall: string;
-		ChocolateyLastPathUpdate: string;
-		CHROME_CRASHPAD_PIPE_NAME: string;
 		CommonProgramFiles: string;
 		CommonProgramW6432: string;
 		COMPUTERNAME: string;
 		ComSpec: string;
 		DriverData: string;
-		EFC_22828: string;
-		ELECTRON_NO_ASAR: string;
-		ELECTRON_NO_ATTACH_CONSOLE: string;
-		ELECTRON_RUN_AS_NODE: string;
 		HOMEDRIVE: string;
 		HOMEPATH: string;
 		LOCALAPPDATA: string;
 		LOGONSERVER: string;
+		NODE: string;
 		NODE_ENV: string;
+		npm_command: string;
+		npm_config_local_prefix: string;
+		npm_config_user_agent: string;
+		npm_execpath: string;
+		npm_lifecycle_event: string;
+		npm_lifecycle_script: string;
+		npm_node_execpath: string;
+		npm_package_json: string;
+		npm_package_name: string;
+		npm_package_version: string;
 		NUMBER_OF_PROCESSORS: string;
 		OneDrive: string;
-		ORIGINAL_XDG_CURRENT_DESKTOP: string;
+		OneDriveConsumer: string;
 		OS: string;
 		Path: string;
 		PATHEXT: string;
@@ -151,6 +151,7 @@ declare module '$env/dynamic/private' {
 		PROMPT: string;
 		PSModulePath: string;
 		PUBLIC: string;
+		PWD: string;
 		SESSIONNAME: string;
 		SystemDrive: string;
 		SystemRoot: string;
@@ -160,19 +161,10 @@ declare module '$env/dynamic/private' {
 		USERDOMAIN_ROAMINGPROFILE: string;
 		USERNAME: string;
 		USERPROFILE: string;
-		VSCODE_CLI: string;
-		VSCODE_CODE_CACHE_PATH: string;
-		VSCODE_CRASH_REPORTER_PROCESS_TYPE: string;
-		VSCODE_CWD: string;
-		VSCODE_ESM_ENTRYPOINT: string;
-		VSCODE_HANDLES_UNCAUGHT_ERRORS: string;
-		VSCODE_IPC_HOOK: string;
-		VSCODE_L10N_BUNDLE_LOCATION: string;
-		VSCODE_NLS_CONFIG: string;
-		VSCODE_PID: string;
 		windir: string;
-		ZES_ENABLE_SYSMAN: string;
-		__PSLockDownPolicy: string;
+		WSLENV: string;
+		WT_PROFILE_ID: string;
+		WT_SESSION: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}
