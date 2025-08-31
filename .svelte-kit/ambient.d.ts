@@ -21,31 +21,26 @@
  * 
  * You can override `.env` values from the command line like so:
  * 
- * ```sh
+ * ```bash
  * MY_FEATURE_FLAG="enabled" npm run dev
  * ```
  */
 declare module '$env/static/private' {
 	export const ALLUSERSPROFILE: string;
-	export const AMDRMSDKPATH: string;
 	export const APPDATA: string;
 	export const APPLICATION_INSIGHTS_NO_STATSBEAT: string;
+	export const ChocolateyInstall: string;
+	export const ChocolateyLastPathUpdate: string;
 	export const CHROME_CRASHPAD_PIPE_NAME: string;
 	export const CommonProgramFiles: string;
 	export const CommonProgramW6432: string;
 	export const COMPUTERNAME: string;
 	export const ComSpec: string;
 	export const DriverData: string;
-	export const EFC_8524_1262719628: string;
-	export const EFC_8524_1592913036: string;
-	export const EFC_8524_2283032206: string;
-	export const EFC_8524_2775293581: string;
-	export const EFC_8524_3789132940: string;
+	export const EFC_22828: string;
 	export const ELECTRON_NO_ASAR: string;
 	export const ELECTRON_NO_ATTACH_CONSOLE: string;
 	export const ELECTRON_RUN_AS_NODE: string;
-	export const FPS_BROWSER_APP_PROFILE_STRING: string;
-	export const FPS_BROWSER_USER_PROFILE_STRING: string;
 	export const HOMEDRIVE: string;
 	export const HOMEPATH: string;
 	export const LOCALAPPDATA: string;
@@ -53,7 +48,6 @@ declare module '$env/static/private' {
 	export const NODE_ENV: string;
 	export const NUMBER_OF_PROCESSORS: string;
 	export const OneDrive: string;
-	export const OneDriveConsumer: string;
 	export const ORIGINAL_XDG_CURRENT_DESKTOP: string;
 	export const OS: string;
 	export const Path: string;
@@ -88,6 +82,8 @@ declare module '$env/static/private' {
 	export const VSCODE_NLS_CONFIG: string;
 	export const VSCODE_PID: string;
 	export const windir: string;
+	export const ZES_ENABLE_SYSMAN: string;
+	export const __PSLockDownPolicy: string;
 }
 
 /**
@@ -120,25 +116,20 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		ALLUSERSPROFILE: string;
-		AMDRMSDKPATH: string;
 		APPDATA: string;
 		APPLICATION_INSIGHTS_NO_STATSBEAT: string;
+		ChocolateyInstall: string;
+		ChocolateyLastPathUpdate: string;
 		CHROME_CRASHPAD_PIPE_NAME: string;
 		CommonProgramFiles: string;
 		CommonProgramW6432: string;
 		COMPUTERNAME: string;
 		ComSpec: string;
 		DriverData: string;
-		EFC_8524_1262719628: string;
-		EFC_8524_1592913036: string;
-		EFC_8524_2283032206: string;
-		EFC_8524_2775293581: string;
-		EFC_8524_3789132940: string;
+		EFC_22828: string;
 		ELECTRON_NO_ASAR: string;
 		ELECTRON_NO_ATTACH_CONSOLE: string;
 		ELECTRON_RUN_AS_NODE: string;
-		FPS_BROWSER_APP_PROFILE_STRING: string;
-		FPS_BROWSER_USER_PROFILE_STRING: string;
 		HOMEDRIVE: string;
 		HOMEPATH: string;
 		LOCALAPPDATA: string;
@@ -146,7 +137,6 @@ declare module '$env/dynamic/private' {
 		NODE_ENV: string;
 		NUMBER_OF_PROCESSORS: string;
 		OneDrive: string;
-		OneDriveConsumer: string;
 		ORIGINAL_XDG_CURRENT_DESKTOP: string;
 		OS: string;
 		Path: string;
@@ -181,6 +171,8 @@ declare module '$env/dynamic/private' {
 		VSCODE_NLS_CONFIG: string;
 		VSCODE_PID: string;
 		windir: string;
+		ZES_ENABLE_SYSMAN: string;
+		__PSLockDownPolicy: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

@@ -1,14 +1,14 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpaneUtils/utils';
+import {
+	setupCameraPane,
+	setupLightPane
+} from '$lib/utils/tweakpaneUtils/utils';
 import {
 	attribute,
 	float,
 	Fn,
-	instancedArray,
-	instanceIndex,
-	mat4,
 	mix,
 	positionLocal,
 	time,
@@ -45,16 +45,38 @@ export default class Sketch {
 	pointLight3!: THREE.PointLight;
 	pointLight4!: THREE.PointLight;
 	instancedMesh!: THREE.InstancedMesh;
+	raycaster!: THREE.Raycaster;
+	mouse!: THREE.Vector2;
+	hoveredInstanceId!: number;
+	debugInfo!: {
+		mouseScreen: { x: number; y: number };
+		mouseNDC: { x: number; y: number };
+		mouseWorld: THREE.Vector3 | null;
+		intersectionPoint: THREE.Vector3 | null;
+		instanceId: number;
+		gridPosition: { row: number; col: number };
+	};
+
+	instanceIdToGrid!: Map<number, { row: number; col: number }>;
+	gridToInstanceId!: Map<string, number>;
+
+	interactionAttributes!: {
+		hover: THREE.InstancedBufferAttribute;
+		timestamp: THREE.InstancedBufferAttribute;
+	};
+
 	uniforms: {
 		frequency: any;
 		amplitude: any;
 		zOffset: any;
 		scale: any;
+		currentTime: any;
 	} = {
 		frequency: null,
 		amplitude: null,
 		zOffset: null,
-		scale: null
+		scale: null,
+		currentTime: null
 	};
 
 	constructor(options: SketchOptions) {
@@ -81,8 +103,12 @@ export default class Sketch {
 		this.setupLights();
 		this.createColumn();
 		this.createInstancedMesh();
+		this.setupSettings();
+
+		this.createInstanceIdMapping();
+		this.setupInteractivity();
+
 		this.resize();
-		this.setUpSettings();
 		this.init();
 	}
 
@@ -128,6 +154,205 @@ export default class Sketch {
 		this.camera.updateProjectionMatrix();
 	}
 
+	setupInteractivity() {
+		this.raycaster = new THREE.Raycaster();
+		this.mouse = new THREE.Vector2();
+		this.hoveredInstanceId = -1;
+
+		this.debugInfo = {
+			mouseScreen: { x: 0, y: 0 },
+			mouseNDC: { x: 0, y: 0 },
+			mouseWorld: null,
+			intersectionPoint: null,
+			instanceId: -1,
+			gridPosition: { row: -1, col: -1 }
+		};
+
+		const mouseMoveHandler = (event: MouseEvent) => {
+			this.onMouseMove(event);
+		};
+
+		this.container.addEventListener('mousemove', mouseMoveHandler);
+		this.container.addEventListener('mouseleave', this.onMouseLeave.bind(this));
+		this.container.addEventListener('click', this.onMouseClick.bind(this));
+	}
+
+	onMouseMove(event: MouseEvent) {
+		const rect = this.container.getBoundingClientRect();
+		const screenX = event.clientX - rect.left;
+		const screenY = event.clientY - rect.top;
+
+		this.mouse.x = (screenX / this.width) * 2 - 1;
+		this.mouse.y = -((screenY / this.height) * 2 - 1);
+
+		this.debugInfo.mouseScreen.x = screenX;
+		this.debugInfo.mouseScreen.y = screenY;
+		this.debugInfo.mouseNDC.x = this.mouse.x;
+		this.debugInfo.mouseNDC.y = this.mouse.y;
+
+		this.performIntersectionTest();
+
+		this.logDebugInfo();
+	}
+
+	logDebugInfo() {
+		// Only log when there's an intersection for cleaner output
+		if (this.debugInfo.instanceId !== -1) {
+			console.clear(); // Keep console clean
+			console.log('🎯 INTERSECTION DEBUG INFO:');
+			console.log('┌─ Mouse Position ─────────────────');
+			console.log(
+				`│ Screen: (${this.debugInfo.mouseScreen.x.toFixed(1)}, ${this.debugInfo.mouseScreen.y.toFixed(1)})`
+			);
+			console.log(
+				`│ NDC: (${this.debugInfo.mouseNDC.x.toFixed(3)}, ${this.debugInfo.mouseNDC.y.toFixed(3)})`
+			);
+			if (this.debugInfo.mouseWorld) {
+				console.log(
+					`│ World: (${this.debugInfo.mouseWorld.x.toFixed(2)}, ${this.debugInfo.mouseWorld.y.toFixed(2)}, ${this.debugInfo.mouseWorld.z.toFixed(2)})`
+				);
+			} else {
+				console.log('│ World: (null)');
+			}
+			console.log('├─ Intersection ───────────────────');
+			console.log(`│ Instance ID: ${this.debugInfo.instanceId}`);
+			console.log(
+				`│ Grid Position: Row ${this.debugInfo.gridPosition.row}, Col ${this.debugInfo.gridPosition.col}`
+			);
+			if (this.debugInfo.intersectionPoint) {
+				console.log(
+					`│ 3D Hit Point: (${this.debugInfo.intersectionPoint.x.toFixed(2)}, ${this.debugInfo.intersectionPoint.y.toFixed(2)}, ${this.debugInfo.intersectionPoint.z.toFixed(2)})`
+				);
+			} else {
+				console.log('│ 3D Hit Point: (null)');
+			}
+			console.log('└─────────────────────────────────');
+		}
+	}
+
+	performIntersectionTest() {
+		this.raycaster.setFromCamera(this.mouse, this.camera);
+
+		const rayDirection = this.raycaster.ray.direction.clone();
+		const rayOrigin = this.raycaster.ray.origin.clone();
+		this.debugInfo.mouseWorld = rayOrigin
+			.clone()
+			.add(rayDirection.multiplyScalar(40));
+
+		const intersections = this.raycaster.intersectObject(this.instancedMesh);
+
+		if (intersections.length > 0) {
+			const intersection = intersections[0];
+			const newInstanceId = intersection.instanceId ?? -1;
+
+			this.debugInfo.intersectionPoint = intersection.point.clone();
+			this.debugInfo.instanceId = newInstanceId;
+			this.debugInfo.gridPosition =
+				this.instanceIdToGridPosition(newInstanceId);
+
+			if (newInstanceId !== this.hoveredInstanceId) {
+				// FIXED: Actually call the hover change method
+				this.onHoverChange(this.hoveredInstanceId, newInstanceId);
+				this.hoveredInstanceId = newInstanceId;
+			}
+		} else {
+			this.debugInfo.intersectionPoint = null;
+			this.debugInfo.instanceId = -1;
+			this.debugInfo.gridPosition = { row: -1, col: -1 };
+
+			if (this.hoveredInstanceId !== -1) {
+				// FIXED: Actually call the hover change method
+				this.onHoverChange(this.hoveredInstanceId, -1);
+				this.hoveredInstanceId = -1;
+			}
+		}
+	}
+
+	createInstanceIdMapping() {
+		this.instanceIdToGrid = new Map();
+		this.gridToInstanceId = new Map();
+
+		// Since you now have a simple numRows x numCols grid
+		const numCols = 15;
+		const numRows = 40;
+
+		let instanceIndex = 0;
+		for (let row = 0; row < numRows; row++) {
+			for (let col = 0; col < numCols; col++) {
+				this.instanceIdToGrid.set(instanceIndex, { row, col });
+				this.gridToInstanceId.set(`${row},${col}`, instanceIndex);
+				instanceIndex++;
+			}
+		}
+
+		console.log(
+			`Created mapping for ${instanceIndex} instances (${numRows}x${numCols} grid)`
+		);
+	}
+
+	instanceIdToGridPosition(instanceId: number): { row: number; col: number } {
+		if (instanceId === -1) return { row: -1, col: -1 };
+		return this.instanceIdToGrid.get(instanceId) || { row: -1, col: -1 };
+	}
+
+	onHoverChange(oldInstanceId: number, newInstanceId: number) {
+		if (oldInstanceId !== -1) {
+			const oldGrid = this.instanceIdToGridPosition(oldInstanceId);
+			console.log(
+				`🚫 Left instance ${oldInstanceId} at grid (${oldGrid.row}, ${oldGrid.col})`
+			);
+			// UPDATE: Set hover state to false
+			this.setInstanceHover(oldInstanceId, false);
+		}
+
+		if (newInstanceId !== -1) {
+			const newGrid = this.instanceIdToGridPosition(newInstanceId);
+			console.log(
+				`✨ Entered instance ${newInstanceId} at grid (${newGrid.row}, ${newGrid.col})`
+			);
+			// UPDATE: Set hover state to true
+			this.setInstanceHover(newInstanceId, true);
+		}
+	}
+
+	// NEW: Method to update instance hover state
+	setInstanceHover(instanceId: number, isHovered: boolean) {
+		if (!this.interactionAttributes) return;
+
+		const hoverAttr = this.interactionAttributes.hover;
+		const timestampAttr = this.interactionAttributes.timestamp;
+		const currentTime = performance.now() * 0.001; // Convert to seconds
+
+		// Update the attribute arrays
+		hoverAttr.array[instanceId] = isHovered ? 1.0 : 0.0;
+		timestampAttr.array[instanceId] = currentTime;
+
+		// Mark for GPU update
+		hoverAttr.needsUpdate = true;
+		timestampAttr.needsUpdate = true;
+
+		console.log(`🎨 Set instance ${instanceId} hover: ${isHovered}`);
+	}
+
+	onMouseClick(event: MouseEvent) {
+		if (this.hoveredInstanceId !== -1) {
+			const gridPos = this.instanceIdToGridPosition(this.hoveredInstanceId);
+			console.log(
+				`🎯 Clicked instance ${this.hoveredInstanceId} at grid (${gridPos.row}, ${gridPos.col})`
+			);
+		}
+	}
+
+	onMouseLeave() {
+		if (this.hoveredInstanceId !== -1) {
+			console.log(
+				`👋 Mouse left canvas, clearing hover from instance ${this.hoveredInstanceId}`
+			);
+			this.onHoverChange(this.hoveredInstanceId, -1);
+			this.hoveredInstanceId = -1;
+		}
+	}
+
 	createColumn() {
 		const columnWidth = 23;
 		const columnHeight = 150;
@@ -145,65 +370,21 @@ export default class Sketch {
 	}
 
 	createInstancedMesh() {
-		const positionArray = [
-			[0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
-			[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1],
-			[0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1],
-			[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1],
-			[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],
-			[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0],
-			[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
-			[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0],
-			[0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0]
-		];
-
-		// Calculate count from number of 1s in positionArray
-		const count = positionArray.reduce(
-			(acc, row) => acc + row.filter((v) => v === 1).length,
-			0
-		);
+		const numCols = 15;
+		const numRows = 40;
+		const count = numCols * numRows;
 		const geometry = new THREE.BoxGeometry(1, 1, 5);
-		// Add per-instance row/col attributes (as vec2 for TSL compatibility)
+
 		const instanceColRow = new Float32Array(count * 2);
+		const instanceHoverState = new Float32Array(count); // 0 = normal, 1 = hovered
+		const instanceTimestamp = new Float32Array(count); // For smooth transitions
+
 		const material = new THREE.MeshStandardNodeMaterial({
 			color: '#222222',
 			side: THREE.DoubleSide
 		});
 
-		// Dynamic centering for any column and row count
-		const numCols = positionArray[0].length;
-		const numRows = positionArray.length;
-		const spacing = 1.5; // matches col * 2
+		const spacing = 1.5;
 		const gridWidth = (numCols - 1) * spacing;
 		const gridHeight = (numRows - 1) * spacing;
 		const centeringOffsetX = -gridWidth / 2;
@@ -216,20 +397,25 @@ export default class Sketch {
 		const secondaryColorUniform = uniform(new THREE.Color(0.02, 0.02, 0.02));
 		const mainColorUniform = uniform(portfolioColors.primaryVec3);
 
+		const hoverColorUniform = uniform(new THREE.Color(1.0, 0.0, 0.0)); // Orange
+		const transitionSpeedUniform = uniform(8.0); // Speed of hover transitions
+		const currentTimeUniform = uniform(0.0); // Current time for smooth transitions
+
 		this.uniforms.frequency = frequencyUniform;
 		this.uniforms.amplitude = amplitudeUniform;
 		this.uniforms.zOffset = zOffsetUniform;
 		this.uniforms.scale = scaleUniform;
+		this.uniforms.currentTime = currentTimeUniform;
 
 		this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
 
-		// Declare the varying outside both functions
 		const vWaveHeight = varying(float());
+		const vHoverState = varying(float());
 
-		// Use TSL attribute() for per-instance attributes
 		const colRowAttr = attribute('instanceColRow', 'vec2');
+		const hoverStateAttr = attribute('instanceHoverState', 'float'); // NEW
+		const timestampAttr = attribute('instanceTimestamp', 'float'); // NEW
 
-		// Pass centeringOffsetX/Y and numCols/Rows as uniforms for TSL
 		const centeringOffsetXUniform = uniform(centeringOffsetX);
 		const centeringOffsetYUniform = uniform(centeringOffsetY);
 		const numColsUniform = uniform(numCols);
@@ -237,17 +423,17 @@ export default class Sketch {
 
 		const animateZ = Fn(() => {
 			const position = positionLocal;
-			// Use per-instance row/col attributes
 			const col = colRowAttr.x;
 			const row = colRowAttr.y;
+			const hoverState = hoverStateAttr;
+			const timestamp = timestampAttr;
 
-			// Dynamic centering for any column and row count
+			// Existing wave animation logic
 			const instanceWorldX = col.mul(spacing).add(centeringOffsetXUniform);
 			const instanceWorldY = float(numRows - 1)
 				.sub(row)
 				.mul(spacing)
 				.add(centeringOffsetYUniform);
-			// Normalize X and Y to [-1, 1] range for perfect circle
 			const normX = instanceWorldX.div(gridWidth * 0.95);
 			const normY = instanceWorldY.div(gridHeight * 0.5);
 			const distanceFromCenter = normX.mul(normX).add(normY.mul(normY)).sqrt();
@@ -257,107 +443,139 @@ export default class Sketch {
 				.div(maxDistance)
 				.max(0.0);
 
-			// Use simplex noise for organic movement
 			const noiseInput = vec2(
 				instanceWorldX.mul(scaleUniform),
 				instanceWorldY.mul(scaleUniform).add(time.mul(frequencyUniform))
 			);
 			const noiseValue = snoise(noiseInput);
-			// Optionally, remap noiseValue from [-1,1] to [0,1] if you want only positive offsets
 			const normalizedNoise = noiseValue.add(1.0).mul(0.5);
-			// Apply amplitude and radial multiplier
-			const zOffset = normalizedNoise
+			const baseZOffset = normalizedNoise
 				.mul(amplitudeUniform)
 				.mul(radialMultiplier)
 				.add(zOffsetUniform);
-			vWaveHeight.assign(zOffset);
-			return vec3(position.x, position.y, position.z.add(zOffset));
+
+			// NEW: Smooth hover transition
+			const timeSinceChange = currentTimeUniform.sub(timestamp);
+			const smoothHover = hoverState.mul(
+				float(1.0)
+					.sub(
+						float(-1.0).mul(timeSinceChange.mul(transitionSpeedUniform)).exp()
+					)
+					.clamp(0.0, 1.0)
+			);
+
+			// NEW: Hover effect - slight elevation
+			const hoverOffset = smoothHover.mul(1.5); // Lift by 1.5 units when hovered
+			const finalZOffset = baseZOffset.add(hoverOffset);
+
+			vWaveHeight.assign(finalZOffset);
+			vHoverState.assign(smoothHover); // Pass to fragment shader
+
+			return vec3(position.x, position.y, position.z.add(finalZOffset));
 		});
 
 		const animateColor = Fn(() => {
-			// Read from the varying
 			const waveHeight = vWaveHeight;
+			const hoverState = vHoverState;
 
-			// Normalize to 0-1 range for color mixing - made more sensitive
-			const maxZOffset = 3.0; // Adjust as needed for your effect
+			// Base color mixing (your existing logic)
+			const maxZOffset = 3.0;
 			const colorMixFactor = waveHeight.div(maxZOffset).clamp(0.0, 1.0);
+			const baseColor = mix(
+				secondaryColorUniform,
+				mainColorUniform,
+				colorMixFactor
+			);
 
-			// Define colors from portfolioColors
-			const baseColor = secondaryColorUniform;
-			const mainColor = mainColorUniform;
-			const finalColor = mix(baseColor, mainColor, colorMixFactor);
+			// NEW: Hover color blending
+			const finalColor = mix(
+				baseColor,
+				hoverColorUniform,
+				hoverState.mul(0.95)
+			);
+
 			return vec4(finalColor, 1.0);
 		});
 
 		material.positionNode = animateZ();
 		material.colorNode = animateColor();
 
-		// Set up per-instance attributes and instance transforms
 		const dummy = new THREE.Object3D();
 		let instanceIndex = 0;
 		const centeringOffsetZ = 9.05;
-		for (let row = 0; row < positionArray.length; row++) {
-			for (let col = 0; col < positionArray[row].length; col++) {
-				if (positionArray[row][col] === 1) {
-					// Flip Y axis for correct visual orientation
-					dummy.position.x = col * spacing + centeringOffsetX;
-					dummy.position.y =
-						(positionArray.length - 1 - row) * spacing + centeringOffsetY;
-					dummy.position.z = 0 + centeringOffsetZ;
-					dummy.updateMatrix();
-					this.instancedMesh.setMatrixAt(instanceIndex, dummy.matrix);
-					// Set per-instance attributes (col, row)
-					instanceColRow[instanceIndex * 2] = col;
-					instanceColRow[instanceIndex * 2 + 1] = row;
-					instanceIndex++;
-				}
+		for (let row = 0; row < numRows; row++) {
+			for (let col = 0; col < numCols; col++) {
+				dummy.position.x = col * spacing + centeringOffsetX;
+				dummy.position.y = (numRows - 1 - row) * spacing + centeringOffsetY;
+				dummy.position.z = 0 + centeringOffsetZ;
+				dummy.updateMatrix();
+				this.instancedMesh.setMatrixAt(instanceIndex, dummy.matrix);
+				// Set instance attributes
+				instanceColRow[instanceIndex * 2] = col;
+				instanceColRow[instanceIndex * 2 + 1] = row;
+				instanceHoverState[instanceIndex] = 0; // Initially not hovered
+				instanceTimestamp[instanceIndex] = 0; // Initial timestamp
+				instanceIndex++;
 			}
 		}
-
-		// Attach per-instance attributes to geometry
 		this.instancedMesh.geometry.setAttribute(
 			'instanceColRow',
 			new THREE.InstancedBufferAttribute(instanceColRow, 2)
 		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceHoverState',
+			new THREE.InstancedBufferAttribute(instanceHoverState, 1)
+		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceTimestamp',
+			new THREE.InstancedBufferAttribute(instanceTimestamp, 1)
+		);
+
+		// Store references for interaction methods
+		this.interactionAttributes = {
+			hover: this.instancedMesh.geometry.attributes
+				.instanceHoverState as THREE.InstancedBufferAttribute,
+			timestamp: this.instancedMesh.geometry.attributes
+				.instanceTimestamp as THREE.InstancedBufferAttribute
+		};
 
 		this.instancedMesh.instanceMatrix.needsUpdate = true;
 		this.scene.add(this.instancedMesh);
 	}
 
-	animateInstancedMesh() {}
-
-	setUpSettings() {
+	setupSettings() {
 		this.pane = new Pane();
-		(document.querySelector('.tp-dfwv') as HTMLElement)!.style.zIndex = '1000';
+		const tpElem = document.querySelector('.tp-dfwv') as HTMLElement | null;
+		if (tpElem) tpElem.style.zIndex = '1000';
 
 		const xyz = new THREE.AxesHelper(50);
 		this.scene.add(xyz);
-		xyz.visible = false;
+		xyz.visible = true;
 
 		// Add frequency, amplitude, zOffset, and scale controls
 		// this.pane.addBinding(this.uniforms.frequency, 'value', {
-		// 	min: 0,
-		// 	max: 2,
-		// 	step: 0.1,
-		// 	label: 'Frequency'
+		//  min: 0,
+		//  max: 2,
+		//  step: 0.1,
+		//  label: 'Frequency'
 		// });
 		// this.pane.addBinding(this.uniforms.amplitude, 'value', {
-		// 	min: 0,
-		// 	max: 5,
-		// 	step: 0.1,
-		// 	label: 'Amplitude'
+		//  min: 0,
+		//  max: 5,
+		//  step: 0.1,
+		//  label: 'Amplitude'
 		// });
-		// this.pane.addBinding(this.uniforms.zOffset, 'value', {
-		// 	min: -10,
-		// 	max: 10,
-		// 	step: 0.1,
-		// 	label: 'Z Offset'
-		// });
+		this.pane.addBinding(this.uniforms.zOffset, 'value', {
+			min: -10,
+			max: 10,
+			step: 0.1,
+			label: 'Z Offset'
+		});
 		// this.pane.addBinding(this.uniforms.scale, 'value', {
-		// 	min: 0.01,
-		// 	max: 0.5,
-		// 	step: 0.01,
-		// 	label: 'Noise Scale'
+		//  min: 0.01,
+		//  max: 0.5,
+		//  step: 0.01,
+		//  label: 'Noise Scale'
 		// });
 
 		setupCameraPane({
@@ -390,7 +608,6 @@ export default class Sketch {
 			targetRange: { min: -50, max: 50 },
 			showHelper: true,
 			isActive: false
-
 		});
 
 		setupLightPane({
@@ -402,7 +619,6 @@ export default class Sketch {
 			targetRange: { min: -50, max: 50 },
 			showHelper: true,
 			isActive: false
-
 		});
 
 		setupLightPane({
@@ -414,12 +630,17 @@ export default class Sketch {
 			targetRange: { min: -50, max: 50 },
 			showHelper: true,
 			isActive: false
-
 		});
 	}
 
 	async render() {
 		if (!this.isPlaying) return;
+
+		// UPDATE: Keep time uniform current for smooth transitions
+		if (this.uniforms.currentTime) {
+			this.uniforms.currentTime.value = performance.now() * 0.001;
+		}
+
 		this.controls.update();
 		await this.renderer.renderAsync(this.scene, this.camera);
 		requestAnimationFrame(() => this.render());

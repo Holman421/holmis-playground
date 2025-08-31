@@ -1,9 +1,12 @@
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, emissive } from 'three/tsl';
+import { pass, mrt, output, emissive, time } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import { setupCameraPane, setupLightPane } from '$lib/utils/tweakpaneUtils/utils';
+import {
+	setupCameraPane,
+	setupLightPane
+} from '$lib/utils/tweakpaneUtils/utils';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import {
