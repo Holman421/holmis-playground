@@ -9,6 +9,7 @@ import {
 	attribute,
 	float,
 	Fn,
+	If,
 	mix,
 	positionLocal,
 	time,
@@ -23,6 +24,15 @@ import { portfolioColors } from '$lib/utils/colors/portfolioColors';
 
 interface SketchOptions {
 	dom: HTMLElement;
+}
+
+enum RectangleState {
+	IDLE = 0,
+	HOVERED = 1,
+	SELECTED = 2, // Remove this if not needed
+	QUEUED = 3, // NEW: In queue, waiting to animate
+	ANIMATING = 4, // Currently moving to target
+	AT_TARGET = 5 // Reached destination and static
 }
 
 export default class Sketch {
@@ -60,11 +70,6 @@ export default class Sketch {
 	instanceIdToGrid!: Map<number, { row: number; col: number }>;
 	gridToInstanceId!: Map<string, number>;
 
-	interactionAttributes!: {
-		hover: THREE.InstancedBufferAttribute;
-		timestamp: THREE.InstancedBufferAttribute;
-	};
-
 	uniforms: {
 		frequency: any;
 		amplitude: any;
@@ -77,6 +82,20 @@ export default class Sketch {
 		zOffset: null,
 		scale: null,
 		currentTime: null
+	};
+
+	private animationQueue: number[] = [];
+	private currentlyAnimating: number | null = null;
+	private targetPosition: THREE.Vector3 = new THREE.Vector3(-37, 5, 55); // Where rectangles animate to
+	private autoSelectTimer: number | null = null;
+
+	interactionAttributes!: {
+		hover: THREE.InstancedBufferAttribute;
+		timestamp: THREE.InstancedBufferAttribute;
+		state: THREE.InstancedBufferAttribute; // NEW: Current state
+		animationProgress: THREE.InstancedBufferAttribute; // NEW: 0-1 animation progress
+		targetPosition: THREE.InstancedBufferAttribute; // NEW: Target XYZ coords
+		queuePosition: THREE.InstancedBufferAttribute; // NEW: Position in queue
 	};
 
 	constructor(options: SketchOptions) {
@@ -242,6 +261,7 @@ export default class Sketch {
 		const intersections = this.raycaster.intersectObject(this.instancedMesh);
 
 		if (intersections.length > 0) {
+			document.body.style.cursor = 'pointer';
 			const intersection = intersections[0];
 			const newInstanceId = intersection.instanceId ?? -1;
 
@@ -256,6 +276,7 @@ export default class Sketch {
 				this.hoveredInstanceId = newInstanceId;
 			}
 		} else {
+			document.body.style.cursor = 'auto';
 			this.debugInfo.intersectionPoint = null;
 			this.debugInfo.instanceId = -1;
 			this.debugInfo.gridPosition = { row: -1, col: -1 };
@@ -319,28 +340,211 @@ export default class Sketch {
 	setInstanceHover(instanceId: number, isHovered: boolean) {
 		if (!this.interactionAttributes) return;
 
+		const currentState = this.interactionAttributes.state.array[instanceId];
+
+		// Allow hover for IDLE and maintain hover for SELECTED
+		if (
+			currentState !== RectangleState.IDLE &&
+			currentState !== RectangleState.SELECTED
+		)
+			return;
+
+		// Update hover state attribute (separate from main state)
 		const hoverAttr = this.interactionAttributes.hover;
 		const timestampAttr = this.interactionAttributes.timestamp;
-		const currentTime = performance.now() * 0.001; // Convert to seconds
+		const currentTime = performance.now() * 0.001;
 
-		// Update the attribute arrays
 		hoverAttr.array[instanceId] = isHovered ? 1.0 : 0.0;
 		timestampAttr.array[instanceId] = currentTime;
 
-		// Mark for GPU update
 		hoverAttr.needsUpdate = true;
 		timestampAttr.needsUpdate = true;
 
-		console.log(`🎨 Set instance ${instanceId} hover: ${isHovered}`);
+		console.log(
+			`🎨 Set instance ${instanceId} hover: ${isHovered}, current state: ${RectangleState[currentState]}`
+		);
 	}
 
 	onMouseClick(event: MouseEvent) {
 		if (this.hoveredInstanceId !== -1) {
-			const gridPos = this.instanceIdToGridPosition(this.hoveredInstanceId);
-			console.log(
-				`🎯 Clicked instance ${this.hoveredInstanceId} at grid (${gridPos.row}, ${gridPos.col})`
-			);
+			this.addToQueue(this.hoveredInstanceId);
 		}
+	}
+
+	addToQueue(instanceId: number) {
+		const currentState = this.interactionAttributes.state.array[instanceId];
+
+		// Only allow queueing from IDLE or HOVERED state
+		if (
+			currentState === RectangleState.IDLE ||
+			currentState === RectangleState.HOVERED
+		) {
+			// Check if something is currently animating
+			const isAnyAnimating = this.isAnyInstanceAnimating();
+
+			if (!isAnyAnimating && this.animationQueue.length === 0) {
+				// No queue, start animation immediately
+				this.startInstanceAnimation(instanceId);
+			} else {
+				// Add to queue
+				if (!this.animationQueue.includes(instanceId)) {
+					this.animationQueue.push(instanceId);
+					this.setInstanceState(instanceId, RectangleState.QUEUED);
+
+					// Update queue position
+					const queueAttr = this.interactionAttributes.queuePosition;
+					queueAttr.array[instanceId] = this.animationQueue.length - 1;
+					queueAttr.needsUpdate = true;
+
+					console.log(
+						`📋 Added instance ${instanceId} to queue (position: ${this.animationQueue.length - 1})`
+					);
+				}
+			}
+		}
+	}
+
+	isAnyInstanceAnimating(): boolean {
+		if (!this.interactionAttributes) return false;
+
+		const stateAttr = this.interactionAttributes.state;
+		for (let i = 0; i < stateAttr.array.length; i++) {
+			if (stateAttr.array[i] === RectangleState.ANIMATING) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	processQueue() {
+		// Check if current animation is complete and process next in queue
+		if (!this.isAnyInstanceAnimating() && this.animationQueue.length > 0) {
+			const nextInstanceId = this.animationQueue.shift()!; // Remove first item
+			this.startInstanceAnimation(nextInstanceId);
+
+			// Update queue positions for remaining items
+			this.updateQueuePositions();
+
+			console.log(`🎬 Started animation for queued instance ${nextInstanceId}`);
+		}
+	}
+
+	updateQueuePositions() {
+		const queueAttr = this.interactionAttributes.queuePosition;
+
+		// Update positions for all queued items
+		this.animationQueue.forEach((instanceId, index) => {
+			queueAttr.array[instanceId] = index;
+		});
+
+		queueAttr.needsUpdate = true;
+	}
+
+	// NEW: Start immediate animation for clicked rectangle
+	startInstanceAnimation(instanceId: number) {
+		const currentState = this.interactionAttributes.state.array[instanceId];
+
+		// Allow animation from IDLE, HOVERED, or QUEUED state
+		if (
+			currentState === RectangleState.IDLE ||
+			currentState === RectangleState.HOVERED ||
+			currentState === RectangleState.QUEUED
+		) {
+			// Set to animating state
+			this.setInstanceState(instanceId, RectangleState.ANIMATING);
+
+			// Reset animation progress to 0
+			const progressAttr = this.interactionAttributes.animationProgress;
+			progressAttr.array[instanceId] = 0.0;
+			progressAttr.needsUpdate = true;
+
+			// Clear queue position
+			const queueAttr = this.interactionAttributes.queuePosition;
+			queueAttr.array[instanceId] = -1;
+			queueAttr.needsUpdate = true;
+
+			console.log(`🚀 Started animation for instance ${instanceId}`);
+		}
+	}
+
+	updateAnimations() {
+		if (!this.interactionAttributes) return;
+
+		const stateAttr = this.interactionAttributes.state;
+		const progressAttr = this.interactionAttributes.animationProgress;
+		const timestampAttr = this.interactionAttributes.timestamp;
+		const currentTime = performance.now() * 0.001;
+
+		let needsUpdate = false;
+
+		// Update all animating instances
+		for (let i = 0; i < stateAttr.array.length; i++) {
+			if (stateAttr.array[i] === RectangleState.ANIMATING) {
+				const startTime = timestampAttr.array[i];
+				const animationDuration = 2.0; // 2 seconds to reach target
+				const elapsed = currentTime - startTime;
+				const progress = Math.min(elapsed / animationDuration, 1.0);
+
+				progressAttr.array[i] = progress;
+				needsUpdate = true;
+
+				// Check if animation is complete
+				if (progress >= 1.0) {
+					stateAttr.array[i] = RectangleState.AT_TARGET;
+					console.log(`✅ Instance ${i} reached target position`);
+				}
+			}
+		}
+
+		if (needsUpdate) {
+			progressAttr.needsUpdate = true;
+			stateAttr.needsUpdate = true;
+		}
+
+		// Process queue after updating animations
+		this.processQueue();
+	}
+
+	addToAnimationQueue(instanceId: number) {
+		const currentState = this.interactionAttributes.state.array[instanceId];
+
+		// Only allow selection if in IDLE or HOVERED state
+		if (
+			currentState === RectangleState.IDLE ||
+			currentState === RectangleState.HOVERED
+		) {
+			if (!this.animationQueue.includes(instanceId)) {
+				this.animationQueue.push(instanceId);
+				this.setInstanceState(instanceId, RectangleState.SELECTED);
+
+				// Update queue position
+				const queueAttr = this.interactionAttributes.queuePosition;
+				queueAttr.array[instanceId] = this.animationQueue.length - 1;
+				queueAttr.needsUpdate = true;
+
+				console.log(
+					`🎯 Added instance ${instanceId} to queue (position: ${this.animationQueue.length - 1})`
+				);
+			}
+		}
+	}
+
+	setInstanceState(instanceId: number, newState: RectangleState) {
+		if (!this.interactionAttributes) return;
+
+		const stateAttr = this.interactionAttributes.state;
+		const timestampAttr = this.interactionAttributes.timestamp;
+		const currentTime = performance.now() * 0.001;
+
+		stateAttr.array[instanceId] = newState;
+		timestampAttr.array[instanceId] = currentTime;
+
+		stateAttr.needsUpdate = true;
+		timestampAttr.needsUpdate = true;
+
+		console.log(
+			`🔄 Instance ${instanceId} state changed to: ${RectangleState[newState]}`
+		);
 	}
 
 	onMouseLeave() {
@@ -375,9 +579,14 @@ export default class Sketch {
 		const count = numCols * numRows;
 		const geometry = new THREE.BoxGeometry(1, 1, 5);
 
+		// All instance attributes
 		const instanceColRow = new Float32Array(count * 2);
-		const instanceHoverState = new Float32Array(count); // 0 = normal, 1 = hovered
-		const instanceTimestamp = new Float32Array(count); // For smooth transitions
+		const instanceHoverState = new Float32Array(count);
+		const instanceTimestamp = new Float32Array(count);
+		const instanceState = new Float32Array(count);
+		const instanceAnimationProgress = new Float32Array(count);
+		const instanceTargetPosition = new Float32Array(count * 3);
+		const instanceQueuePosition = new Float32Array(count);
 
 		const material = new THREE.MeshStandardNodeMaterial({
 			color: '#222222',
@@ -390,16 +599,21 @@ export default class Sketch {
 		const centeringOffsetX = -gridWidth / 2;
 		const centeringOffsetY = -gridHeight / 2;
 
+		// Uniforms
 		const frequencyUniform = uniform(0.5);
 		const amplitudeUniform = uniform(3.0);
 		const zOffsetUniform = uniform(-0.2);
 		const scaleUniform = uniform(0.075);
-		const secondaryColorUniform = uniform(new THREE.Color(0.02, 0.02, 0.02));
-		const mainColorUniform = uniform(portfolioColors.primaryVec3);
+		const transitionSpeedUniform = uniform(8.0);
+		const currentTimeUniform = uniform(0.0);
 
-		const hoverColorUniform = uniform(new THREE.Color(1.0, 0.0, 0.0)); // Orange
-		const transitionSpeedUniform = uniform(8.0); // Speed of hover transitions
-		const currentTimeUniform = uniform(0.0); // Current time for smooth transitions
+		// Color uniforms for different states
+		const idleColorUniform = uniform(new THREE.Color(0.02, 0.02, 0.02)); // Dark gray
+		const mainColorUniform = uniform(portfolioColors.primaryVec3); // Blue wave peaks
+		const hoverColorUniform = uniform(new THREE.Color(1.0, 0.5, 0.1)); // Orange hover
+		const selectedColorUniform = uniform(new THREE.Color(0.2, 0.8, 0.2)); // Green selected
+		const animatingColorUniform = uniform(new THREE.Color(0.8, 0.2, 0.8)); // Purple animating
+		const targetColorUniform = uniform(new THREE.Color(1.0, 0.2, 0.2)); // Red at target
 
 		this.uniforms.frequency = frequencyUniform;
 		this.uniforms.amplitude = amplitudeUniform;
@@ -409,13 +623,22 @@ export default class Sketch {
 
 		this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
 
+		// Varying variables for shader communication
 		const vWaveHeight = varying(float());
-		const vHoverState = varying(float());
+		const vStateInfo = varying(vec4()); // x: state, y: hover transition, z: animation progress, w: unused
 
+		// Attribute references
 		const colRowAttr = attribute('instanceColRow', 'vec2');
-		const hoverStateAttr = attribute('instanceHoverState', 'float'); // NEW
-		const timestampAttr = attribute('instanceTimestamp', 'float'); // NEW
+		const hoverStateAttr = attribute('instanceHoverState', 'float');
+		const timestampAttr = attribute('instanceTimestamp', 'float');
+		const stateAttr = attribute('instanceState', 'float'); // NEW
+		const animationProgressAttr = attribute(
+			'instanceAnimationProgress',
+			'float'
+		); // NEW
+		const targetPositionAttr = attribute('instanceTargetPosition', 'vec3'); // NEW
 
+		// Uniform constants
 		const centeringOffsetXUniform = uniform(centeringOffsetX);
 		const centeringOffsetYUniform = uniform(centeringOffsetY);
 		const numColsUniform = uniform(numCols);
@@ -427,15 +650,20 @@ export default class Sketch {
 			const row = colRowAttr.y;
 			const hoverState = hoverStateAttr;
 			const timestamp = timestampAttr;
+			const currentState = stateAttr;
+			const animProgress = animationProgressAttr;
+			const targetPos = targetPositionAttr;
 
-			// Existing wave animation logic
-			const instanceWorldX = col.mul(spacing).add(centeringOffsetXUniform);
-			const instanceWorldY = float(numRows - 1)
+			// Calculate base grid position (this should match your for loop positioning)
+			const baseGridX = col.mul(spacing).add(centeringOffsetXUniform);
+			const baseGridY = float(numRows - 1)
 				.sub(row)
 				.mul(spacing)
 				.add(centeringOffsetYUniform);
-			const normX = instanceWorldX.div(gridWidth * 0.95);
-			const normY = instanceWorldY.div(gridHeight * 0.5);
+
+			// Calculate wave effect for Z position
+			const normX = baseGridX.div(gridWidth * 0.95);
+			const normY = baseGridY.div(gridHeight * 0.5);
 			const distanceFromCenter = normX.mul(normX).add(normY.mul(normY)).sqrt();
 			const maxDistance = float(1.0);
 			const radialMultiplier = maxDistance
@@ -444,68 +672,216 @@ export default class Sketch {
 				.max(0.0);
 
 			const noiseInput = vec2(
-				instanceWorldX.mul(scaleUniform),
-				instanceWorldY.mul(scaleUniform).add(time.mul(frequencyUniform))
+				baseGridX.mul(scaleUniform),
+				baseGridY.mul(scaleUniform).add(time.mul(frequencyUniform))
 			);
 			const noiseValue = snoise(noiseInput);
 			const normalizedNoise = noiseValue.add(1.0).mul(0.5);
-			const baseZOffset = normalizedNoise
+			const baseWaveZ = normalizedNoise
 				.mul(amplitudeUniform)
 				.mul(radialMultiplier)
 				.add(zOffsetUniform);
 
-			// FIXED: Bidirectional smooth hover transition
+			// Smooth hover transition
 			const timeSinceChange = currentTimeUniform.sub(timestamp);
 			const transitionProgress = float(1.0)
 				.sub(float(-1.0).mul(timeSinceChange.mul(transitionSpeedUniform)).exp())
 				.clamp(0.0, 1.0);
 
-			// Simple bidirectional transition:
-			// - When hoverState = 1 (hovering): animate from 0 to 1
-			// - When hoverState = 0 (not hovering): animate from 1 to 0
-			const finalHoverValue = hoverState
+			const hoverTransition = hoverState
 				.equal(1.0)
 				.select(transitionProgress, float(1.0).sub(transitionProgress));
 
-			// Hover effect - slight elevation
-			const hoverOffset = finalHoverValue.mul(1.5);
-			const finalZOffset = baseZOffset.add(hoverOffset);
+			const hoverOffset = hoverTransition.mul(1.5);
 
-			vWaveHeight.assign(finalZOffset);
-			vHoverState.assign(finalHoverValue); // Pass the smooth value to fragment shader
+			// Enhanced easing function for smoother animation
+			const easedProgress = animProgress
+				.mul(animProgress)
+				.mul(float(3.0).sub(animProgress.mul(2.0))); // Smooth step
+			// Alternative easing options:
+			// const easedProgress = float(1.0).sub(float(1.0).sub(animProgress).pow(3.0)); // Ease out cubic
+			// const easedProgress = animProgress.mul(animProgress).mul(animProgress); // Ease in cubic
 
-			return vec3(position.x, position.y, position.z.add(finalZOffset));
+			// Calculate movement direction and distance for rotation
+			const originalCenter = vec3(
+				baseGridX,
+				baseGridY,
+				baseWaveZ.add(2.0).add(hoverOffset)
+			);
+			const movementVector = targetPos.sub(originalCenter);
+			const movementDistance = movementVector.length();
+			const movementDirection = movementVector.normalize();
+
+			// Create a rotation curve that starts at 0, peaks in middle, returns to 0
+			// Using sin wave: 0 -> 1 -> 0 over the animation progress
+			const rotationCurve = float(3.14159).mul(easedProgress).sin(); // Sine wave from 0 to PI
+
+			// Calculate rotation angles based on movement direction
+			const maxRotation = float(1.5); // Maximum rotation in radians (about 85 degrees)
+
+			// Rotate around X axis based on Y movement (up/down)
+			// If moving down (negative Y), rotate forward (negative X rotation)
+			// If moving up (positive Y), rotate backward (positive X rotation)
+			const rotationX = movementDirection.y
+				.mul(maxRotation)
+				.mul(rotationCurve)
+				.negate();
+
+			// Rotate around Z axis based on X movement (left/right)
+			// If moving right (positive X), rotate right (positive Z rotation)
+			// If moving left (negative X), rotate left (negative Z rotation)
+			const rotationZ = movementDirection.x.mul(maxRotation).mul(rotationCurve);
+
+			// Optional: Add slight Y rotation for more dynamic movement
+			const rotationY = movementDirection.x
+				.mul(movementDirection.y)
+				.mul(maxRotation)
+				.mul(0.3)
+				.mul(rotationCurve);
+
+			// Create rotation matrices
+			const cosX = rotationX.cos();
+			const sinX = rotationX.sin();
+			const cosY = rotationY.cos();
+			const sinY = rotationY.sin();
+			const cosZ = rotationZ.cos();
+			const sinZ = rotationZ.sin();
+
+			// Apply rotations to the local position (step by step)
+			// Only apply rotation during animation
+			const shouldRotate = currentState.equal(float(RectangleState.ANIMATING));
+
+			// Step 1: Rotation around X axis
+			const rotatedPosX = vec3(
+				position.x,
+				position.y.mul(cosX).sub(position.z.mul(sinX)),
+				position.y.mul(sinX).add(position.z.mul(cosX))
+			);
+
+			// Step 2: Rotation around Y axis
+			const rotatedPosY = vec3(
+				rotatedPosX.x.mul(cosY).add(rotatedPosX.z.mul(sinY)),
+				rotatedPosX.y,
+				rotatedPosX.x.mul(sinY.negate()).add(rotatedPosX.z.mul(cosY))
+			);
+
+			// Step 3: Rotation around Z axis
+			const rotatedPosZ = vec3(
+				rotatedPosY.x.mul(cosZ).sub(rotatedPosY.y.mul(sinZ)),
+				rotatedPosY.x.mul(sinZ).add(rotatedPosY.y.mul(cosZ)),
+				rotatedPosY.z
+			);
+
+			// Use rotated position only during animation, otherwise use original
+			const finalRotatedPos = shouldRotate.select(rotatedPosZ, position);
+
+			// State-based Z offset calculation with animated selection
+			const idleZOffset = baseWaveZ;
+			const hoveredZOffset = baseWaveZ.add(hoverOffset);
+
+			// Smaller selected Z offset
+			const selectedZBase = float(1.0); // Reduced from 2.0
+			const staticBaseZ = float(0.0); // No wave movement for selected states
+
+			// Animate the selected Z offset for QUEUED state
+			const queuedZAnimation = float(0.3).mul(time.mul(3.0).sin()); // Bobbing up and down
+
+			// For animating: calculate offset from original position to target with easing
+			const offsetToTarget = targetPos.sub(originalCenter);
+			const animatingOffset = offsetToTarget.mul(easedProgress);
+
+			// Select the appropriate offset based on state
+			const finalOffset = currentState.equal(float(RectangleState.IDLE)).select(
+				vec3(float(0.0), float(0.0), idleZOffset),
+				currentState.equal(float(RectangleState.HOVERED)).select(
+					vec3(float(0.0), float(0.0), hoveredZOffset),
+					currentState.equal(float(RectangleState.QUEUED)).select(
+						vec3(
+							float(0.0),
+							float(0.0),
+							staticBaseZ
+								.add(selectedZBase)
+								.add(queuedZAnimation)
+								.add(hoverOffset)
+						), // No wave + static base + animated bob + hover
+						currentState.equal(float(RectangleState.ANIMATING)).select(
+							animatingOffset.add(
+								vec3(float(0.0), float(0.0), staticBaseZ.add(selectedZBase))
+							), // No wave during animation
+							currentState.equal(float(RectangleState.AT_TARGET)).select(
+								offsetToTarget.add(
+									vec3(float(0.0), float(0.0), staticBaseZ.add(selectedZBase))
+								), // No wave at target
+								vec3(float(0.0), float(0.0), idleZOffset) // Fallback
+							)
+						)
+					)
+				)
+			);
+
+			// Apply offset to the rotated vertex position
+			const finalPosition = finalRotatedPos.add(finalOffset);
+
+			// Pass data to fragment shader
+			vWaveHeight.assign(baseWaveZ);
+			vStateInfo.assign(
+				vec4(currentState, hoverTransition, easedProgress, float(0.0))
+			);
+
+			return finalPosition;
 		});
 
+		// THIRD: Fix the color shader - replace animateColor function:
 		const animateColor = Fn(() => {
 			const waveHeight = vWaveHeight;
-			const hoverState = vHoverState;
+			const stateInfo = vStateInfo;
+			const currentState = stateInfo.x;
+			const hoverTransition = stateInfo.y;
+			const animProgress = stateInfo.z;
 
-			// Base color mixing (your existing logic)
-			const maxZOffset = 3.0;
-			const colorMixFactor = waveHeight.div(maxZOffset).clamp(0.0, 1.0);
-			const baseColor = mix(
-				secondaryColorUniform,
-				mainColorUniform,
-				colorMixFactor
-			);
+			const finalColor = vec3(0.02, 0.02, 0.02).toVar();
 
-			// NEW: Hover color blending
-			const finalColor = mix(
-				baseColor,
-				hoverColorUniform,
-				hoverState.mul(0.95)
-			);
+			// Check if rectangle is clicked, queued, or animating
+			const isClicked = currentState.greaterThan(float(RectangleState.HOVERED));
+			const isQueued = currentState.equal(float(RectangleState.QUEUED));
+			const isAnimating = currentState.equal(float(RectangleState.ANIMATING));
+
+			If(isClicked, () => {
+				// Queued and animating rectangles get the same orange color
+				If(isQueued.or(isAnimating), () => {
+					finalColor.assign(vec3(0.8, 0.3, 0.1)); // Same orange for queue and animation
+				}).Else(() => {
+					finalColor.assign(vec3(0.8, 0.2, 0.2)); // Red for AT_TARGET
+				});
+			}).Else(() => {
+				// Wave colors for idle/hovered rectangles only
+				const maxZOffset = 3.0;
+				const colorMixFactor = waveHeight.div(maxZOffset).clamp(0.0, 1.0);
+				const baseWaveColor = mix(
+					idleColorUniform,
+					mainColorUniform,
+					colorMixFactor
+				);
+				const hoveredColor = mix(
+					baseWaveColor,
+					hoverColorUniform,
+					hoverTransition.mul(0.6)
+				);
+				finalColor.assign(hoveredColor);
+			});
 
 			return vec4(finalColor, 1.0);
 		});
 
+		// Apply the enhanced shaders
 		material.positionNode = animateZ();
 		material.colorNode = animateColor();
 
+		// Initialize instances (same as before but with new attributes)
 		const dummy = new THREE.Object3D();
 		let instanceIndex = 0;
 		const centeringOffsetZ = 9.05;
+
 		for (let row = 0; row < numRows; row++) {
 			for (let col = 0; col < numCols; col++) {
 				dummy.position.x = col * spacing + centeringOffsetX;
@@ -513,14 +889,24 @@ export default class Sketch {
 				dummy.position.z = 0 + centeringOffsetZ;
 				dummy.updateMatrix();
 				this.instancedMesh.setMatrixAt(instanceIndex, dummy.matrix);
-				// Set instance attributes
+
+				// Set all instance attributes
 				instanceColRow[instanceIndex * 2] = col;
 				instanceColRow[instanceIndex * 2 + 1] = row;
-				instanceHoverState[instanceIndex] = 0; // Initially not hovered
-				instanceTimestamp[instanceIndex] = 0; // Initial timestamp
+				instanceHoverState[instanceIndex] = 0;
+				instanceTimestamp[instanceIndex] = 0;
+				instanceState[instanceIndex] = RectangleState.IDLE;
+				instanceAnimationProgress[instanceIndex] = 0.0;
+				instanceTargetPosition[instanceIndex * 3] = this.targetPosition.x;
+				instanceTargetPosition[instanceIndex * 3 + 1] = this.targetPosition.y;
+				instanceTargetPosition[instanceIndex * 3 + 2] = this.targetPosition.z;
+				instanceQueuePosition[instanceIndex] = -1;
+
 				instanceIndex++;
 			}
 		}
+
+		// Set all geometry attributes
 		this.instancedMesh.geometry.setAttribute(
 			'instanceColRow',
 			new THREE.InstancedBufferAttribute(instanceColRow, 2)
@@ -533,13 +919,37 @@ export default class Sketch {
 			'instanceTimestamp',
 			new THREE.InstancedBufferAttribute(instanceTimestamp, 1)
 		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceState',
+			new THREE.InstancedBufferAttribute(instanceState, 1)
+		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceAnimationProgress',
+			new THREE.InstancedBufferAttribute(instanceAnimationProgress, 1)
+		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceTargetPosition',
+			new THREE.InstancedBufferAttribute(instanceTargetPosition, 3)
+		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceQueuePosition',
+			new THREE.InstancedBufferAttribute(instanceQueuePosition, 1)
+		);
 
-		// Store references for interaction methods
+		// Store enhanced references
 		this.interactionAttributes = {
 			hover: this.instancedMesh.geometry.attributes
 				.instanceHoverState as THREE.InstancedBufferAttribute,
 			timestamp: this.instancedMesh.geometry.attributes
-				.instanceTimestamp as THREE.InstancedBufferAttribute
+				.instanceTimestamp as THREE.InstancedBufferAttribute,
+			state: this.instancedMesh.geometry.attributes
+				.instanceState as THREE.InstancedBufferAttribute,
+			animationProgress: this.instancedMesh.geometry.attributes
+				.instanceAnimationProgress as THREE.InstancedBufferAttribute,
+			targetPosition: this.instancedMesh.geometry.attributes
+				.instanceTargetPosition as THREE.InstancedBufferAttribute,
+			queuePosition: this.instancedMesh.geometry.attributes
+				.instanceQueuePosition as THREE.InstancedBufferAttribute
 		};
 
 		this.instancedMesh.instanceMatrix.needsUpdate = true;
@@ -639,16 +1049,18 @@ export default class Sketch {
 	async render() {
 		if (!this.isPlaying) return;
 
-		// UPDATE: Keep time uniform current for smooth transitions
+		// Update time uniform
 		if (this.uniforms.currentTime) {
 			this.uniforms.currentTime.value = performance.now() * 0.001;
 		}
+
+		// NEW: Update animations every frame
+		this.updateAnimations();
 
 		this.controls.update();
 		await this.renderer.renderAsync(this.scene, this.camera);
 		requestAnimationFrame(() => this.render());
 	}
-
 	stop() {
 		this.isPlaying = false;
 		window.removeEventListener('resize', this.resize.bind(this));
