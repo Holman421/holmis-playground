@@ -89,6 +89,15 @@ export default class Sketch {
 	private targetPosition: THREE.Vector3 = new THREE.Vector3(-37, 5, 55); // Where rectangles animate to
 	private autoSelectTimer: number | null = null;
 
+	// Animation timing configuration
+	private animationDurationSec: number = 7.0; // total per-item duration
+	private overlapDurationSec: number = 5.0; // start next this many seconds before finish
+
+	private get overlapStartProgress(): number {
+		// e.g. 6s duration, 2s overlap => start next at 4s => progress >= 0.6667
+		return 1 - this.overlapDurationSec / this.animationDurationSec;
+	}
+
 	interactionAttributes!: {
 		hover: THREE.InstancedBufferAttribute;
 		timestamp: THREE.InstancedBufferAttribute;
@@ -96,6 +105,7 @@ export default class Sketch {
 		animationProgress: THREE.InstancedBufferAttribute; // NEW: 0-1 animation progress
 		targetPosition: THREE.InstancedBufferAttribute; // NEW: Target XYZ coords
 		queuePosition: THREE.InstancedBufferAttribute; // NEW: Position in queue
+		animStartTime: THREE.InstancedBufferAttribute; // NEW: Precise animation start time
 	};
 
 	constructor(options: SketchOptions) {
@@ -126,6 +136,7 @@ export default class Sketch {
 
 		this.createInstanceIdMapping();
 		this.setupInteractivity();
+		this.startAutoSelection();
 
 		this.resize();
 		this.init();
@@ -194,6 +205,16 @@ export default class Sketch {
 		this.container.addEventListener('mousemove', mouseMoveHandler);
 		this.container.addEventListener('mouseleave', this.onMouseLeave.bind(this));
 		this.container.addEventListener('click', this.onMouseClick.bind(this));
+
+		// Prevent native context menu from pausing or interfering with timers/interaction
+		this.container.addEventListener(
+			'contextmenu',
+			(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+			},
+			{ passive: false }
+		);
 	}
 
 	onMouseMove(event: MouseEvent) {
@@ -261,19 +282,33 @@ export default class Sketch {
 		const intersections = this.raycaster.intersectObject(this.instancedMesh);
 
 		if (intersections.length > 0) {
-			document.body.style.cursor = 'pointer';
 			const intersection = intersections[0];
 			const newInstanceId = intersection.instanceId ?? -1;
+
+			// Check if this rectangle can be interacted with
+			const currentState =
+				this.interactionAttributes.state.array[newInstanceId];
+			const canInteract =
+				currentState === RectangleState.IDLE ||
+				currentState === RectangleState.HOVERED ||
+				currentState === RectangleState.QUEUED;
+
+			// Set cursor based on interactability
+			document.body.style.cursor = canInteract ? 'pointer' : 'auto';
 
 			this.debugInfo.intersectionPoint = intersection.point.clone();
 			this.debugInfo.instanceId = newInstanceId;
 			this.debugInfo.gridPosition =
 				this.instanceIdToGridPosition(newInstanceId);
 
-			if (newInstanceId !== this.hoveredInstanceId) {
-				// FIXED: Actually call the hover change method
+			// Only trigger hover change if the rectangle can be interacted with
+			if (canInteract && newInstanceId !== this.hoveredInstanceId) {
 				this.onHoverChange(this.hoveredInstanceId, newInstanceId);
 				this.hoveredInstanceId = newInstanceId;
+			} else if (!canInteract && this.hoveredInstanceId !== -1) {
+				// Clear hover if we move from interactive to non-interactive rectangle
+				this.onHoverChange(this.hoveredInstanceId, -1);
+				this.hoveredInstanceId = -1;
 			}
 		} else {
 			document.body.style.cursor = 'auto';
@@ -282,7 +317,6 @@ export default class Sketch {
 			this.debugInfo.gridPosition = { row: -1, col: -1 };
 
 			if (this.hoveredInstanceId !== -1) {
-				// FIXED: Actually call the hover change method
 				this.onHoverChange(this.hoveredInstanceId, -1);
 				this.hoveredInstanceId = -1;
 			}
@@ -327,12 +361,27 @@ export default class Sketch {
 		}
 
 		if (newInstanceId !== -1) {
-			const newGrid = this.instanceIdToGridPosition(newInstanceId);
-			console.log(
-				`✨ Entered instance ${newInstanceId} at grid (${newGrid.row}, ${newGrid.col})`
-			);
-			// UPDATE: Set hover state to true
-			this.setInstanceHover(newInstanceId, true);
+			// CHECK: Only allow hover if rectangle is in valid state
+			const currentState =
+				this.interactionAttributes.state.array[newInstanceId];
+			const canHover =
+				currentState === RectangleState.IDLE ||
+				currentState === RectangleState.HOVERED ||
+				currentState === RectangleState.QUEUED;
+
+			if (canHover) {
+				const newGrid = this.instanceIdToGridPosition(newInstanceId);
+				console.log(
+					`✨ Entered instance ${newInstanceId} at grid (${newGrid.row}, ${newGrid.col})`
+				);
+				this.setInstanceHover(newInstanceId, true);
+			} else {
+				console.log(
+					`🔒 Instance ${newInstanceId} is not hoverable (state: ${RectangleState[currentState]})`
+				);
+				// Set cursor back to default since this rectangle can't be hovered
+				document.body.style.cursor = 'auto';
+			}
 		}
 	}
 
@@ -342,14 +391,28 @@ export default class Sketch {
 
 		const currentState = this.interactionAttributes.state.array[instanceId];
 
-		// Allow hover for IDLE and maintain hover for SELECTED
+		// UPDATED: Block hover for ANIMATING and AT_TARGET states
+		if (
+			currentState === RectangleState.ANIMATING ||
+			currentState === RectangleState.AT_TARGET ||
+			currentState === RectangleState.QUEUED
+		) {
+			console.log(
+				`🚫 Hover blocked for instance ${instanceId} in state: ${RectangleState[currentState]}`
+			);
+			return;
+		}
+
+		// Allow hover for IDLE, HOVERED, and QUEUED states only
 		if (
 			currentState !== RectangleState.IDLE &&
-			currentState !== RectangleState.SELECTED
-		)
+			currentState !== RectangleState.HOVERED &&
+			currentState !== RectangleState.QUEUED
+		) {
 			return;
+		}
 
-		// Update hover state attribute (separate from main state)
+		// Update hover state attribute
 		const hoverAttr = this.interactionAttributes.hover;
 		const timestampAttr = this.interactionAttributes.timestamp;
 		const currentTime = performance.now() * 0.001;
@@ -365,20 +428,101 @@ export default class Sketch {
 		);
 	}
 
+	startAutoSelection() {
+		if (this.autoSelectTimer !== null) return; // Already running
+
+		const intervalMs = Math.max(
+			500,
+			(this.animationDurationSec - this.overlapDurationSec) * 1000
+		);
+		this.autoSelectTimer = window.setInterval(() => {
+			// Pause if too many queued animations
+			if (this.animationQueue.length > 2) return;
+
+			// Try a few times to avoid selecting the same/invalid rectangle
+			const maxAttempts = 6;
+			for (let attempt = 0; attempt < maxAttempts; attempt++) {
+				const candidate = this.pickRandomEligibleInstance();
+				if (candidate === null) return; // nothing to pick
+
+				if (this.isInstanceEligibleNow(candidate)) {
+					this.addToQueue(candidate);
+					console.log(`🤖 Auto-selected instance ${candidate}`);
+					break;
+				}
+			}
+		}, intervalMs);
+	}
+
+	// Returns a random IDLE/HOVERED instance id, or null if none
+	private pickRandomEligibleInstance(): number | null {
+		const stateAttr = this.interactionAttributes.state;
+		const eligible: number[] = [];
+		for (let i = 0; i < stateAttr.array.length; i++) {
+			const s = stateAttr.array[i];
+			if (s === RectangleState.IDLE || s === RectangleState.HOVERED) {
+				eligible.push(i);
+			}
+		}
+		if (eligible.length === 0) return null;
+		const idx = Math.floor(Math.random() * eligible.length);
+		return eligible[idx];
+	}
+
+	// Strict re-check before queueing: must still be selectable and not already in queue
+	private isInstanceEligibleNow(instanceId: number): boolean {
+		const state = this.interactionAttributes.state.array[instanceId];
+		if (state !== RectangleState.IDLE && state !== RectangleState.HOVERED) {
+			return false;
+		}
+		if (this.animationQueue.includes(instanceId)) return false;
+		return true;
+	}
+
+	// Stop automatic selection
+	stopAutoSelection() {
+		if (this.autoSelectTimer !== null) {
+			clearInterval(this.autoSelectTimer);
+			this.autoSelectTimer = null;
+		}
+	}
+
 	onMouseClick(event: MouseEvent) {
 		if (this.hoveredInstanceId !== -1) {
-			this.addToQueue(this.hoveredInstanceId);
+			const currentState =
+				this.interactionAttributes.state.array[this.hoveredInstanceId];
+
+			// UPDATED: Block clicks for ANIMATING and AT_TARGET states
+			const canClick =
+				currentState === RectangleState.IDLE ||
+				currentState === RectangleState.HOVERED ||
+				currentState === RectangleState.QUEUED;
+
+			if (canClick) {
+				this.addToQueue(this.hoveredInstanceId);
+			} else {
+				console.log(
+					`🔒 Click blocked for instance ${this.hoveredInstanceId} in state: ${RectangleState[currentState]}`
+				);
+			}
 		}
 	}
 
 	addToQueue(instanceId: number) {
 		const currentState = this.interactionAttributes.state.array[instanceId];
 
-		// Only allow queueing from IDLE or HOVERED state
+		// UPDATED: Only allow queueing from valid states (blocks ANIMATING and AT_TARGET)
 		if (
 			currentState === RectangleState.IDLE ||
-			currentState === RectangleState.HOVERED
+			currentState === RectangleState.HOVERED ||
+			currentState === RectangleState.QUEUED // Allow re-clicking queued items (no-op)
 		) {
+			// Prevent duplicate queueing
+			if (currentState === RectangleState.QUEUED) {
+				console.log(`⚠️ Instance ${instanceId} is already queued`);
+				return;
+			}
+
 			// Check if something is currently animating
 			const isAnyAnimating = this.isAnyInstanceAnimating();
 
@@ -401,7 +545,14 @@ export default class Sketch {
 					);
 				}
 			}
+		} else {
+			console.log(
+				`🔒 Cannot queue instance ${instanceId} in state: ${RectangleState[currentState]}`
+			);
 		}
+
+		// Keep auto-selection running; it internally no-ops when queue is large
+		this.startAutoSelection();
 	}
 
 	isAnyInstanceAnimating(): boolean {
@@ -417,16 +568,54 @@ export default class Sketch {
 	}
 
 	processQueue() {
-		// Check if current animation is complete and process next in queue
-		if (!this.isAnyInstanceAnimating() && this.animationQueue.length > 0) {
-			const nextInstanceId = this.animationQueue.shift()!; // Remove first item
-			this.startInstanceAnimation(nextInstanceId);
+		if (!this.interactionAttributes) return;
 
-			// Update queue positions for remaining items
-			this.updateQueuePositions();
-
-			console.log(`🎬 Started animation for queued instance ${nextInstanceId}`);
+		// Recover last animating if unknown
+		if (this.currentlyAnimating === null) {
+			const recovered = this.getLastStartedAnimatingId();
+			if (recovered !== null) this.currentlyAnimating = recovered;
 		}
+
+		// If nothing is animating, start next immediately
+		if (!this.isAnyInstanceAnimating() && this.animationQueue.length > 0) {
+			const nextInstanceId = this.animationQueue.shift()!;
+			this.startInstanceAnimation(nextInstanceId);
+			this.updateQueuePositions();
+			console.log(`🎬 Started animation for queued instance ${nextInstanceId}`);
+			return;
+		}
+
+		// Overlap start: when last-started reaches threshold, start next
+		if (this.currentlyAnimating !== null && this.animationQueue.length > 0) {
+			const progressAttr = this.interactionAttributes.animationProgress;
+			const lastProgress = progressAttr.array[this.currentlyAnimating] ?? 0;
+			if (lastProgress >= this.overlapStartProgress) {
+				const nextInstanceId = this.animationQueue.shift()!;
+				this.startInstanceAnimation(nextInstanceId);
+				this.updateQueuePositions();
+				console.log(
+					`⏩ Overlap start: previous ${this.currentlyAnimating} progress ${(lastProgress * 100).toFixed(0)}%, started ${nextInstanceId}`
+				);
+			}
+		}
+	}
+
+	private getLastStartedAnimatingId(): number | null {
+		if (!this.interactionAttributes) return null;
+		const stateAttr = this.interactionAttributes.state;
+		const timestampAttr = this.interactionAttributes.timestamp;
+		let bestId: number | null = null;
+		let bestTs = -Infinity;
+		for (let i = 0; i < stateAttr.array.length; i++) {
+			if (stateAttr.array[i] === RectangleState.ANIMATING) {
+				const ts = timestampAttr.array[i];
+				if (ts > bestTs) {
+					bestTs = ts;
+					bestId = i;
+				}
+			}
+		}
+		return bestId;
 	}
 
 	updateQueuePositions() {
@@ -463,6 +652,16 @@ export default class Sketch {
 			queueAttr.array[instanceId] = -1;
 			queueAttr.needsUpdate = true;
 
+			// Record precise animation start time
+			const animStartAttr = this.interactionAttributes.animStartTime;
+			if (animStartAttr) {
+				animStartAttr.array[instanceId] = performance.now() * 0.001;
+				animStartAttr.needsUpdate = true;
+			}
+
+			// Track most recently started animation for overlap logic
+			this.currentlyAnimating = instanceId;
+
 			console.log(`🚀 Started animation for instance ${instanceId}`);
 		}
 	}
@@ -473,6 +672,7 @@ export default class Sketch {
 		const stateAttr = this.interactionAttributes.state;
 		const progressAttr = this.interactionAttributes.animationProgress;
 		const timestampAttr = this.interactionAttributes.timestamp;
+		const animStartAttr = this.interactionAttributes.animStartTime;
 		const currentTime = performance.now() * 0.001;
 
 		let needsUpdate = false;
@@ -480,8 +680,10 @@ export default class Sketch {
 		// Update all animating instances
 		for (let i = 0; i < stateAttr.array.length; i++) {
 			if (stateAttr.array[i] === RectangleState.ANIMATING) {
-				const startTime = timestampAttr.array[i];
-				const animationDuration = 2.0; // 2 seconds to reach target
+				const startTime = animStartAttr
+					? animStartAttr.array[i] || timestampAttr.array[i]
+					: timestampAttr.array[i];
+				const animationDuration = this.animationDurationSec; // configurable duration
 				const elapsed = currentTime - startTime;
 				const progress = Math.min(elapsed / animationDuration, 1.0);
 
@@ -536,8 +738,13 @@ export default class Sketch {
 		const timestampAttr = this.interactionAttributes.timestamp;
 		const currentTime = performance.now() * 0.001;
 
+		const prevState = stateAttr.array[instanceId];
 		stateAttr.array[instanceId] = newState;
-		timestampAttr.array[instanceId] = currentTime;
+
+		// Preserve timestamp when transitioning QUEUED -> ANIMATING to prevent visual snap
+		if (!(prevState === RectangleState.QUEUED && newState === RectangleState.ANIMATING)) {
+			timestampAttr.array[instanceId] = currentTime;
+		}
 
 		stateAttr.needsUpdate = true;
 		timestampAttr.needsUpdate = true;
@@ -585,6 +792,7 @@ export default class Sketch {
 		const instanceTimestamp = new Float32Array(count);
 		const instanceState = new Float32Array(count);
 		const instanceAnimationProgress = new Float32Array(count);
+		const instanceAnimStartTime = new Float32Array(count);
 		const instanceTargetPosition = new Float32Array(count * 3);
 		const instanceQueuePosition = new Float32Array(count);
 
@@ -653,6 +861,7 @@ export default class Sketch {
 			const currentState = stateAttr;
 			const animProgress = animationProgressAttr;
 			const targetPos = targetPositionAttr;
+			const staticBaseZ = float(0.0); // No wave movement for selected states
 
 			// Calculate base grid position (this should match your for loop positioning)
 			const baseGridX = col.mul(spacing).add(centeringOffsetXUniform);
@@ -695,21 +904,21 @@ export default class Sketch {
 			const hoverOffset = hoverTransition.mul(1.5);
 
 			// Enhanced easing function for smoother animation
-			const easedProgress = animProgress
-				.mul(animProgress)
-				.mul(float(3.0).sub(animProgress.mul(2.0))); // Smooth step
+			// const easedProgress = animProgress
+			// 	.mul(animProgress)
+			// 	.mul(float(3.0).sub(animProgress.mul(2.0))); // Smooth step
 			// Alternative easing options:
 			// const easedProgress = float(1.0).sub(float(1.0).sub(animProgress).pow(3.0)); // Ease out cubic
-			// const easedProgress = animProgress.mul(animProgress).mul(animProgress); // Ease in cubic
+			const easedProgress = animProgress.mul(animProgress).mul(animProgress); // Ease in cubic
 
 			// Calculate movement direction and distance for rotation
+			// Use a hover-independent origin to avoid target path mismatch and shifts
 			const originalCenter = vec3(
 				baseGridX,
 				baseGridY,
-				baseWaveZ.add(2.0).add(hoverOffset)
+				staticBaseZ.add(2.0)
 			);
 			const movementVector = targetPos.sub(originalCenter);
-			const movementDistance = movementVector.length();
 			const movementDirection = movementVector.normalize();
 
 			// Create a rotation curve that starts at 0, peaks in middle, returns to 0
@@ -727,16 +936,16 @@ export default class Sketch {
 				.mul(rotationCurve)
 				.negate();
 
-			// Rotate around Z axis based on X movement (left/right)
-			// If moving right (positive X), rotate right (positive Z rotation)
-			// If moving left (negative X), rotate left (negative Z rotation)
-			const rotationZ = movementDirection.x.mul(maxRotation).mul(rotationCurve);
-
-			// Optional: Add slight Y rotation for more dynamic movement
-			const rotationY = movementDirection.x
-				.mul(movementDirection.y)
+			// Reduce roll around Z to keep motion feeling horizontal
+			const rotationZ = movementDirection.x
 				.mul(maxRotation)
-				.mul(0.3)
+				.mul(0.15)
+				.mul(rotationCurve);
+
+			// Stronger horizontal yaw towards the travel direction (left/right)
+			const rotationY = movementDirection.x
+				.mul(maxRotation)
+				.mul(0.8)
 				.mul(rotationCurve);
 
 			// Create rotation matrices
@@ -774,58 +983,65 @@ export default class Sketch {
 
 			// Use rotated position only during animation, otherwise use original
 			const finalRotatedPos = shouldRotate.select(rotatedPosZ, position);
-
-			// State-based Z offset calculation with animated selection
-			const idleZOffset = baseWaveZ;
-			const hoveredZOffset = baseWaveZ.add(hoverOffset);
-
 			// Smaller selected Z offset
-			const selectedZBase = float(1.0); // Reduced from 2.0
-			const staticBaseZ = float(0.0); // No wave movement for selected states
-
-			// Animate the selected Z offset for QUEUED state
-			const queuedZAnimation = float(0.3).mul(time.mul(3.0).sin()); // Bobbing up and down
+			const selectedZBase = float(1.5); // Reduced from 2.0
 
 			// For animating: calculate offset from original position to target with easing
 			const offsetToTarget = targetPos.sub(originalCenter);
-			const animatingOffset = offsetToTarget.mul(easedProgress);
-
-			// Select the appropriate offset based on state
-			const finalOffset = currentState.equal(float(RectangleState.IDLE)).select(
-				vec3(float(0.0), float(0.0), idleZOffset),
-				currentState.equal(float(RectangleState.HOVERED)).select(
-					vec3(float(0.0), float(0.0), hoveredZOffset),
-					currentState.equal(float(RectangleState.QUEUED)).select(
-						vec3(
-							float(0.0),
-							float(0.0),
-							staticBaseZ
-								.add(selectedZBase)
-								.add(queuedZAnimation)
-								.add(hoverOffset)
-						), // No wave + static base + animated bob + hover
-						currentState.equal(float(RectangleState.ANIMATING)).select(
-							animatingOffset.add(
-								vec3(float(0.0), float(0.0), staticBaseZ.add(selectedZBase))
-							), // No wave during animation
-							currentState.equal(float(RectangleState.AT_TARGET)).select(
-								offsetToTarget.add(
-									vec3(float(0.0), float(0.0), staticBaseZ.add(selectedZBase))
-								), // No wave at target
-								vec3(float(0.0), float(0.0), idleZOffset) // Fallback
-							)
-						)
-					)
-				)
+			const queuedRestingPos = vec3(
+				float(0.0),
+				float(0.0),
+				staticBaseZ.add(selectedZBase)
 			);
+			// Hover effects - only for interactive states
+			const canHover = currentState
+				.equal(float(RectangleState.IDLE))
+				.or(currentState.equal(float(RectangleState.HOVERED)))
+				.or(currentState.equal(float(RectangleState.QUEUED)));
 
+			const staticHoverLift = hoverTransition.mul(1.5);
+			const effectiveHoverOffset = canHover.select(staticHoverLift, float(0.0));
+
+			const finalOffset = currentState
+				.equal(float(RectangleState.IDLE))
+				.or(currentState.equal(float(RectangleState.HOVERED)))
+				.select(
+					// IDLE/HOVERED → use waves
+					vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
+					currentState.equal(float(RectangleState.QUEUED)).select(
+						// QUEUED → smoothly move from wave/hover to queued resting pos
+						mix(
+							vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
+							queuedRestingPos,
+							transitionProgress
+						),
+						currentState
+							.equal(float(RectangleState.ANIMATING))
+							.select(
+								// ANIMATING → also blend the start, then add movement towards target
+								mix(
+									vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
+									queuedRestingPos,
+									transitionProgress
+								).add(offsetToTarget.mul(easedProgress)),
+								// Fallback (same as above)
+								mix(
+									vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
+									queuedRestingPos,
+									transitionProgress
+								).add(offsetToTarget.mul(easedProgress))
+							)
+					)
+				);
+
+			// baseWaveZ
 			// Apply offset to the rotated vertex position
 			const finalPosition = finalRotatedPos.add(finalOffset);
 
 			// Pass data to fragment shader
 			vWaveHeight.assign(baseWaveZ);
 			vStateInfo.assign(
-				vec4(currentState, hoverTransition, easedProgress, float(0.0))
+				vec4(currentState, hoverTransition, easedProgress, transitionProgress)
 			);
 
 			return finalPosition;
@@ -838,6 +1054,7 @@ export default class Sketch {
 			const currentState = stateInfo.x;
 			const hoverTransition = stateInfo.y;
 			const animProgress = stateInfo.z;
+			const stateTransition = stateInfo.w; // 0->1 smoothing when state changes (timestamp driven)
 
 			const finalColor = vec3(0.02, 0.02, 0.02).toVar();
 
@@ -847,12 +1064,26 @@ export default class Sketch {
 			const isAnimating = currentState.equal(float(RectangleState.ANIMATING));
 
 			If(isClicked, () => {
-				// Queued and animating rectangles get the same orange color
-				If(isQueued.or(isAnimating), () => {
-					finalColor.assign(vec3(0.8, 0.3, 0.1)); // Same orange for queue and animation
-				}).Else(() => {
-					finalColor.assign(vec3(0.8, 0.2, 0.2)); // Red for AT_TARGET
-				});
+				// Base wave/hover color (for smooth blend-in)
+				const maxZOffset = 3.0;
+				const colorMixFactor = waveHeight.div(maxZOffset).clamp(0.0, 1.0);
+				const baseWaveColor = mix(
+					idleColorUniform,
+					mainColorUniform,
+					colorMixFactor
+				);
+				const hoveredColor = mix(
+					baseWaveColor,
+					hoverColorUniform,
+					hoverTransition.mul(0.6)
+				);
+
+				// Target colors per clicked state
+				const clickedColor = isQueued.or(isAnimating)
+					.select(vec3(0.8, 0.2, 0.2), vec3(0.8, 0.2, 0.2)); // same here per current design
+
+				// Blend from hovered/base color to clicked color using stateTransition
+				finalColor.assign(mix(hoveredColor, clickedColor, stateTransition));
 			}).Else(() => {
 				// Wave colors for idle/hovered rectangles only
 				const maxZOffset = 3.0;
@@ -901,6 +1132,7 @@ export default class Sketch {
 				instanceTargetPosition[instanceIndex * 3 + 1] = this.targetPosition.y;
 				instanceTargetPosition[instanceIndex * 3 + 2] = this.targetPosition.z;
 				instanceQueuePosition[instanceIndex] = -1;
+				instanceAnimStartTime[instanceIndex] = 0.0;
 
 				instanceIndex++;
 			}
@@ -935,6 +1167,10 @@ export default class Sketch {
 			'instanceQueuePosition',
 			new THREE.InstancedBufferAttribute(instanceQueuePosition, 1)
 		);
+		this.instancedMesh.geometry.setAttribute(
+			'instanceAnimStartTime',
+			new THREE.InstancedBufferAttribute(instanceAnimStartTime, 1)
+		);
 
 		// Store enhanced references
 		this.interactionAttributes = {
@@ -949,7 +1185,9 @@ export default class Sketch {
 			targetPosition: this.instancedMesh.geometry.attributes
 				.instanceTargetPosition as THREE.InstancedBufferAttribute,
 			queuePosition: this.instancedMesh.geometry.attributes
-				.instanceQueuePosition as THREE.InstancedBufferAttribute
+				.instanceQueuePosition as THREE.InstancedBufferAttribute,
+			animStartTime: this.instancedMesh.geometry.attributes
+				.instanceAnimStartTime as THREE.InstancedBufferAttribute
 		};
 
 		this.instancedMesh.instanceMatrix.needsUpdate = true;
@@ -1056,6 +1294,11 @@ export default class Sketch {
 
 		// NEW: Update animations every frame
 		this.updateAnimations();
+
+		// Watchdog: ensure auto selection keeps running even if something cleared it
+		if (this.autoSelectTimer === null) {
+			this.startAutoSelection();
+		}
 
 		this.controls.update();
 		await this.renderer.renderAsync(this.scene, this.camera);
