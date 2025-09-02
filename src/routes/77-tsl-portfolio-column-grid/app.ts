@@ -231,43 +231,6 @@ export default class Sketch {
 		this.debugInfo.mouseNDC.y = this.mouse.y;
 
 		this.performIntersectionTest();
-
-		this.logDebugInfo();
-	}
-
-	logDebugInfo() {
-		// Only log when there's an intersection for cleaner output
-		if (this.debugInfo.instanceId !== -1) {
-			console.clear(); // Keep console clean
-			console.log('🎯 INTERSECTION DEBUG INFO:');
-			console.log('┌─ Mouse Position ─────────────────');
-			console.log(
-				`│ Screen: (${this.debugInfo.mouseScreen.x.toFixed(1)}, ${this.debugInfo.mouseScreen.y.toFixed(1)})`
-			);
-			console.log(
-				`│ NDC: (${this.debugInfo.mouseNDC.x.toFixed(3)}, ${this.debugInfo.mouseNDC.y.toFixed(3)})`
-			);
-			if (this.debugInfo.mouseWorld) {
-				console.log(
-					`│ World: (${this.debugInfo.mouseWorld.x.toFixed(2)}, ${this.debugInfo.mouseWorld.y.toFixed(2)}, ${this.debugInfo.mouseWorld.z.toFixed(2)})`
-				);
-			} else {
-				console.log('│ World: (null)');
-			}
-			console.log('├─ Intersection ───────────────────');
-			console.log(`│ Instance ID: ${this.debugInfo.instanceId}`);
-			console.log(
-				`│ Grid Position: Row ${this.debugInfo.gridPosition.row}, Col ${this.debugInfo.gridPosition.col}`
-			);
-			if (this.debugInfo.intersectionPoint) {
-				console.log(
-					`│ 3D Hit Point: (${this.debugInfo.intersectionPoint.x.toFixed(2)}, ${this.debugInfo.intersectionPoint.y.toFixed(2)}, ${this.debugInfo.intersectionPoint.z.toFixed(2)})`
-				);
-			} else {
-				console.log('│ 3D Hit Point: (null)');
-			}
-			console.log('└─────────────────────────────────');
-		}
 	}
 
 	performIntersectionTest() {
@@ -339,10 +302,6 @@ export default class Sketch {
 				instanceIndex++;
 			}
 		}
-
-		console.log(
-			`Created mapping for ${instanceIndex} instances (${numRows}x${numCols} grid)`
-		);
 	}
 
 	instanceIdToGridPosition(instanceId: number): { row: number; col: number } {
@@ -353,9 +312,6 @@ export default class Sketch {
 	onHoverChange(oldInstanceId: number, newInstanceId: number) {
 		if (oldInstanceId !== -1) {
 			const oldGrid = this.instanceIdToGridPosition(oldInstanceId);
-			console.log(
-				`🚫 Left instance ${oldInstanceId} at grid (${oldGrid.row}, ${oldGrid.col})`
-			);
 			// UPDATE: Set hover state to false
 			this.setInstanceHover(oldInstanceId, false);
 		}
@@ -371,14 +327,8 @@ export default class Sketch {
 
 			if (canHover) {
 				const newGrid = this.instanceIdToGridPosition(newInstanceId);
-				console.log(
-					`✨ Entered instance ${newInstanceId} at grid (${newGrid.row}, ${newGrid.col})`
-				);
 				this.setInstanceHover(newInstanceId, true);
 			} else {
-				console.log(
-					`🔒 Instance ${newInstanceId} is not hoverable (state: ${RectangleState[currentState]})`
-				);
 				// Set cursor back to default since this rectangle can't be hovered
 				document.body.style.cursor = 'auto';
 			}
@@ -397,9 +347,6 @@ export default class Sketch {
 			currentState === RectangleState.AT_TARGET ||
 			currentState === RectangleState.QUEUED
 		) {
-			console.log(
-				`🚫 Hover blocked for instance ${instanceId} in state: ${RectangleState[currentState]}`
-			);
 			return;
 		}
 
@@ -422,17 +369,13 @@ export default class Sketch {
 
 		hoverAttr.needsUpdate = true;
 		timestampAttr.needsUpdate = true;
-
-		console.log(
-			`🎨 Set instance ${instanceId} hover: ${isHovered}, current state: ${RectangleState[currentState]}`
-		);
 	}
 
 	startAutoSelection() {
 		if (this.autoSelectTimer !== null) return; // Already running
 
 		const intervalMs = Math.max(
-			500,
+			100,
 			(this.animationDurationSec - this.overlapDurationSec) * 1000
 		);
 		this.autoSelectTimer = window.setInterval(() => {
@@ -447,7 +390,6 @@ export default class Sketch {
 
 				if (this.isInstanceEligibleNow(candidate)) {
 					this.addToQueue(candidate);
-					console.log(`🤖 Auto-selected instance ${candidate}`);
 					break;
 				}
 			}
@@ -501,9 +443,6 @@ export default class Sketch {
 			if (canClick) {
 				this.addToQueue(this.hoveredInstanceId);
 			} else {
-				console.log(
-					`🔒 Click blocked for instance ${this.hoveredInstanceId} in state: ${RectangleState[currentState]}`
-				);
 			}
 		}
 	}
@@ -519,7 +458,6 @@ export default class Sketch {
 		) {
 			// Prevent duplicate queueing
 			if (currentState === RectangleState.QUEUED) {
-				console.log(`⚠️ Instance ${instanceId} is already queued`);
 				return;
 			}
 
@@ -539,16 +477,9 @@ export default class Sketch {
 					const queueAttr = this.interactionAttributes.queuePosition;
 					queueAttr.array[instanceId] = this.animationQueue.length - 1;
 					queueAttr.needsUpdate = true;
-
-					console.log(
-						`📋 Added instance ${instanceId} to queue (position: ${this.animationQueue.length - 1})`
-					);
 				}
 			}
 		} else {
-			console.log(
-				`🔒 Cannot queue instance ${instanceId} in state: ${RectangleState[currentState]}`
-			);
 		}
 
 		// Keep auto-selection running; it internally no-ops when queue is large
@@ -581,7 +512,6 @@ export default class Sketch {
 			const nextInstanceId = this.animationQueue.shift()!;
 			this.startInstanceAnimation(nextInstanceId);
 			this.updateQueuePositions();
-			console.log(`🎬 Started animation for queued instance ${nextInstanceId}`);
 			return;
 		}
 
@@ -593,9 +523,6 @@ export default class Sketch {
 				const nextInstanceId = this.animationQueue.shift()!;
 				this.startInstanceAnimation(nextInstanceId);
 				this.updateQueuePositions();
-				console.log(
-					`⏩ Overlap start: previous ${this.currentlyAnimating} progress ${(lastProgress * 100).toFixed(0)}%, started ${nextInstanceId}`
-				);
 			}
 		}
 	}
@@ -661,8 +588,6 @@ export default class Sketch {
 
 			// Track most recently started animation for overlap logic
 			this.currentlyAnimating = instanceId;
-
-			console.log(`🚀 Started animation for instance ${instanceId}`);
 		}
 	}
 
@@ -693,7 +618,6 @@ export default class Sketch {
 				// Check if animation is complete
 				if (progress >= 1.0) {
 					stateAttr.array[i] = RectangleState.AT_TARGET;
-					console.log(`✅ Instance ${i} reached target position`);
 				}
 			}
 		}
@@ -723,10 +647,6 @@ export default class Sketch {
 				const queueAttr = this.interactionAttributes.queuePosition;
 				queueAttr.array[instanceId] = this.animationQueue.length - 1;
 				queueAttr.needsUpdate = true;
-
-				console.log(
-					`🎯 Added instance ${instanceId} to queue (position: ${this.animationQueue.length - 1})`
-				);
 			}
 		}
 	}
@@ -742,23 +662,21 @@ export default class Sketch {
 		stateAttr.array[instanceId] = newState;
 
 		// Preserve timestamp when transitioning QUEUED -> ANIMATING to prevent visual snap
-		if (!(prevState === RectangleState.QUEUED && newState === RectangleState.ANIMATING)) {
+		if (
+			!(
+				prevState === RectangleState.QUEUED &&
+				newState === RectangleState.ANIMATING
+			)
+		) {
 			timestampAttr.array[instanceId] = currentTime;
 		}
 
 		stateAttr.needsUpdate = true;
 		timestampAttr.needsUpdate = true;
-
-		console.log(
-			`🔄 Instance ${instanceId} state changed to: ${RectangleState[newState]}`
-		);
 	}
 
 	onMouseLeave() {
 		if (this.hoveredInstanceId !== -1) {
-			console.log(
-				`👋 Mouse left canvas, clearing hover from instance ${this.hoveredInstanceId}`
-			);
 			this.onHoverChange(this.hoveredInstanceId, -1);
 			this.hoveredInstanceId = -1;
 		}
@@ -819,8 +737,7 @@ export default class Sketch {
 		const idleColorUniform = uniform(new THREE.Color(0.02, 0.02, 0.02)); // Dark gray
 		const mainColorUniform = uniform(portfolioColors.primaryVec3); // Blue wave peaks
 		const hoverColorUniform = uniform(new THREE.Color(1.0, 0.5, 0.1)); // Orange hover
-		const selectedColorUniform = uniform(new THREE.Color(0.2, 0.8, 0.2)); // Green selected
-		const animatingColorUniform = uniform(new THREE.Color(0.8, 0.2, 0.8)); // Purple animating
+		const selectedColorUniform = uniform(new THREE.Color(0.4, 0.7, 0.2)); // Green selected
 		const targetColorUniform = uniform(new THREE.Color(1.0, 0.2, 0.2)); // Red at target
 
 		this.uniforms.frequency = frequencyUniform;
@@ -834,6 +751,7 @@ export default class Sketch {
 		// Varying variables for shader communication
 		const vWaveHeight = varying(float());
 		const vStateInfo = varying(vec4()); // x: state, y: hover transition, z: animation progress, w: unused
+		const vFinalColor = varying(vec3()); // Final per-instance color computed in vertex
 
 		// Attribute references
 		const colRowAttr = attribute('instanceColRow', 'vec2');
@@ -849,8 +767,6 @@ export default class Sketch {
 		// Uniform constants
 		const centeringOffsetXUniform = uniform(centeringOffsetX);
 		const centeringOffsetYUniform = uniform(centeringOffsetY);
-		const numColsUniform = uniform(numCols);
-		const numRowsUniform = uniform(numRows);
 
 		const animateZ = Fn(() => {
 			const position = positionLocal;
@@ -901,8 +817,6 @@ export default class Sketch {
 				.equal(1.0)
 				.select(transitionProgress, float(1.0).sub(transitionProgress));
 
-			const hoverOffset = hoverTransition.mul(1.5);
-
 			// Enhanced easing function for smoother animation
 			// const easedProgress = animProgress
 			// 	.mul(animProgress)
@@ -913,11 +827,7 @@ export default class Sketch {
 
 			// Calculate movement direction and distance for rotation
 			// Use a hover-independent origin to avoid target path mismatch and shifts
-			const originalCenter = vec3(
-				baseGridX,
-				baseGridY,
-				staticBaseZ.add(2.0)
-			);
+			const originalCenter = vec3(baseGridX, baseGridY, staticBaseZ.add(2.0));
 			const movementVector = targetPos.sub(originalCenter);
 			const movementDirection = movementVector.normalize();
 
@@ -1015,22 +925,28 @@ export default class Sketch {
 							queuedRestingPos,
 							transitionProgress
 						),
-						currentState
-							.equal(float(RectangleState.ANIMATING))
-							.select(
-								// ANIMATING → also blend the start, then add movement towards target
-								mix(
-									vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
-									queuedRestingPos,
-									transitionProgress
-								).add(offsetToTarget.mul(easedProgress)),
-								// Fallback (same as above)
-								mix(
-									vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
-									queuedRestingPos,
-									transitionProgress
-								).add(offsetToTarget.mul(easedProgress))
-							)
+						currentState.equal(float(RectangleState.ANIMATING)).select(
+							// ANIMATING → also blend the start, then add movement towards target
+							mix(
+								vec3(
+									float(0.0),
+									float(0.0),
+									baseWaveZ.add(effectiveHoverOffset)
+								),
+								queuedRestingPos,
+								transitionProgress
+							).add(offsetToTarget.mul(easedProgress)),
+							// Fallback (same as above)
+							mix(
+								vec3(
+									float(0.0),
+									float(0.0),
+									baseWaveZ.add(effectiveHoverOffset)
+								),
+								queuedRestingPos,
+								transitionProgress
+							).add(offsetToTarget.mul(easedProgress))
+						)
 					)
 				);
 
@@ -1044,64 +960,61 @@ export default class Sketch {
 				vec4(currentState, hoverTransition, easedProgress, transitionProgress)
 			);
 
+			// Compute final color in vertex to avoid per-fragment divergence
+			const stateRounded = currentState.add(0.5).floor();
+			const isQueued = stateRounded.equal(float(RectangleState.QUEUED));
+			const isAnimating = stateRounded.equal(float(RectangleState.ANIMATING));
+			const isAtTarget = stateRounded.equal(float(RectangleState.AT_TARGET));
+			const isClicked = stateRounded.greaterThan(float(RectangleState.HOVERED));
+
+			const maxZOffset = 3.0;
+			const colorMixFactor = baseWaveZ.div(maxZOffset).clamp(0.0, 1.0);
+			const baseWaveColor = mix(
+				idleColorUniform,
+				mainColorUniform,
+				colorMixFactor
+			);
+			const hoveredColor = mix(
+				baseWaveColor,
+				hoverColorUniform,
+				hoverTransition.mul(0.6)
+			);
+
+			const startColor = hoveredColor; // source before selection
+			// Stage 1: move to selected color while queued (from startColor)
+			const selectedStageMix = isQueued.select(transitionProgress, float(1.0));
+			const preAnimColor = mix(
+				startColor,
+				selectedColorUniform,
+				selectedStageMix
+			);
+			// Stage 2: during animation move from selected to target
+			const duringAnimColor = mix(
+				preAnimColor,
+				targetColorUniform,
+				animProgress
+			);
+
+			const finalVertexColor = isClicked
+				.select(
+					// clicked path
+					isAtTarget.select(
+						targetColorUniform,
+						isAnimating.select(duringAnimColor, preAnimColor)
+					),
+					// not clicked: idle/hovered path
+					hoveredColor
+				)
+				.toVar();
+
+			vFinalColor.assign(finalVertexColor);
+
 			return finalPosition;
 		});
 
 		// THIRD: Fix the color shader - replace animateColor function:
 		const animateColor = Fn(() => {
-			const waveHeight = vWaveHeight;
-			const stateInfo = vStateInfo;
-			const currentState = stateInfo.x;
-			const hoverTransition = stateInfo.y;
-			const animProgress = stateInfo.z;
-			const stateTransition = stateInfo.w; // 0->1 smoothing when state changes (timestamp driven)
-
-			const finalColor = vec3(0.02, 0.02, 0.02).toVar();
-
-			// Check if rectangle is clicked, queued, or animating
-			const isClicked = currentState.greaterThan(float(RectangleState.HOVERED));
-			const isQueued = currentState.equal(float(RectangleState.QUEUED));
-			const isAnimating = currentState.equal(float(RectangleState.ANIMATING));
-
-			If(isClicked, () => {
-				// Base wave/hover color (for smooth blend-in)
-				const maxZOffset = 3.0;
-				const colorMixFactor = waveHeight.div(maxZOffset).clamp(0.0, 1.0);
-				const baseWaveColor = mix(
-					idleColorUniform,
-					mainColorUniform,
-					colorMixFactor
-				);
-				const hoveredColor = mix(
-					baseWaveColor,
-					hoverColorUniform,
-					hoverTransition.mul(0.6)
-				);
-
-				// Target colors per clicked state
-				const clickedColor = isQueued.or(isAnimating)
-					.select(vec3(0.8, 0.2, 0.2), vec3(0.8, 0.2, 0.2)); // same here per current design
-
-				// Blend from hovered/base color to clicked color using stateTransition
-				finalColor.assign(mix(hoveredColor, clickedColor, stateTransition));
-			}).Else(() => {
-				// Wave colors for idle/hovered rectangles only
-				const maxZOffset = 3.0;
-				const colorMixFactor = waveHeight.div(maxZOffset).clamp(0.0, 1.0);
-				const baseWaveColor = mix(
-					idleColorUniform,
-					mainColorUniform,
-					colorMixFactor
-				);
-				const hoveredColor = mix(
-					baseWaveColor,
-					hoverColorUniform,
-					hoverTransition.mul(0.6)
-				);
-				finalColor.assign(hoveredColor);
-			});
-
-			return vec4(finalColor, 1.0);
+			return vec4(vFinalColor, 1.0);
 		});
 
 		// Apply the enhanced shaders
