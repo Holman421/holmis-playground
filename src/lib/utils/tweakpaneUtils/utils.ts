@@ -65,9 +65,9 @@ export const setupCameraPane = ({
 	// Add target controls
 	const targetFolder = cameraFolder.addFolder({ title: 'Target (Look At)' });
 	const targetBindings = {
-		x: targetFolder.addBinding(controls.target, 'x', { min: -20, max: 20, step: 0.01 }),
-		y: targetFolder.addBinding(controls.target, 'y', { min: -20, max: 20, step: 0.01 }),
-		z: targetFolder.addBinding(controls.target, 'z', { min: -20, max: 20, step: 0.01 })
+		x: targetFolder.addBinding(controls.target, 'x', { min: -100, max: 100, step: 0.01 }),
+		y: targetFolder.addBinding(controls.target, 'y', { min: -100, max: 100, step: 0.01 }),
+		z: targetFolder.addBinding(controls.target, 'z', { min: -100, max: 100, step: 0.01 })
 	};
 
 	// Update debug sphere position when target changes
@@ -82,9 +82,9 @@ export const setupCameraPane = ({
 	// Position controls
 		const positionFolder = cameraFolder.addFolder({ title: 'Position' });
 		const positionBindings = {
-			x: positionFolder.addBinding(camera.position, 'x', { min: -20, max: 20, step: 0.01 }),
-			y: positionFolder.addBinding(camera.position, 'y', { min: -20, max: 20, step: 0.01 }),
-			z: positionFolder.addBinding(camera.position, 'z', { min: -20, max: 20, step: 0.01 })
+			x: positionFolder.addBinding(camera.position, 'x', { min: -100, max: 100, step: 0.01 }),
+			y: positionFolder.addBinding(camera.position, 'y', { min: -100, max: 100, step: 0.01 }),
+			z: positionFolder.addBinding(camera.position, 'z', { min: -100, max: 100, step: 0.01 })
 		};
 
 	// FOV control

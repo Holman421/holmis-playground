@@ -57,6 +57,15 @@ export default class Sketch {
 	instancedMesh!: THREE.InstancedMesh;
 	raycaster!: THREE.Raycaster;
 	mouse!: THREE.Vector2;
+	mouseWobbleTarget!: THREE.Vector2;
+	mouseWobbleSmoothed!: THREE.Vector2;
+	wobblePosStrength: number = 0.3;
+	wobbleLerp: number = 0.015;
+	baseCameraPos!: THREE.Vector3;
+	baseTarget!: THREE.Vector3;
+	baseForward!: THREE.Vector3;
+	baseRight!: THREE.Vector3;
+	baseUp!: THREE.Vector3;
 	hoveredInstanceId!: number;
 	debugInfo!: {
 		mouseScreen: { x: number; y: number };
@@ -76,18 +85,43 @@ export default class Sketch {
 		zOffset: any;
 		scale: any;
 		currentTime: any;
+		atTargetRotX: any;
+		atTargetRotY: any;
+		atTargetRotZ: any;
+		mousePos: any;
+		wobbleStrength: any;
 	} = {
 		frequency: null,
 		amplitude: null,
 		zOffset: null,
 		scale: null,
-		currentTime: null
+		currentTime: null,
+		atTargetRotX: null,
+		atTargetRotY: null,
+		atTargetRotZ: null,
+		mousePos: null,
+		wobbleStrength: null
 	};
 
 	private animationQueue: number[] = [];
 	private currentlyAnimating: number | null = null;
-	private targetPosition: THREE.Vector3 = new THREE.Vector3(-37, 5, 55); // Where rectangles animate to
+	private targetPosition: THREE.Vector3 = new THREE.Vector3(-21.7, 1.9, 60.0); // Where rectangles animate to
 	private autoSelectTimer: number | null = null;
+
+	// Update all instance target positions after changing targetPosition
+	private updateAllTargetPositions() {
+		if (!this.interactionAttributes || !this.interactionAttributes.targetPosition)
+			return;
+		const attr = this.interactionAttributes.targetPosition;
+		const arr = attr.array as Float32Array;
+		for (let i = 0; i < attr.count; i++) {
+			const j = i * 3;
+			arr[j] = this.targetPosition.x;
+			arr[j + 1] = this.targetPosition.y;
+			arr[j + 2] = this.targetPosition.z;
+		}
+		attr.needsUpdate = true;
+	}
 
 	// Animation timing configuration
 	private animationDurationSec: number = 7.0; // total per-item duration
@@ -125,9 +159,24 @@ export default class Sketch {
 			0.01,
 			1000
 		);
-		this.camera.position.set(10, 0, 40);
+		this.camera.position.set(-29.45, 0.68, 70.69);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+		// Use OrbitControls target instead of camera.lookAt so the view persists
+		this.controls.target.set(20.66, -0.82, 31.89);
+		this.controls.update();
+		this.controls.enabled = false; // disable orbit controls
+
+		// Cache base camera frame for screen-space wobble
+		this.baseCameraPos = this.camera.position.clone();
+		this.baseTarget = this.controls.target.clone();
+		this.baseForward = this.baseCameraPos.clone().sub(this.baseTarget).normalize();
+		const worldUp = new THREE.Vector3(0, 1, 0);
+		this.baseRight = this.baseForward.clone().cross(worldUp).normalize();
+		this.baseUp = this.baseRight.clone().cross(this.baseForward).normalize();
+		this.mouseWobbleTarget = new THREE.Vector2(0, 0);
+		this.mouseWobbleSmoothed = new THREE.Vector2(0, 0);
+
 		this.isPlaying = true;
 		this.setupLights();
 		this.createColumn();
@@ -182,6 +231,14 @@ export default class Sketch {
 		this.renderer.setSize(this.width, this.height);
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
+
+		// Refresh base camera frame on resize
+		this.baseCameraPos = this.camera.position.clone();
+		this.baseTarget = this.controls.target.clone();
+		this.baseForward = this.baseCameraPos.clone().sub(this.baseTarget).normalize();
+		const worldUp = new THREE.Vector3(0, 1, 0);
+		this.baseRight = this.baseForward.clone().cross(worldUp).normalize();
+		this.baseUp = this.baseRight.clone().cross(this.baseForward).normalize();
 	}
 
 	setupInteractivity() {
@@ -231,6 +288,9 @@ export default class Sketch {
 		this.debugInfo.mouseNDC.y = this.mouse.y;
 
 		this.performIntersectionTest();
+
+		// Update wobble target in normalized screen space [-1,1]
+		this.mouseWobbleTarget.set(this.mouse.x, this.mouse.y);
 	}
 
 	performIntersectionTest() {
@@ -732,6 +792,12 @@ export default class Sketch {
 		const scaleUniform = uniform(0.075);
 		const transitionSpeedUniform = uniform(8.0);
 		const currentTimeUniform = uniform(0.0);
+		// Mouse wobble uniforms
+	// Camera wobble now applied on camera, not in shader
+		// Final orientation for cubes at AT_TARGET
+		const atTargetRotXUniform = uniform(0.0);
+		const atTargetRotYUniform = uniform(Math.PI / 5);
+		const atTargetRotZUniform = uniform(0.0);
 
 		// Color uniforms for different states
 		const idleColorUniform = uniform(new THREE.Color(0.02, 0.02, 0.02)); // Dark gray
@@ -745,6 +811,10 @@ export default class Sketch {
 		this.uniforms.zOffset = zOffsetUniform;
 		this.uniforms.scale = scaleUniform;
 		this.uniforms.currentTime = currentTimeUniform;
+		this.uniforms.atTargetRotX = atTargetRotXUniform;
+		this.uniforms.atTargetRotY = atTargetRotYUniform;
+		this.uniforms.atTargetRotZ = atTargetRotZUniform;
+	// no mesh wobble uniforms needed
 
 		this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
 
@@ -891,8 +961,41 @@ export default class Sketch {
 				rotatedPosY.z
 			);
 
-			// Use rotated position only during animation, otherwise use original
-			const finalRotatedPos = shouldRotate.select(rotatedPosZ, position);
+			// Build a rotation from uniforms for AT_TARGET state
+			const atCosX = atTargetRotXUniform.cos();
+			const atSinX = atTargetRotXUniform.sin();
+			const atCosY = atTargetRotYUniform.cos();
+			const atSinY = atTargetRotYUniform.sin();
+			const atCosZ = atTargetRotZUniform.cos();
+			const atSinZ = atTargetRotZUniform.sin();
+
+			// Apply AT_TARGET rotation to local position
+			const atRotX = vec3(
+				position.x,
+				position.y.mul(atCosX).sub(position.z.mul(atSinX)),
+				position.y.mul(atSinX).add(position.z.mul(atCosX))
+			);
+			const atRotY = vec3(
+				atRotX.x.mul(atCosY).add(atRotX.z.mul(atSinY)),
+				atRotX.y,
+				atRotX.x.mul(atSinY.negate()).add(atRotX.z.mul(atCosY))
+			);
+			const atRotZ = vec3(
+				atRotY.x.mul(atCosZ).sub(atRotY.y.mul(atSinZ)),
+				atRotY.x.mul(atSinZ).add(atRotY.y.mul(atCosZ)),
+				atRotY.z
+			);
+			const isAtTargetState = currentState.equal(float(RectangleState.AT_TARGET));
+
+			// Use rotated position during animation; otherwise original
+			const baseRotPos = shouldRotate.select(rotatedPosZ, position);
+
+			// Use rotated position during animation; at target use uniform-based final rotation; otherwise original
+			const finalRotatedPos = mix(
+				baseRotPos,
+				atRotZ,
+				isAtTargetState.select(float(1.0), float(0.0))
+			);
 			// Smaller selected Z offset
 			const selectedZBase = float(1.5); // Reduced from 2.0
 
@@ -1149,7 +1252,7 @@ export default class Sketch {
 			scene: this.scene,
 			defaultOpen: false,
 			helperSize: 1.5,
-			isActive: false
+			isActive: true
 		});
 
 		setupLightPane({
@@ -1195,6 +1298,71 @@ export default class Sketch {
 			showHelper: true,
 			isActive: false
 		});
+
+		// Target Position controls
+		const targetFolder = this.pane.addFolder({ title: 'Target Position', expanded: false });
+		const target = {
+			x: this.targetPosition.x,
+			y: this.targetPosition.y,
+			z: this.targetPosition.z
+		};
+		targetFolder
+			.addBinding(target, 'x', { min: -200, max: 200, step: 0.1, label: 'X' })
+			.on('change', (ev) => {
+				this.targetPosition.x = ev.value as number;
+				this.updateAllTargetPositions();
+			});
+
+		// Camera wobble controls
+		const wobbleFolder = this.pane.addFolder({ title: 'Camera Wobble', expanded: false });
+		wobbleFolder.addBinding(this, 'wobblePosStrength', {
+			label: 'Strength',
+			min: 0,
+			max: 5,
+			step: 0.01
+		});
+		wobbleFolder.addBinding(this, 'wobbleLerp', {
+			label: 'Easing',
+			min: 0.01,
+			max: 0.5,
+			step: 0.01
+		});
+		targetFolder
+			.addBinding(target, 'y', { min: -200, max: 200, step: 0.1, label: 'Y' })
+			.on('change', (ev) => {
+				this.targetPosition.y = ev.value as number;
+				this.updateAllTargetPositions();
+			});
+		targetFolder
+			.addBinding(target, 'z', { min: -200, max: 200, step: 0.1, label: 'Z' })
+			.on('change', (ev) => {
+				this.targetPosition.z = ev.value as number;
+				this.updateAllTargetPositions();
+			});
+
+		// At-Target Rotation controls (degrees)
+		const atTargetRotFolder = this.pane.addFolder({ title: 'At Target Rotation', expanded: false });
+		const atTargetRot = {
+			x: 0,
+			y: 0,
+			z: 0
+		};
+		const deg2rad = (d: number) => (d * Math.PI) / 180;
+		atTargetRotFolder
+			.addBinding(atTargetRot, 'x', { min: -180, max: 180, step: 1, label: 'Rot X (deg)' })
+			.on('change', (ev) => {
+				if (this.uniforms.atTargetRotX) this.uniforms.atTargetRotX.value = deg2rad(ev.value as number);
+			});
+		atTargetRotFolder
+			.addBinding(atTargetRot, 'y', { min: -180, max: 180, step: 1, label: 'Rot Y (deg)' })
+			.on('change', (ev) => {
+				if (this.uniforms.atTargetRotY) this.uniforms.atTargetRotY.value = deg2rad(ev.value as number);
+			});
+		atTargetRotFolder
+			.addBinding(atTargetRot, 'z', { min: -180, max: 180, step: 1, label: 'Rot Z (deg)' })
+			.on('change', (ev) => {
+				if (this.uniforms.atTargetRotZ) this.uniforms.atTargetRotZ.value = deg2rad(ev.value as number);
+			});
 	}
 
 	async render() {
@@ -1205,6 +1373,23 @@ export default class Sketch {
 			this.uniforms.currentTime.value = performance.now() * 0.001;
 		}
 
+		// Smooth mouse wobble towards target and apply to camera
+		const wobbleLerp = Math.max(0.001, Math.min(1, this.wobbleLerp)); // safety clamp
+		this.mouseWobbleSmoothed.lerp(this.mouseWobbleTarget, wobbleLerp);
+		const clampedX = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.x));
+		const clampedY = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.y));
+		const wobblePosStrength = this.wobblePosStrength; // how far to move in world units
+		// Recompute base camera frame in case of window resizes or target edits
+		const forward = this.baseForward;
+		const right = this.baseRight;
+		const up = this.baseUp;
+		const offset = new THREE.Vector3()
+			.addScaledVector(right, clampedX * wobblePosStrength)
+			.addScaledVector(up, clampedY * wobblePosStrength);
+		this.camera.position.copy(this.baseCameraPos).add(offset);
+		// Keep looking at same target
+		this.camera.lookAt(this.baseTarget);
+
 		// NEW: Update animations every frame
 		this.updateAnimations();
 
@@ -1213,7 +1398,7 @@ export default class Sketch {
 			this.startAutoSelection();
 		}
 
-		this.controls.update();
+		// controls disabled
 		await this.renderer.renderAsync(this.scene, this.camera);
 		requestAnimationFrame(() => this.render());
 	}
