@@ -1531,6 +1531,55 @@ export default class Sketch {
 			isActive: false
 		});
 
+		// Animation timing controls
+		const animFolder = this.pane.addFolder({
+			title: 'Animation Timing',
+			expanded: false
+		});
+		const timing = {
+			animationDurationSec: this.animationDurationSec,
+			overlapDurationSec: this.overlapDurationSec
+		};
+		let bOverlap: any;
+		const bDuration = animFolder
+			.addBinding(timing, 'animationDurationSec', {
+				label: 'Per-item Duration (s)',
+				min: 0.1,
+				max: 10,
+				step: 0.1
+			})
+			.on('change', (ev) => {
+				const dur = ev.value as number;
+				this.animationDurationSec = dur;
+				// Ensure overlap does not exceed duration
+				if (timing.overlapDurationSec > dur) {
+					timing.overlapDurationSec = dur;
+					this.overlapDurationSec = dur;
+					if (bOverlap && typeof bOverlap.refresh === 'function') bOverlap.refresh();
+				}
+				// Restart auto-selection timer to apply new cadence
+				this.stopAutoSelection();
+				this.startAutoSelection();
+			});
+		bOverlap = animFolder
+			.addBinding(timing, 'overlapDurationSec', {
+				label: 'Overlap (s)',
+				min: 0,
+				max: 10,
+				step: 0.1
+			})
+			.on('change', (ev) => {
+				// Clamp to [0, duration]
+				let v = ev.value as number;
+				v = Math.max(0, Math.min(v, this.animationDurationSec));
+				timing.overlapDurationSec = v;
+				this.overlapDurationSec = v;
+				if (bOverlap && typeof bOverlap.refresh === 'function') bOverlap.refresh();
+				// Restart auto-selection timer to apply new cadence
+				this.stopAutoSelection();
+				this.startAutoSelection();
+			});
+
 		// Target Position controls
 		// const targetFolder = this.pane.addFolder({
 		// 	title: 'Target Position',
