@@ -62,7 +62,7 @@ export default class Sketch {
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.isPlaying = true;
 		this.setupLights();
-		// this.createMesh();
+		this.createMesh();
 		this.resize();
 		this.setUpSettings();
 		this.init();
@@ -104,15 +104,82 @@ export default class Sketch {
 		])
 			.then(([atlas, font]: any) => {
 				const geometry = new MSDFTextGeometry({
-					text: 'ALES HOLMAN',
+					text: 'ALES HOLMAN\nPORTFOLIO',
 					font: font.data
 				});
 
 				const material = new MSDFTextNodeMaterial({
 					map: atlas,
-					color: '#ffffffff',
+					color: '#000000',
 					opacity: 1.0,
+					strokeOutsetWidth: 0.1,
+					strokeInsetWidth: 0.05,
+					strokeColor: '#FFFFFF'
 				});
+
+				/**
+				 * First approach: override nodes on the existing MSDFTextNodeMaterial instance
+				 * We build a per-letter animated gradient using the geometry attributes.
+				 */
+				// Geometry attributes exposed to the shader via TSL
+				const letterIndex = attribute('letterIndex', 'float');
+				const lineLetterIndex = attribute('lineLetterIndex', 'float');
+				const lineLettersTotal = attribute('lineLettersTotal', 'float');
+
+				// Normalized progress across the line (0..1)
+				const progress = clamp(
+					div(lineLetterIndex, sub(lineLettersTotal, 1.0)),
+					0.0,
+					1.0
+				);
+
+				// Time (seconds) – automatically provided node that updates each frame
+				const time = timerLocal();
+
+				// Build a smooth animated rainbow-like gradient using phase shifts
+				const r = add(mul(sin(add(mul(time, 0.5), progress)), 0.5), 0.5);
+				const g = add(
+					mul(sin(add(mul(time, 0.6), add(progress, 2.094))), 0.5),
+					0.5
+				);
+				const b = add(
+					mul(sin(add(mul(time, 0.7), add(progress, 4.188))), 0.5),
+					0.5
+				);
+
+				// Combine into gradient color node
+				const gradient = vec3(r, g, b);
+				// Mix original base color with the animated gradient for subtlety
+				material.colorNode = mix(material.color, gradient, 0.9);
+
+				// Pulsing opacity per letter (staggered by letterIndex)
+				const pulse = add(
+					mul(sin(add(mul(time, 3.0), mul(letterIndex, 0.35))), 0.5),
+					0.5
+				);
+				material.opacityNode = mul(material.opacityNode, pulse);
+
+				// Individual Y position animation per letter
+				// Create a wave effect where each letter bounces at different times
+				// Make amplitude much larger to account for the 0.01 scale
+				const yOffset = mul(
+					sin(add(mul(time, 2.0), mul(letterIndex, 0.5))),
+					5.0 // Much larger amplitude to be visible at 0.01 scale
+				);
+
+				// Apply the Y offset to the vertex position
+				// Get the original position attribute and add the animation
+				const position = attribute('position', 'vec2'); // MSDF uses 2D positions
+				const animatedPosition = vec3(
+					position.x,
+					add(position.y, yOffset), // Add Y animation
+					0.0
+				);
+
+				// Override the position node
+				material.positionNode = animatedPosition;
+
+				material.needsUpdate = true;
 
 				const mesh = new THREE.Mesh(geometry as any, material as any);
 				mesh.position.set(0, 0, 0);
@@ -144,6 +211,7 @@ export default class Sketch {
 			side: THREE.DoubleSide
 		});
 		this.mesh = new THREE.Mesh(this.geometry, this.material as any);
+		// this.scene.add(this.mesh);
 	}
 
 	setUpSettings() {

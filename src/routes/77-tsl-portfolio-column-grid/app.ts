@@ -21,6 +21,9 @@ import {
 } from 'three/tsl';
 import { snoise } from '$lib/utils/webGPU/simplexNoise2d';
 import { portfolioColors } from '$lib/utils/colors/portfolioColors';
+import { titles } from './names';
+import { MSDFTextGeometry, MSDFTextNodeMaterial } from './src/index';
+import { FontLoader } from 'three/examples/jsm/Addons.js';
 
 interface SketchOptions {
 	dom: HTMLElement;
@@ -45,6 +48,7 @@ export default class Sketch {
 	controls: OrbitControls;
 	isPlaying: boolean;
 	resizeListener: boolean = false;
+	controlsEnabled: boolean = false; // Toggle OrbitControls on/off
 	material!: THREE.MeshStandardNodeMaterial;
 	geometry!: THREE.BoxGeometry;
 	mesh!: THREE.Mesh;
@@ -55,6 +59,7 @@ export default class Sketch {
 	pointLight3!: THREE.PointLight;
 	pointLight4!: THREE.PointLight;
 	instancedMesh!: THREE.InstancedMesh;
+	textMesh?: THREE.Mesh; // MSDF text mesh reference for tweakpane controls
 	raycaster!: THREE.Raycaster;
 	mouse!: THREE.Vector2;
 	mouseWobbleTarget!: THREE.Vector2;
@@ -105,12 +110,15 @@ export default class Sketch {
 
 	private animationQueue: number[] = [];
 	private currentlyAnimating: number | null = null;
-	private targetPosition: THREE.Vector3 = new THREE.Vector3(-21.7, 1.9, 60.0); // Where rectangles animate to
+	private targetPosition: THREE.Vector3 = new THREE.Vector3(-21.7, 1.9, 58.75); // Where rectangles animate to
 	private autoSelectTimer: number | null = null;
 
 	// Update all instance target positions after changing targetPosition
 	private updateAllTargetPositions() {
-		if (!this.interactionAttributes || !this.interactionAttributes.targetPosition)
+		if (
+			!this.interactionAttributes ||
+			!this.interactionAttributes.targetPosition
+		)
 			return;
 		const attr = this.interactionAttributes.targetPosition;
 		const arr = attr.array as Float32Array;
@@ -124,13 +132,17 @@ export default class Sketch {
 	}
 
 	// Animation timing configuration
-	private animationDurationSec: number = 7.0; // total per-item duration
-	private overlapDurationSec: number = 5.0; // start next this many seconds before finish
+	private animationDurationSec: number = 2.0; // total per-item duration
+	private overlapDurationSec: number = 1.0; // start next this many seconds before finish
 
 	private get overlapStartProgress(): number {
 		// e.g. 6s duration, 2s overlap => start next at 4s => progress >= 0.6667
 		return 1 - this.overlapDurationSec / this.animationDurationSec;
 	}
+
+	private instanceTextData: Array<{ name: string; isImportant: boolean }> = [];
+	private numCols: number = 15;
+	private numRows: number = 40;
 
 	interactionAttributes!: {
 		hover: THREE.InstancedBufferAttribute;
@@ -164,24 +176,22 @@ export default class Sketch {
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		// Use OrbitControls target instead of camera.lookAt so the view persists
 		this.controls.target.set(20.66, -0.82, 31.89);
-		this.controls.update();
-		this.controls.enabled = false; // disable orbit controls
+		// this.controls.update();
+		// Start with controls disabled; can be toggled via setControlsEnabled or Tweakpane
+		this.setControlsEnabled(false);
 
 		// Cache base camera frame for screen-space wobble
-		this.baseCameraPos = this.camera.position.clone();
-		this.baseTarget = this.controls.target.clone();
-		this.baseForward = this.baseCameraPos.clone().sub(this.baseTarget).normalize();
-		const worldUp = new THREE.Vector3(0, 1, 0);
-		this.baseRight = this.baseForward.clone().cross(worldUp).normalize();
-		this.baseUp = this.baseRight.clone().cross(this.baseForward).normalize();
+		this.updateBaseCameraFrame();
 		this.mouseWobbleTarget = new THREE.Vector2(0, 0);
 		this.mouseWobbleSmoothed = new THREE.Vector2(0, 0);
 
 		this.isPlaying = true;
+		this.initializeInstanceData();
 		this.setupLights();
 		this.createColumn();
 		this.createInstancedMesh();
 		this.setupSettings();
+		this.handleFonts();
 
 		this.createInstanceIdMapping();
 		this.setupInteractivity();
@@ -233,12 +243,55 @@ export default class Sketch {
 		this.camera.updateProjectionMatrix();
 
 		// Refresh base camera frame on resize
+		this.updateBaseCameraFrame();
+	}
+
+	// Update cached base camera frame from current camera and controls.target
+	private updateBaseCameraFrame() {
 		this.baseCameraPos = this.camera.position.clone();
 		this.baseTarget = this.controls.target.clone();
-		this.baseForward = this.baseCameraPos.clone().sub(this.baseTarget).normalize();
+		this.baseForward = this.baseCameraPos
+			.clone()
+			.sub(this.baseTarget)
+			.normalize();
 		const worldUp = new THREE.Vector3(0, 1, 0);
 		this.baseRight = this.baseForward.clone().cross(worldUp).normalize();
 		this.baseUp = this.baseRight.clone().cross(this.baseForward).normalize();
+	}
+
+	// Public toggle for OrbitControls; also refreshes wobble base so transitions feel natural
+	setControlsEnabled(enabled: boolean) {
+		this.controlsEnabled = enabled;
+		this.controls.enabled = enabled;
+		// When switching modes, capture the current camera/target as the new wobble base
+		this.updateBaseCameraFrame();
+	}
+
+	// Centralized camera/controls handling used each frame
+	private updateCameraAndControls() {
+		// Smooth mouse wobble towards target (keep updated regardless of mode)
+		const wobbleLerp = Math.max(0.001, Math.min(1, this.wobbleLerp));
+		this.mouseWobbleSmoothed.lerp(this.mouseWobbleTarget, wobbleLerp);
+		const clampedX = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.x));
+		const clampedY = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.y));
+
+		if (this.controlsEnabled) {
+			// Hand over to OrbitControls
+			this.controls.update();
+			return;
+		}
+
+		// Apply wobble to camera when controls are disabled
+		const wobblePosStrength = this.wobblePosStrength;
+		const forward = this.baseForward;
+		const right = this.baseRight;
+		const up = this.baseUp;
+		const offset = new THREE.Vector3()
+			.addScaledVector(right, clampedX * wobblePosStrength)
+			.addScaledVector(up, clampedY * wobblePosStrength);
+		this.camera.position.copy(this.baseCameraPos).add(offset);
+		// Keep looking at same target
+		this.camera.lookAt(this.baseTarget);
 	}
 
 	setupInteractivity() {
@@ -291,6 +344,179 @@ export default class Sketch {
 
 		// Update wobble target in normalized screen space [-1,1]
 		this.mouseWobbleTarget.set(this.mouse.x, this.mouse.y);
+	}
+
+	initializeInstanceData() {
+		this.instanceTextData = titles;
+
+		const numCols = this.numCols;
+		const numRows = this.numRows;
+		const totalInstances = numCols * numRows;
+		const totalTitles = this.instanceTextData.length;
+
+		for (let i = 0; i < totalInstances; i++) {
+			// Cycle through your data if you have fewer items than instances
+			const dataIndex = i % totalTitles;
+			this.instanceTextData[i] = this.instanceTextData[dataIndex];
+		}
+		console.log(this.instanceTextData);
+	}
+
+	handleFonts() {
+		console.log('IS THIS EVEN WORKING?');
+		console.log(MSDFTextNodeMaterial);
+		Promise.all([
+			loadFontAtlas('/fonts/Audiowide-msdf.png'),
+			loadFont('/fonts/Audiowide-msdf.json')
+		])
+			.then(([atlas, font]: any) => {
+				const geometryStatic = new MSDFTextGeometry({
+					text: 'Hi, I am',
+					font: font.data,
+					side: THREE.DoubleSide
+				});
+
+				const geometry = new MSDFTextGeometry({
+					text: 'ALES HOLMAN',
+					font: font.data,
+					side: THREE.DoubleSide
+				});
+
+				const material = new MSDFTextNodeMaterial({
+					map: atlas,
+					color: '#ffffffff',
+					opacity: 1.0
+				});
+
+				const mesh = new THREE.Mesh(geometry as any, material as any);
+				mesh.position.set(-25.6, 1.4, 67.4);
+				mesh.scale.set(0.01, 0.01, 0.01);
+				mesh.rotation.set(0, Math.PI * (125 / 180), Math.PI * 1.0);
+				this.scene.add(mesh);
+				this.textMesh = mesh;
+
+				const meshStatic = new THREE.Mesh(geometryStatic as any, material as any);
+				meshStatic.position.set(-25.6, 2.0, 67.4);
+				meshStatic.scale.set(0.01, 0.01, 0.01);
+				meshStatic.rotation.set(0, Math.PI * (125 / 180), Math.PI * 1.0);
+				this.scene.add(meshStatic);
+
+				// Store font reference for later use in updateFontText
+				(this.textMesh as any)._font = font.data;
+
+				// Add tweakpane controls for text mesh position and rotation
+				if (this.pane && false) {
+					const fontFolder = this.pane.addFolder({
+						title: 'Font Transform',
+						expanded: false
+					});
+					const pos = {
+						x: mesh.position.x,
+						y: mesh.position.y,
+						z: mesh.position.z
+					};
+					fontFolder
+						.addBinding(pos, 'x', {
+							min: -500,
+							max: 500,
+							step: 0.1,
+							label: 'Pos X'
+						})
+						.on('change', (ev) => {
+							if (this.textMesh) this.textMesh.position.x = ev.value as number;
+						});
+					fontFolder
+						.addBinding(pos, 'y', {
+							min: -500,
+							max: 500,
+							step: 0.1,
+							label: 'Pos Y'
+						})
+						.on('change', (ev) => {
+							if (this.textMesh) this.textMesh.position.y = ev.value as number;
+						});
+					fontFolder
+						.addBinding(pos, 'z', {
+							min: -500,
+							max: 500,
+							step: 0.1,
+							label: 'Pos Z'
+						})
+						.on('change', (ev) => {
+							if (this.textMesh) this.textMesh.position.z = ev.value as number;
+						});
+
+					// Rotation in degrees
+					const rad2deg = (r: number) => (r * 180) / Math.PI;
+					const deg2rad = (d: number) => (d * Math.PI) / 180;
+					const rot = {
+						x: rad2deg(mesh.rotation.x),
+						y: rad2deg(mesh.rotation.y),
+						z: rad2deg(mesh.rotation.z)
+					};
+					fontFolder
+						.addBinding(rot, 'x', {
+							min: -180,
+							max: 180,
+							step: 1,
+							label: 'Rot X (deg)'
+						})
+						.on('change', (ev) => {
+							if (this.textMesh)
+								this.textMesh.rotation.x = deg2rad(ev.value as number);
+						});
+					fontFolder
+						.addBinding(rot, 'y', {
+							min: -180,
+							max: 180,
+							step: 1,
+							label: 'Rot Y (deg)'
+						})
+						.on('change', (ev) => {
+							if (this.textMesh)
+								this.textMesh.rotation.y = deg2rad(ev.value as number);
+						});
+					fontFolder
+						.addBinding(rot, 'z', {
+							min: -180,
+							max: 180,
+							step: 1,
+							label: 'Rot Z (deg)'
+						})
+						.on('change', (ev) => {
+							if (this.textMesh)
+								this.textMesh.rotation.z = deg2rad(ev.value as number);
+						});
+				}
+			})
+			.catch((e) => console.error('MSDF font load failed', e));
+
+		function loadFontAtlas(path: string) {
+			return new Promise((resolve, reject) => {
+				const loader = new THREE.TextureLoader();
+				loader.load(path, resolve, undefined, reject);
+			});
+		}
+
+		function loadFont(path: string) {
+			return new Promise((resolve, reject) => {
+				const loader = new FontLoader();
+				loader.load(path, resolve, undefined, reject);
+			});
+		}
+	}
+
+	updateFontText(text: string) {
+		if (this.textMesh) {
+			const font = (this.textMesh as any)._font;
+			const geometry = new MSDFTextGeometry({
+				text: text,
+				font: font,
+				side: THREE.DoubleSide
+			});
+			this.textMesh.geometry.dispose();
+			this.textMesh.geometry = geometry;
+		}
 	}
 
 	performIntersectionTest() {
@@ -350,17 +576,20 @@ export default class Sketch {
 		this.instanceIdToGrid = new Map();
 		this.gridToInstanceId = new Map();
 
-		// Since you now have a simple numRows x numCols grid
-		const numCols = 15;
-		const numRows = 40;
-
 		let instanceIndex = 0;
-		for (let row = 0; row < numRows; row++) {
-			for (let col = 0; col < numCols; col++) {
+		for (let row = 0; row < this.numRows; row++) {
+			for (let col = 0; col < this.numCols; col++) {
 				this.instanceIdToGrid.set(instanceIndex, { row, col });
 				this.gridToInstanceId.set(`${row},${col}`, instanceIndex);
 				instanceIndex++;
 			}
+		}
+	}
+
+	onInstanceReachedTarget(instanceId: number) {
+		const instanceData = this.instanceTextData[instanceId];
+		if (instanceData) {
+			this.updateFontText(instanceData.name);
 		}
 	}
 
@@ -678,6 +907,7 @@ export default class Sketch {
 				// Check if animation is complete
 				if (progress >= 1.0) {
 					stateAttr.array[i] = RectangleState.AT_TARGET;
+					this.onInstanceReachedTarget(i);
 				}
 			}
 		}
@@ -793,7 +1023,7 @@ export default class Sketch {
 		const transitionSpeedUniform = uniform(8.0);
 		const currentTimeUniform = uniform(0.0);
 		// Mouse wobble uniforms
-	// Camera wobble now applied on camera, not in shader
+		// Camera wobble now applied on camera, not in shader
 		// Final orientation for cubes at AT_TARGET
 		const atTargetRotXUniform = uniform(0.0);
 		const atTargetRotYUniform = uniform(Math.PI / 5);
@@ -814,7 +1044,7 @@ export default class Sketch {
 		this.uniforms.atTargetRotX = atTargetRotXUniform;
 		this.uniforms.atTargetRotY = atTargetRotYUniform;
 		this.uniforms.atTargetRotZ = atTargetRotZUniform;
-	// no mesh wobble uniforms needed
+		// no mesh wobble uniforms needed
 
 		this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
 
@@ -985,7 +1215,9 @@ export default class Sketch {
 				atRotY.x.mul(atSinZ).add(atRotY.y.mul(atCosZ)),
 				atRotY.z
 			);
-			const isAtTargetState = currentState.equal(float(RectangleState.AT_TARGET));
+			const isAtTargetState = currentState.equal(
+				float(RectangleState.AT_TARGET)
+			);
 
 			// Use rotated position during animation; otherwise original
 			const baseRotPos = shouldRotate.select(rotatedPosZ, position);
@@ -1232,12 +1464,12 @@ export default class Sketch {
 		//  step: 0.1,
 		//  label: 'Amplitude'
 		// });
-		this.pane.addBinding(this.uniforms.zOffset, 'value', {
-			min: -10,
-			max: 10,
-			step: 0.1,
-			label: 'Z Offset'
-		});
+		// this.pane.addBinding(this.uniforms.zOffset, 'value', {
+		// 	min: -10,
+		// 	max: 10,
+		// 	step: 0.1,
+		// 	label: 'Z Offset'
+		// });
 		// this.pane.addBinding(this.uniforms.scale, 'value', {
 		//  min: 0.01,
 		//  max: 0.5,
@@ -1252,7 +1484,7 @@ export default class Sketch {
 			scene: this.scene,
 			defaultOpen: false,
 			helperSize: 1.5,
-			isActive: true
+			isActive: false
 		});
 
 		setupLightPane({
@@ -1300,69 +1532,101 @@ export default class Sketch {
 		});
 
 		// Target Position controls
-		const targetFolder = this.pane.addFolder({ title: 'Target Position', expanded: false });
-		const target = {
-			x: this.targetPosition.x,
-			y: this.targetPosition.y,
-			z: this.targetPosition.z
-		};
-		targetFolder
-			.addBinding(target, 'x', { min: -200, max: 200, step: 0.1, label: 'X' })
-			.on('change', (ev) => {
-				this.targetPosition.x = ev.value as number;
-				this.updateAllTargetPositions();
-			});
+		// const targetFolder = this.pane.addFolder({
+		// 	title: 'Target Position',
+		// 	expanded: false
+		// });
+		// const target = {
+		// 	x: this.targetPosition.x,
+		// 	y: this.targetPosition.y,
+		// 	z: this.targetPosition.z
+		// };
+		// targetFolder
+		// 	.addBinding(target, 'x', { min: -200, max: 200, step: 0.1, label: 'X' })
+		// 	.on('change', (ev) => {
+		// 		this.targetPosition.x = ev.value as number;
+		// 		this.updateAllTargetPositions();
+		// 	});
 
-		// Camera wobble controls
-		const wobbleFolder = this.pane.addFolder({ title: 'Camera Wobble', expanded: false });
-		wobbleFolder.addBinding(this, 'wobblePosStrength', {
-			label: 'Strength',
-			min: 0,
-			max: 5,
-			step: 0.01
-		});
-		wobbleFolder.addBinding(this, 'wobbleLerp', {
-			label: 'Easing',
-			min: 0.01,
-			max: 0.5,
-			step: 0.01
-		});
-		targetFolder
-			.addBinding(target, 'y', { min: -200, max: 200, step: 0.1, label: 'Y' })
-			.on('change', (ev) => {
-				this.targetPosition.y = ev.value as number;
-				this.updateAllTargetPositions();
-			});
-		targetFolder
-			.addBinding(target, 'z', { min: -200, max: 200, step: 0.1, label: 'Z' })
-			.on('change', (ev) => {
-				this.targetPosition.z = ev.value as number;
-				this.updateAllTargetPositions();
-			});
+		// // Camera wobble controls
+		// const wobbleFolder = this.pane.addFolder({
+		// 	title: 'Camera Wobble',
+		// 	expanded: false
+		// });
+		// wobbleFolder.addBinding(this, 'wobblePosStrength', {
+		// 	label: 'Strength',
+		// 	min: 0,
+		// 	max: 5,
+		// 	step: 0.01
+		// });
+		// wobbleFolder.addBinding(this, 'wobbleLerp', {
+		// 	label: 'Easing',
+		// 	min: 0.01,
+		// 	max: 0.5,
+		// 	step: 0.01
+		// });
+		// targetFolder
+		// 	.addBinding(target, 'y', { min: -200, max: 200, step: 0.1, label: 'Y' })
+		// 	.on('change', (ev) => {
+		// 		this.targetPosition.y = ev.value as number;
+		// 		this.updateAllTargetPositions();
+		// 	});
+		// targetFolder
+		// 	.addBinding(target, 'z', { min: -200, max: 200, step: 0.1, label: 'Z' })
+		// 	.on('change', (ev) => {
+		// 		this.targetPosition.z = ev.value as number;
+		// 		this.updateAllTargetPositions();
+		// 	});
 
-		// At-Target Rotation controls (degrees)
-		const atTargetRotFolder = this.pane.addFolder({ title: 'At Target Rotation', expanded: false });
-		const atTargetRot = {
-			x: 0,
-			y: 0,
-			z: 0
-		};
-		const deg2rad = (d: number) => (d * Math.PI) / 180;
-		atTargetRotFolder
-			.addBinding(atTargetRot, 'x', { min: -180, max: 180, step: 1, label: 'Rot X (deg)' })
-			.on('change', (ev) => {
-				if (this.uniforms.atTargetRotX) this.uniforms.atTargetRotX.value = deg2rad(ev.value as number);
-			});
-		atTargetRotFolder
-			.addBinding(atTargetRot, 'y', { min: -180, max: 180, step: 1, label: 'Rot Y (deg)' })
-			.on('change', (ev) => {
-				if (this.uniforms.atTargetRotY) this.uniforms.atTargetRotY.value = deg2rad(ev.value as number);
-			});
-		atTargetRotFolder
-			.addBinding(atTargetRot, 'z', { min: -180, max: 180, step: 1, label: 'Rot Z (deg)' })
-			.on('change', (ev) => {
-				if (this.uniforms.atTargetRotZ) this.uniforms.atTargetRotZ.value = deg2rad(ev.value as number);
-			});
+		// // At-Target Rotation controls (degrees)
+		// const atTargetRotFolder = this.pane.addFolder({
+		// 	title: 'At Target Rotation',
+		// 	expanded: false
+		// });
+		// const atTargetRot = {
+		// 	x: 0,
+		// 	y: 0,
+		// 	z: 0
+		// };
+		// const deg2rad = (d: number) => (d * Math.PI) / 180;
+		// atTargetRotFolder
+		// 	.addBinding(atTargetRot, 'x', {
+		// 		min: -180,
+		// 		max: 180,
+		// 		step: 1,
+		// 		label: 'Rot X (deg)'
+		// 	})
+		// 	.on('change', (ev) => {
+		// 		if (this.uniforms.atTargetRotX)
+		// 			this.uniforms.atTargetRotX.value = deg2rad(ev.value as number);
+		// 	});
+		// atTargetRotFolder
+		// 	.addBinding(atTargetRot, 'y', {
+		// 		min: -180,
+		// 		max: 180,
+		// 		step: 1,
+		// 		label: 'Rot Y (deg)'
+		// 	})
+		// 	.on('change', (ev) => {
+		// 		if (this.uniforms.atTargetRotY)
+		// 			this.uniforms.atTargetRotY.value = deg2rad(ev.value as number);
+		// 	});
+		// atTargetRotFolder
+		// 	.addBinding(atTargetRot, 'z', {
+		// 		min: -180,
+		// 		max: 180,
+		// 		step: 1,
+		// 		label: 'Rot Z (deg)'
+		// 	})
+		// 	.on('change', (ev) => {
+		// 		if (this.uniforms.atTargetRotZ)
+		// 			this.uniforms.atTargetRotZ.value = deg2rad(ev.value as number);
+		// 	});
+
+		// Controls toggle
+		this.pane
+			.addBinding(this, 'controlsEnabled', { label: 'Enable Controls' })
+			.on('change', (ev) => this.setControlsEnabled(ev.value as boolean));
 	}
 
 	async render() {
@@ -1373,22 +1637,8 @@ export default class Sketch {
 			this.uniforms.currentTime.value = performance.now() * 0.001;
 		}
 
-		// Smooth mouse wobble towards target and apply to camera
-		const wobbleLerp = Math.max(0.001, Math.min(1, this.wobbleLerp)); // safety clamp
-		this.mouseWobbleSmoothed.lerp(this.mouseWobbleTarget, wobbleLerp);
-		const clampedX = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.x));
-		const clampedY = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.y));
-		const wobblePosStrength = this.wobblePosStrength; // how far to move in world units
-		// Recompute base camera frame in case of window resizes or target edits
-		const forward = this.baseForward;
-		const right = this.baseRight;
-		const up = this.baseUp;
-		const offset = new THREE.Vector3()
-			.addScaledVector(right, clampedX * wobblePosStrength)
-			.addScaledVector(up, clampedY * wobblePosStrength);
-		this.camera.position.copy(this.baseCameraPos).add(offset);
-		// Keep looking at same target
-		this.camera.lookAt(this.baseTarget);
+		// Centralized handling for camera wobble vs OrbitControls
+		this.updateCameraAndControls();
 
 		// NEW: Update animations every frame
 		this.updateAnimations();
