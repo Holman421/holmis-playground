@@ -27,7 +27,6 @@
  */
 declare module '$env/static/private' {
 	export const ALLUSERSPROFILE: string;
-	export const AMDRMSDKPATH: string;
 	export const APPDATA: string;
 	export const CommonProgramFiles: string;
 	export const CommonProgramW6432: string;
@@ -38,6 +37,7 @@ declare module '$env/static/private' {
 	export const HOMEPATH: string;
 	export const LOCALAPPDATA: string;
 	export const LOGONSERVER: string;
+	export const MAGICK_CODER_MODULE_PATH: string;
 	export const NODE: string;
 	export const NODE_ENV: string;
 	export const npm_command: string;
@@ -112,7 +112,6 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		ALLUSERSPROFILE: string;
-		AMDRMSDKPATH: string;
 		APPDATA: string;
 		CommonProgramFiles: string;
 		CommonProgramW6432: string;
@@ -123,6 +122,7 @@ declare module '$env/dynamic/private' {
 		HOMEPATH: string;
 		LOCALAPPDATA: string;
 		LOGONSERVER: string;
+		MAGICK_CODER_MODULE_PATH: string;
 		NODE: string;
 		NODE_ENV: string;
 		npm_command: string;
