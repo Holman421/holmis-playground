@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/three-js-template/Yuri-template-shader/+page.svelte";
+export { default as component } from "../../../../src/routes/three-js-template/webGPU-tsl/+page.svelte";

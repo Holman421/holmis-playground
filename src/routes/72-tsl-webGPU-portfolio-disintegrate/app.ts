@@ -16,10 +16,6 @@ import {
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import {
-	setupCameraPane,
-	setupLightPane
-} from '$lib/utils/tweakpaneUtils/utils';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import {
@@ -206,10 +202,10 @@ export default class Sketch {
 		this.setupLights();
 		this.createGroup();
 		this.createMesh();
-		this.createText();
 		this.setupBloom();
 		this.resize();
 		this.particleSystem();
+		this.createText();
 		this.setUpSettings();
 		this.startCycleAnimation();
 

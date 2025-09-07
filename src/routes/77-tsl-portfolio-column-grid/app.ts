@@ -1,41 +1,21 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper.js';
+import { RectAreaLightTexturesLib } from 'three/examples/jsm/lights/RectAreaLightTexturesLib.js';
 import { Pane } from 'tweakpane';
-import {
-	setupCameraPane,
-	setupLightPane
-} from '$lib/utils/tweakpaneUtils/utils';
-import {
-	attribute,
-	float,
-	Fn,
-	If,
-	mix,
-	positionLocal,
-	time,
-	uniform,
-	varying,
-	vec2,
-	vec3,
-	vec4
-} from 'three/tsl';
-import { snoise } from '$lib/utils/webGPU/simplexNoise2d';
-import { portfolioColors } from '$lib/utils/colors/portfolioColors';
 import { titles } from './names';
-import { MSDFTextGeometry, MSDFTextNodeMaterial } from './src/index';
-import { FontLoader } from 'three/examples/jsm/Addons.js';
+import DisintegrateMesh from '$lib/utils/meshes/DisintegrateMesh';
+import CameraWobble from '$lib/utils/cameraWobble';
+import TextHandler from './utils/handleText';
+import TweakPaneManager from './utils/tweakPane';
+import AnimationSystem, { RectangleState } from './utils/animationSystem';
+import InteractionSystem from './utils/interactionSystem';
+import InstancedMeshManager from './utils/instancedMeshManager';
+import AutoSelectionManager from './utils/autoSelectionManager';
+import DisintegrateAnimation from './utils/dissentagrateAnimation';
 
 interface SketchOptions {
 	dom: HTMLElement;
-}
-
-enum RectangleState {
-	IDLE = 0,
-	HOVERED = 1,
-	SELECTED = 2, // Remove this if not needed
-	QUEUED = 3, // NEW: In queue, waiting to animate
-	ANIMATING = 4, // Currently moving to target
-	AT_TARGET = 5 // Reached destination and static
 }
 
 export default class Sketch {
@@ -48,41 +28,37 @@ export default class Sketch {
 	controls: OrbitControls;
 	isPlaying: boolean;
 	resizeListener: boolean = false;
-	controlsEnabled: boolean = false; // Toggle OrbitControls on/off
-	material!: THREE.MeshStandardNodeMaterial;
-	geometry!: THREE.BoxGeometry;
-	mesh!: THREE.Mesh;
+	mainColumn!: {
+		mainColumnMaterial: THREE.MeshStandardNodeMaterial;
+		mainColumnGeometry: THREE.BoxGeometry;
+		mainColumnMesh: THREE.Mesh;
+	};
 	pane!: Pane;
 	ambientLight!: THREE.AmbientLight;
 	pointLight!: THREE.PointLight;
 	pointLight2!: THREE.PointLight;
 	pointLight3!: THREE.PointLight;
 	pointLight4!: THREE.PointLight;
+	rectLight!: THREE.RectAreaLight;
+	rectLightHelper!: THREE.Object3D;
 	instancedMesh!: THREE.InstancedMesh;
-	textMesh?: THREE.Mesh; // MSDF text mesh reference for tweakpane controls
-	raycaster!: THREE.Raycaster;
-	mouse!: THREE.Vector2;
+	textHandler!: TextHandler;
+	tweakPaneManager!: TweakPaneManager;
+	animationSystem!: AnimationSystem;
+	interactionSystem!: InteractionSystem;
+	instancedMeshManager!: InstancedMeshManager;
+	autoSelectionManager!: AutoSelectionManager;
 	mouseWobbleTarget!: THREE.Vector2;
 	mouseWobbleSmoothed!: THREE.Vector2;
 	wobblePosStrength: number = 0.3;
 	wobbleLerp: number = 0.015;
-	baseCameraPos!: THREE.Vector3;
-	baseTarget!: THREE.Vector3;
-	baseForward!: THREE.Vector3;
-	baseRight!: THREE.Vector3;
-	baseUp!: THREE.Vector3;
-	hoveredInstanceId!: number;
-	debugInfo!: {
-		mouseScreen: { x: number; y: number };
-		mouseNDC: { x: number; y: number };
-		mouseWorld: THREE.Vector3 | null;
-		intersectionPoint: THREE.Vector3 | null;
-		instanceId: number;
-		gridPosition: { row: number; col: number };
-	};
-
+	disintegrate!: DisintegrateMesh;
+	disintegrateProgress: number = 1;
+	disintegrateAnimation!: DisintegrateAnimation;
 	instanceIdToGrid!: Map<number, { row: number; col: number }>;
 	gridToInstanceId!: Map<string, number>;
+	cameraWobble!: CameraWobble;
+	fxaaEnabled: boolean = true;
 
 	uniforms: {
 		frequency: any;
@@ -108,36 +84,13 @@ export default class Sketch {
 		wobbleStrength: null
 	};
 
-	private animationQueue: number[] = [];
-	private currentlyAnimating: number | null = null;
 	private targetPosition: THREE.Vector3 = new THREE.Vector3(-21.7, 1.9, 58.75); // Where rectangles animate to
-	private autoSelectTimer: number | null = null;
 
 	// Update all instance target positions after changing targetPosition
 	private updateAllTargetPositions() {
-		if (
-			!this.interactionAttributes ||
-			!this.interactionAttributes.targetPosition
-		)
-			return;
-		const attr = this.interactionAttributes.targetPosition;
-		const arr = attr.array as Float32Array;
-		for (let i = 0; i < attr.count; i++) {
-			const j = i * 3;
-			arr[j] = this.targetPosition.x;
-			arr[j + 1] = this.targetPosition.y;
-			arr[j + 2] = this.targetPosition.z;
+		if (this.instancedMeshManager) {
+			this.instancedMeshManager.updateAllTargetPositions();
 		}
-		attr.needsUpdate = true;
-	}
-
-	// Animation timing configuration
-	private animationDurationSec: number = 2.0; // total per-item duration
-	private overlapDurationSec: number = 1.0; // start next this many seconds before finish
-
-	private get overlapStartProgress(): number {
-		// e.g. 6s duration, 2s overlap => start next at 4s => progress >= 0.6667
-		return 1 - this.overlapDurationSec / this.animationDurationSec;
 	}
 
 	private instanceTextData: Array<{ name: string; isImportant: boolean }> = [];
@@ -163,6 +116,11 @@ export default class Sketch {
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setClearColor(new THREE.Color(0x000000), 1);
+		
+		// Improve lighting quality and reduce harsh edges
+		this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+		this.renderer.toneMappingExposure = 1.52;
+		
 		this.container.appendChild(this.renderer.domElement);
 
 		this.camera = new THREE.PerspectiveCamera(
@@ -174,44 +132,58 @@ export default class Sketch {
 		this.camera.position.set(-29.45, 0.68, 70.69);
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-		// Use OrbitControls target instead of camera.lookAt so the view persists
 		this.controls.target.set(20.66, -0.82, 31.89);
-		// this.controls.update();
-		// Start with controls disabled; can be toggled via setControlsEnabled or Tweakpane
-		this.setControlsEnabled(false);
-
-		// Cache base camera frame for screen-space wobble
-		this.updateBaseCameraFrame();
 		this.mouseWobbleTarget = new THREE.Vector2(0, 0);
 		this.mouseWobbleSmoothed = new THREE.Vector2(0, 0);
 
 		this.isPlaying = true;
 		this.initializeInstanceData();
 		this.setupLights();
+		this.setupTweakPane();
 		this.createColumn();
-		this.createInstancedMesh();
-		this.setupSettings();
-		this.handleFonts();
+		this.setupInstancedMeshManager();
+		this.setupTextHandler();
 
 		this.createInstanceIdMapping();
-		this.setupInteractivity();
-		this.startAutoSelection();
+
+		this.setupDisintegrate();
+		this.setupDisintegrateAnimation();
+		this.setupCameraWobble();
+		this.setupAnimationSystem();
+		this.setupInteractionSystem();
+		this.setupAutoSelectionManager();
+		// this.setupTweakPaneManager();
+
+		// this.scene.fog = new THREE.FogExp2(0x000000, 0.01);
 
 		this.resize();
 		this.init();
 	}
 
 	async init() {
+		// Initialize RectAreaLight textures for WebGPU renderer (must be done before renderer.init())
+		THREE.RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
+		
 		await this.renderer.init();
 		this.render();
 	}
 
+	toggleFXAA(enabled: boolean) {
+		this.fxaaEnabled = enabled;
+		
+		// Update DisintegrateMesh FXAA setting
+		if (this.disintegrate) {
+			this.disintegrate.setFXAAEnabled(enabled);
+		}
+	}
+
 	setupLights() {
-		this.ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+		// Increase ambient light to fill shadows and reduce harsh contrasts
+		this.ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
 		this.scene.add(this.ambientLight);
 
 		// Point Light 1
-		this.pointLight = new THREE.PointLight(0xffffff, 500);
+		this.pointLight = new THREE.PointLight(0xffffff, 50);
 		this.pointLight.position.set(-1, 5.0, 20.5);
 		this.scene.add(this.pointLight);
 
@@ -223,12 +195,30 @@ export default class Sketch {
 		// Point Light 3
 		this.pointLight3 = new THREE.PointLight(0xffffff, 75);
 		this.pointLight3.position.set(-16.1, 3.3, 0.0);
-		this.scene.add(this.pointLight3);
+		// this.scene.add(this.pointLight3);
 
 		// Point Light 4
 		this.pointLight4 = new THREE.PointLight(0xffffff, 75);
 		this.pointLight4.position.set(-13, -20.7, 16.3);
 		this.scene.add(this.pointLight4);
+
+		// Rect area light - now properly configured for WebGPU
+		// Using larger area with lower intensity for smoother lighting
+		const width = 38;
+		const height = 20;
+		const intensity = 3.7;
+		this.rectLight = new THREE.RectAreaLight(
+			0xffffff,
+			intensity,
+			width,
+			height
+		);
+		this.rectLight.position.set(-37.0, 5, 43.5);
+		this.rectLight.lookAt(6.5, 0, 28.3);
+		this.scene.add(this.rectLight);
+
+		this.rectLightHelper = new RectAreaLightHelper(this.rectLight);
+		// this.scene.add(this.rectLightHelper);
 	}
 
 	resize() {
@@ -243,335 +233,214 @@ export default class Sketch {
 		this.camera.updateProjectionMatrix();
 
 		// Refresh base camera frame on resize
-		this.updateBaseCameraFrame();
+		this.cameraWobble.updateBaseCameraFrame();
 	}
 
-	// Update cached base camera frame from current camera and controls.target
-	private updateBaseCameraFrame() {
-		this.baseCameraPos = this.camera.position.clone();
-		this.baseTarget = this.controls.target.clone();
-		this.baseForward = this.baseCameraPos
-			.clone()
-			.sub(this.baseTarget)
-			.normalize();
-		const worldUp = new THREE.Vector3(0, 1, 0);
-		this.baseRight = this.baseForward.clone().cross(worldUp).normalize();
-		this.baseUp = this.baseRight.clone().cross(this.baseForward).normalize();
+	setupAnimationSystem() {
+		this.animationSystem = new AnimationSystem({
+			animationDurationSec: 6,
+			overlapDurationSec: 3.75,
+			interactionAttributes: this.interactionAttributes,
+			onInstanceReachedTarget: (instanceId: number) => {
+				const stateAttr = this.interactionAttributes.state;
+				stateAttr.array[instanceId] = RectangleState.AT_TARGET;
+				stateAttr.needsUpdate = true;
+
+				// Call the text swapping logic
+				this.onInstanceReachedTarget(instanceId);
+			}
+		});
 	}
 
-	// Public toggle for OrbitControls; also refreshes wobble base so transitions feel natural
-	setControlsEnabled(enabled: boolean) {
-		this.controlsEnabled = enabled;
-		this.controls.enabled = enabled;
-		// When switching modes, capture the current camera/target as the new wobble base
-		this.updateBaseCameraFrame();
-	}
-
-	// Centralized camera/controls handling used each frame
-	private updateCameraAndControls() {
-		// Smooth mouse wobble towards target (keep updated regardless of mode)
-		const wobbleLerp = Math.max(0.001, Math.min(1, this.wobbleLerp));
-		this.mouseWobbleSmoothed.lerp(this.mouseWobbleTarget, wobbleLerp);
-		const clampedX = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.x));
-		const clampedY = Math.max(-1, Math.min(1, this.mouseWobbleSmoothed.y));
-
-		if (this.controlsEnabled) {
-			// Hand over to OrbitControls
-			this.controls.update();
-			return;
-		}
-
-		// Apply wobble to camera when controls are disabled
-		const wobblePosStrength = this.wobblePosStrength;
-		const forward = this.baseForward;
-		const right = this.baseRight;
-		const up = this.baseUp;
-		const offset = new THREE.Vector3()
-			.addScaledVector(right, clampedX * wobblePosStrength)
-			.addScaledVector(up, clampedY * wobblePosStrength);
-		this.camera.position.copy(this.baseCameraPos).add(offset);
-		// Keep looking at same target
-		this.camera.lookAt(this.baseTarget);
-	}
-
-	setupInteractivity() {
-		this.raycaster = new THREE.Raycaster();
-		this.mouse = new THREE.Vector2();
-		this.hoveredInstanceId = -1;
-
-		this.debugInfo = {
-			mouseScreen: { x: 0, y: 0 },
-			mouseNDC: { x: 0, y: 0 },
-			mouseWorld: null,
-			intersectionPoint: null,
-			instanceId: -1,
-			gridPosition: { row: -1, col: -1 }
-		};
-
-		const mouseMoveHandler = (event: MouseEvent) => {
-			this.onMouseMove(event);
-		};
-
-		this.container.addEventListener('mousemove', mouseMoveHandler);
-		this.container.addEventListener('mouseleave', this.onMouseLeave.bind(this));
-		this.container.addEventListener('click', this.onMouseClick.bind(this));
-
-		// Prevent native context menu from pausing or interfering with timers/interaction
-		this.container.addEventListener(
-			'contextmenu',
-			(event) => {
-				event.preventDefault();
-				event.stopPropagation();
+	setupInteractionSystem() {
+		this.interactionSystem = new InteractionSystem({
+			container: this.container,
+			camera: this.camera,
+			instancedMesh: this.instancedMesh,
+			interactionAttributes: this.interactionAttributes,
+			instanceIdToGrid: this.instanceIdToGrid,
+			gridToInstanceId: this.gridToInstanceId,
+			mouseWobbleTarget: this.mouseWobbleTarget,
+			onHoverChange: (oldId: number, newId: number) => {
+				// Handle hover change if needed
+				const instanceData = this.instanceTextData[newId];
+				if (instanceData && newId !== -1) {
+					// Could update text or other UI here
+				}
 			},
-			{ passive: false }
-		);
+			onInstanceClick: (instanceId: number) => {
+				this.addToQueue(instanceId);
+			},
+			onMouseLeave: () => {
+				// Handle mouse leave if needed
+			}
+		});
 	}
 
-	onMouseMove(event: MouseEvent) {
-		const rect = this.container.getBoundingClientRect();
-		const screenX = event.clientX - rect.left;
-		const screenY = event.clientY - rect.top;
+	setupDisintegrateAnimation() {
+		this.disintegrateAnimation = new DisintegrateAnimation(this.disintegrate, {
+			duration: 1.25
+		});
+	}
 
-		this.mouse.x = (screenX / this.width) * 2 - 1;
-		this.mouse.y = -((screenY / this.height) * 2 - 1);
+	setupAutoSelectionManager() {
+		this.autoSelectionManager = new AutoSelectionManager({
+			animationSystem: this.animationSystem,
+			interactionAttributes: this.interactionAttributes,
+			onInstanceSelected: (instanceId: number) => {
+				this.addToQueue(instanceId);
+			},
+			maxQueueSize: 1,
+			maxSelectionAttempts: 6,
+			instanceTextData: this.instanceTextData,
+			debug: true // Enable debug logging to see prioritization in action
+		});
 
-		this.debugInfo.mouseScreen.x = screenX;
-		this.debugInfo.mouseScreen.y = screenY;
-		this.debugInfo.mouseNDC.x = this.mouse.x;
-		this.debugInfo.mouseNDC.y = this.mouse.y;
+		// Start auto-selection
+		this.autoSelectionManager.startAutoSelection();
+	}
 
-		this.performIntersectionTest();
+	setupCameraWobble() {
+		const cameraWobble = new CameraWobble({
+			mouseWobbleTarget: this.mouseWobbleTarget,
+			mouseWobbleSmoothed: this.mouseWobbleSmoothed,
+			wobblePosStrength: this.wobblePosStrength,
+			wobbleLerp: this.wobbleLerp,
+			camera: this.camera,
+			scene: this.scene,
+			controls: this.controls,
+			isEnabled: true,
+			addTweakpane: false,
+			pane: this.pane
+		});
 
-		// Update wobble target in normalized screen space [-1,1]
-		this.mouseWobbleTarget.set(this.mouse.x, this.mouse.y);
+		this.cameraWobble = cameraWobble;
 	}
 
 	initializeInstanceData() {
-		this.instanceTextData = titles;
-
 		const numCols = this.numCols;
 		const numRows = this.numRows;
 		const totalInstances = numCols * numRows;
-		const totalTitles = this.instanceTextData.length;
 
+		// Separate important and non-important titles
+		const importantTitles = titles.filter(title => title.isImportant);
+		const nonImportantTitles = titles.filter(title => !title.isImportant);
+
+		// Initialize array with non-important titles (they can repeat)
+		this.instanceTextData = new Array(totalInstances);
+		
+		// Fill all positions with non-important titles first
 		for (let i = 0; i < totalInstances; i++) {
-			// Cycle through your data if you have fewer items than instances
-			const dataIndex = i % totalTitles;
-			this.instanceTextData[i] = this.instanceTextData[dataIndex];
+			const dataIndex = i % nonImportantTitles.length;
+			this.instanceTextData[i] = nonImportantTitles[dataIndex];
 		}
-		console.log(this.instanceTextData);
+
+		// Generate random positions for important titles (ensure each appears only once)
+		const randomPositions = new Set<number>();
+		while (randomPositions.size < Math.min(importantTitles.length, totalInstances)) {
+			const randomPos = Math.floor(Math.random() * totalInstances);
+			randomPositions.add(randomPos);
+		}
+
+		// Place important titles at random positions
+		const positionsArray = Array.from(randomPositions);
+		importantTitles.forEach((title, index) => {
+			if (index < positionsArray.length) {
+				this.instanceTextData[positionsArray[index]] = title;
+			}
+		});
 	}
 
-	handleFonts() {
-		console.log('IS THIS EVEN WORKING?');
-		console.log(MSDFTextNodeMaterial);
-		Promise.all([
-			loadFontAtlas('/fonts/Audiowide-msdf.png'),
-			loadFont('/fonts/Audiowide-msdf.json')
-		])
-			.then(([atlas, font]: any) => {
-				const geometryStatic = new MSDFTextGeometry({
-					text: 'Hi, I am',
-					font: font.data,
-					side: THREE.DoubleSide
-				});
+	setupDisintegrate() {
+		const disintegratePosition = new THREE.Vector3(-21.7, 1.9, 67.3);
+		const disintegrateBoxSize = { x: 1, y: 1, z: 5 };
+		const disintegrateRotation = {
+			x: 0,
+			y: Math.PI * (30 / 180),
+			z: 0
+		};
 
-				const geometry = new MSDFTextGeometry({
-					text: 'ALES HOLMAN',
-					font: font.data,
-					side: THREE.DoubleSide
-				});
+		this.disintegrate = new DisintegrateMesh({
+			scene: this.scene,
+			camera: this.camera,
+			renderer: this.renderer,
+			progress: this.disintegrateProgress,
+			position: disintegratePosition,
+			boxSize: disintegrateBoxSize,
+			rotation: disintegrateRotation,
+			showHelpers: true, // Enable helpers for tweakpane controls
+			fxaaEnabled: this.fxaaEnabled
+		});
+	}
 
-				const material = new MSDFTextNodeMaterial({
-					map: atlas,
-					color: '#ffffffff',
-					opacity: 1.0
-				});
+	setupTextHandler() {
+		this.textHandler = new TextHandler({
+			scene: this.scene,
+			pane: this.pane,
+			enableTweakpane: false, // Set to true if you want tweakpane controls
+			fontAtlasPath: '/fonts/Audiowide-msdf.png',
+			fontDataPath: '/fonts/Audiowide-msdf.json',
+			material: {
+				color: '#ffffffff',
+				opacity: 1.0
+			},
+			mainTextConfig: {
+				text: 'ALES HOLMAN',
+				position: new THREE.Vector3(-25.6, 1.4, 67.4),
+				scale: new THREE.Vector3(0.01, 0.01, 0.01),
+				rotation: new THREE.Euler(0, Math.PI * (125 / 180), Math.PI * 1.0)
+			},
+			staticTextConfig: {
+				text: 'Hi, I am',
+				position: new THREE.Vector3(-25.6, 4.5, 67.4),
+				scale: new THREE.Vector3(0.01, 0.01, 0.01),
+				rotation: new THREE.Euler(0, Math.PI * (125 / 180), Math.PI * 1.0)
+			}
+		});
 
-				const mesh = new THREE.Mesh(geometry as any, material as any);
-				mesh.position.set(-25.6, 1.4, 67.4);
-				mesh.scale.set(0.01, 0.01, 0.01);
-				mesh.rotation.set(0, Math.PI * (125 / 180), Math.PI * 1.0);
-				this.scene.add(mesh);
-				this.textMesh = mesh;
-
-				const meshStatic = new THREE.Mesh(
-					geometryStatic as any,
-					material as any
-				);
-				meshStatic.position.set(-25.6, 2.0, 67.4);
-				meshStatic.scale.set(0.01, 0.01, 0.01);
-				meshStatic.rotation.set(0, Math.PI * (125 / 180), Math.PI * 1.0);
-				this.scene.add(meshStatic);
-
-				// Store font reference for later use in updateFontText
-				(this.textMesh as any)._font = font.data;
-
-				// Add tweakpane controls for text mesh position and rotation
-				if (this.pane && false) {
-					const fontFolder = this.pane.addFolder({
-						title: 'Font Transform',
-						expanded: false
-					});
-					const pos = {
-						x: mesh.position.x,
-						y: mesh.position.y,
-						z: mesh.position.z
-					};
-					fontFolder
-						.addBinding(pos, 'x', {
-							min: -500,
-							max: 500,
-							step: 0.1,
-							label: 'Pos X'
-						})
-						.on('change', (ev) => {
-							if (this.textMesh) this.textMesh.position.x = ev.value as number;
-						});
-					fontFolder
-						.addBinding(pos, 'y', {
-							min: -500,
-							max: 500,
-							step: 0.1,
-							label: 'Pos Y'
-						})
-						.on('change', (ev) => {
-							if (this.textMesh) this.textMesh.position.y = ev.value as number;
-						});
-					fontFolder
-						.addBinding(pos, 'z', {
-							min: -500,
-							max: 500,
-							step: 0.1,
-							label: 'Pos Z'
-						})
-						.on('change', (ev) => {
-							if (this.textMesh) this.textMesh.position.z = ev.value as number;
-						});
-
-					// Rotation in degrees
-					const rad2deg = (r: number) => (r * 180) / Math.PI;
-					const deg2rad = (d: number) => (d * Math.PI) / 180;
-					const rot = {
-						x: rad2deg(mesh.rotation.x),
-						y: rad2deg(mesh.rotation.y),
-						z: rad2deg(mesh.rotation.z)
-					};
-					fontFolder
-						.addBinding(rot, 'x', {
-							min: -180,
-							max: 180,
-							step: 1,
-							label: 'Rot X (deg)'
-						})
-						.on('change', (ev) => {
-							if (this.textMesh)
-								this.textMesh.rotation.x = deg2rad(ev.value as number);
-						});
-					fontFolder
-						.addBinding(rot, 'y', {
-							min: -180,
-							max: 180,
-							step: 1,
-							label: 'Rot Y (deg)'
-						})
-						.on('change', (ev) => {
-							if (this.textMesh)
-								this.textMesh.rotation.y = deg2rad(ev.value as number);
-						});
-					fontFolder
-						.addBinding(rot, 'z', {
-							min: -180,
-							max: 180,
-							step: 1,
-							label: 'Rot Z (deg)'
-						})
-						.on('change', (ev) => {
-							if (this.textMesh)
-								this.textMesh.rotation.z = deg2rad(ev.value as number);
-						});
-				}
+		// Initialize the text handler asynchronously
+		this.textHandler
+			.initialize()
+			.then(() => {
+				// After initialization, center the text within the disintegrate rectangle
+				this.centerTextInDisintegrateBox();
 			})
-			.catch((e) => console.error('MSDF font load failed', e));
-
-		function loadFontAtlas(path: string) {
-			return new Promise((resolve, reject) => {
-				const loader = new THREE.TextureLoader();
-				loader.load(path, resolve, undefined, reject);
+			.catch((error) => {
+				console.error('Failed to initialize text handler:', error);
 			});
-		}
+	}
 
-		function loadFont(path: string) {
-			return new Promise((resolve, reject) => {
-				const loader = new FontLoader();
-				loader.load(path, resolve, undefined, reject);
-			});
+	private centerTextInDisintegrateBox() {
+		if (this.textHandler && this.disintegrate) {
+			// Get disintegrate box properties
+			const disintegratePosition = new THREE.Vector3(-21.7, 1.9, 67.3);
+			const disintegrateBoxSize = { x: 1, y: 1, z: 5 };
+			const disintegrateRotation = {
+				x: 0,
+				y: Math.PI * (30 / 180),
+				z: 0
+			};
+
+			// Center the text with a static offset from the left (0.3 means 30% from left edge)
+			// Use the existing text rotation (which is correct) instead of the box rotation
+			this.textHandler.centerTextInDisintegrateBox(
+				disintegratePosition,
+				disintegrateBoxSize,
+				disintegrateRotation,
+				0.3, // 30% from the left edge of the box
+				true // Use existing text rotation
+			);
 		}
 	}
 
 	updateFontText(text: string) {
-		if (this.textMesh) {
-			const font = (this.textMesh as any)._font;
-			const geometry = new MSDFTextGeometry({
-				text: text,
-				font: font,
-				side: THREE.DoubleSide
-			});
-			this.textMesh.geometry.dispose();
-			this.textMesh.geometry = geometry;
-		}
-	}
+		if (this.textHandler) {
+			this.textHandler.updateMainText(text);
 
-	performIntersectionTest() {
-		this.raycaster.setFromCamera(this.mouse, this.camera);
-
-		const rayDirection = this.raycaster.ray.direction.clone();
-		const rayOrigin = this.raycaster.ray.origin.clone();
-		this.debugInfo.mouseWorld = rayOrigin
-			.clone()
-			.add(rayDirection.multiplyScalar(40));
-
-		const intersections = this.raycaster.intersectObject(this.instancedMesh);
-
-		if (intersections.length > 0) {
-			const intersection = intersections[0];
-			const newInstanceId = intersection.instanceId ?? -1;
-
-			// Check if this rectangle can be interacted with
-			const currentState =
-				this.interactionAttributes.state.array[newInstanceId];
-			const canInteract =
-				currentState === RectangleState.IDLE ||
-				currentState === RectangleState.HOVERED ||
-				currentState === RectangleState.QUEUED;
-
-			// Set cursor based on interactability
-			document.body.style.cursor = canInteract ? 'pointer' : 'auto';
-
-			this.debugInfo.intersectionPoint = intersection.point.clone();
-			this.debugInfo.instanceId = newInstanceId;
-			this.debugInfo.gridPosition =
-				this.instanceIdToGridPosition(newInstanceId);
-
-			// Only trigger hover change if the rectangle can be interacted with
-			if (canInteract && newInstanceId !== this.hoveredInstanceId) {
-				this.onHoverChange(this.hoveredInstanceId, newInstanceId);
-				this.hoveredInstanceId = newInstanceId;
-			} else if (!canInteract && this.hoveredInstanceId !== -1) {
-				// Clear hover if we move from interactive to non-interactive rectangle
-				this.onHoverChange(this.hoveredInstanceId, -1);
-				this.hoveredInstanceId = -1;
-			}
-		} else {
-			document.body.style.cursor = 'auto';
-			this.debugInfo.intersectionPoint = null;
-			this.debugInfo.instanceId = -1;
-			this.debugInfo.gridPosition = { row: -1, col: -1 };
-
-			if (this.hoveredInstanceId !== -1) {
-				this.onHoverChange(this.hoveredInstanceId, -1);
-				this.hoveredInstanceId = -1;
-			}
+			// Re-center the text after updating
+			setTimeout(() => {
+				this.centerTextInDisintegrateBox();
+			}, 50); // Small delay to ensure geometry is updated
 		}
 	}
 
@@ -593,6 +462,9 @@ export default class Sketch {
 		const instanceData = this.instanceTextData[instanceId];
 		if (instanceData) {
 			this.updateFontText(instanceData.name);
+			if (this.disintegrateAnimation) {
+				this.disintegrateAnimation.playAnimation();
+			}
 		}
 	}
 
@@ -601,222 +473,18 @@ export default class Sketch {
 		return this.instanceIdToGrid.get(instanceId) || { row: -1, col: -1 };
 	}
 
-	onHoverChange(oldInstanceId: number, newInstanceId: number) {
-		if (oldInstanceId !== -1) {
-			const oldGrid = this.instanceIdToGridPosition(oldInstanceId);
-			// UPDATE: Set hover state to false
-			this.setInstanceHover(oldInstanceId, false);
-		}
-
-		if (newInstanceId !== -1) {
-			// CHECK: Only allow hover if rectangle is in valid state
-			const currentState =
-				this.interactionAttributes.state.array[newInstanceId];
-			const canHover =
-				currentState === RectangleState.IDLE ||
-				currentState === RectangleState.HOVERED ||
-				currentState === RectangleState.QUEUED;
-
-			if (canHover) {
-				const newGrid = this.instanceIdToGridPosition(newInstanceId);
-				this.setInstanceHover(newInstanceId, true);
-			} else {
-				// Set cursor back to default since this rectangle can't be hovered
-				document.body.style.cursor = 'auto';
-			}
-		}
-	}
-
-	// NEW: Method to update instance hover state
-	setInstanceHover(instanceId: number, isHovered: boolean) {
-		if (!this.interactionAttributes) return;
-
-		const currentState = this.interactionAttributes.state.array[instanceId];
-
-		// UPDATED: Block hover for ANIMATING and AT_TARGET states
-		if (
-			currentState === RectangleState.ANIMATING ||
-			currentState === RectangleState.AT_TARGET ||
-			currentState === RectangleState.QUEUED
-		) {
-			return;
-		}
-
-		// Allow hover for IDLE, HOVERED, and QUEUED states only
-		if (
-			currentState !== RectangleState.IDLE &&
-			currentState !== RectangleState.HOVERED &&
-			currentState !== RectangleState.QUEUED
-		) {
-			return;
-		}
-
-		// Update hover state attribute
-		const hoverAttr = this.interactionAttributes.hover;
-		const timestampAttr = this.interactionAttributes.timestamp;
-		const currentTime = performance.now() * 0.001;
-
-		hoverAttr.array[instanceId] = isHovered ? 1.0 : 0.0;
-		timestampAttr.array[instanceId] = currentTime;
-
-		hoverAttr.needsUpdate = true;
-		timestampAttr.needsUpdate = true;
-	}
-
-	startAutoSelection() {
-		if (this.autoSelectTimer !== null) return; // Already running
-
-		const intervalMs = Math.max(
-			100,
-			(this.animationDurationSec - this.overlapDurationSec) * 1000
-		);
-		this.autoSelectTimer = window.setInterval(() => {
-			// Pause if too many queued animations
-			if (this.animationQueue.length > 2) return;
-
-			// Try a few times to avoid selecting the same/invalid rectangle
-			const maxAttempts = 6;
-			for (let attempt = 0; attempt < maxAttempts; attempt++) {
-				const candidate = this.pickRandomEligibleInstance();
-				if (candidate === null) return; // nothing to pick
-
-				if (this.isInstanceEligibleNow(candidate)) {
-					this.addToQueue(candidate);
-					break;
-				}
-			}
-		}, intervalMs);
-	}
-
-	// Returns a random IDLE/HOVERED instance id, or null if none
-	private pickRandomEligibleInstance(): number | null {
-		const stateAttr = this.interactionAttributes.state;
-		const eligible: number[] = [];
-		for (let i = 0; i < stateAttr.array.length; i++) {
-			const s = stateAttr.array[i];
-			if (s === RectangleState.IDLE || s === RectangleState.HOVERED) {
-				eligible.push(i);
-			}
-		}
-		if (eligible.length === 0) return null;
-		const idx = Math.floor(Math.random() * eligible.length);
-		return eligible[idx];
-	}
-
-	// Strict re-check before queueing: must still be selectable and not already in queue
-	private isInstanceEligibleNow(instanceId: number): boolean {
-		const state = this.interactionAttributes.state.array[instanceId];
-		if (state !== RectangleState.IDLE && state !== RectangleState.HOVERED) {
-			return false;
-		}
-		if (this.animationQueue.includes(instanceId)) return false;
-		return true;
-	}
-
-	// Stop automatic selection
-	stopAutoSelection() {
-		if (this.autoSelectTimer !== null) {
-			clearInterval(this.autoSelectTimer);
-			this.autoSelectTimer = null;
-		}
-	}
-
-	onMouseClick(event: MouseEvent) {
-		if (this.hoveredInstanceId !== -1) {
-			const currentState =
-				this.interactionAttributes.state.array[this.hoveredInstanceId];
-
-			// UPDATED: Block clicks for ANIMATING and AT_TARGET states
-			const canClick =
-				currentState === RectangleState.IDLE ||
-				currentState === RectangleState.HOVERED ||
-				currentState === RectangleState.QUEUED;
-
-			if (canClick) {
-				this.addToQueue(this.hoveredInstanceId);
-			} else {
-			}
-		}
-	}
-
 	addToQueue(instanceId: number) {
-		const currentState = this.interactionAttributes.state.array[instanceId];
-
-		// UPDATED: Only allow queueing from valid states (blocks ANIMATING and AT_TARGET)
-		if (
-			currentState === RectangleState.IDLE ||
-			currentState === RectangleState.HOVERED ||
-			currentState === RectangleState.QUEUED // Allow re-clicking queued items (no-op)
-		) {
-			// Prevent duplicate queueing
-			if (currentState === RectangleState.QUEUED) {
-				return;
-			}
-
-			// Check if something is currently animating
-			const isAnyAnimating = this.isAnyInstanceAnimating();
-
-			if (!isAnyAnimating && this.animationQueue.length === 0) {
-				// No queue, start animation immediately
-				this.startInstanceAnimation(instanceId);
-			} else {
-				// Add to queue
-				if (!this.animationQueue.includes(instanceId)) {
-					this.animationQueue.push(instanceId);
-					this.setInstanceState(instanceId, RectangleState.QUEUED);
-
-					// Update queue position
-					const queueAttr = this.interactionAttributes.queuePosition;
-					queueAttr.array[instanceId] = this.animationQueue.length - 1;
-					queueAttr.needsUpdate = true;
-				}
-			}
-		} else {
-		}
-
+		this.animationSystem.addToQueue(instanceId);
 		// Keep auto-selection running; it internally no-ops when queue is large
-		this.startAutoSelection();
+		// No need to restart - AutoSelectionManager handles this automatically
 	}
 
 	isAnyInstanceAnimating(): boolean {
-		if (!this.interactionAttributes) return false;
-
-		const stateAttr = this.interactionAttributes.state;
-		for (let i = 0; i < stateAttr.array.length; i++) {
-			if (stateAttr.array[i] === RectangleState.ANIMATING) {
-				return true;
-			}
-		}
-		return false;
+		return this.animationSystem.isAnyInstanceAnimating();
 	}
 
 	processQueue() {
-		if (!this.interactionAttributes) return;
-
-		// Recover last animating if unknown
-		if (this.currentlyAnimating === null) {
-			const recovered = this.getLastStartedAnimatingId();
-			if (recovered !== null) this.currentlyAnimating = recovered;
-		}
-
-		// If nothing is animating, start next immediately
-		if (!this.isAnyInstanceAnimating() && this.animationQueue.length > 0) {
-			const nextInstanceId = this.animationQueue.shift()!;
-			this.startInstanceAnimation(nextInstanceId);
-			this.updateQueuePositions();
-			return;
-		}
-
-		// Overlap start: when last-started reaches threshold, start next
-		if (this.currentlyAnimating !== null && this.animationQueue.length > 0) {
-			const progressAttr = this.interactionAttributes.animationProgress;
-			const lastProgress = progressAttr.array[this.currentlyAnimating] ?? 0;
-			if (lastProgress >= this.overlapStartProgress) {
-				const nextInstanceId = this.animationQueue.shift()!;
-				this.startInstanceAnimation(nextInstanceId);
-				this.updateQueuePositions();
-			}
-		}
+		this.animationSystem.processQueue();
 	}
 
 	private getLastStartedAnimatingId(): number | null {
@@ -837,111 +505,20 @@ export default class Sketch {
 		return bestId;
 	}
 
-	updateQueuePositions() {
-		const queueAttr = this.interactionAttributes.queuePosition;
-
-		// Update positions for all queued items
-		this.animationQueue.forEach((instanceId, index) => {
-			queueAttr.array[instanceId] = index;
-		});
-
-		queueAttr.needsUpdate = true;
-	}
+	// NOTE: updateQueuePositions is now handled internally by AnimationSystem
 
 	// NEW: Start immediate animation for clicked rectangle
 	startInstanceAnimation(instanceId: number) {
-		const currentState = this.interactionAttributes.state.array[instanceId];
-
-		// Allow animation from IDLE, HOVERED, or QUEUED state
-		if (
-			currentState === RectangleState.IDLE ||
-			currentState === RectangleState.HOVERED ||
-			currentState === RectangleState.QUEUED
-		) {
-			// Set to animating state
-			this.setInstanceState(instanceId, RectangleState.ANIMATING);
-
-			// Reset animation progress to 0
-			const progressAttr = this.interactionAttributes.animationProgress;
-			progressAttr.array[instanceId] = 0.0;
-			progressAttr.needsUpdate = true;
-
-			// Clear queue position
-			const queueAttr = this.interactionAttributes.queuePosition;
-			queueAttr.array[instanceId] = -1;
-			queueAttr.needsUpdate = true;
-
-			// Record precise animation start time
-			const animStartAttr = this.interactionAttributes.animStartTime;
-			if (animStartAttr) {
-				animStartAttr.array[instanceId] = performance.now() * 0.001;
-				animStartAttr.needsUpdate = true;
-			}
-
-			// Track most recently started animation for overlap logic
-			this.currentlyAnimating = instanceId;
-		}
+		this.animationSystem.startInstanceAnimation(instanceId);
 	}
 
 	updateAnimations() {
-		if (!this.interactionAttributes) return;
-
-		const stateAttr = this.interactionAttributes.state;
-		const progressAttr = this.interactionAttributes.animationProgress;
-		const timestampAttr = this.interactionAttributes.timestamp;
-		const animStartAttr = this.interactionAttributes.animStartTime;
-		const currentTime = performance.now() * 0.001;
-
-		let needsUpdate = false;
-
-		// Update all animating instances
-		for (let i = 0; i < stateAttr.array.length; i++) {
-			if (stateAttr.array[i] === RectangleState.ANIMATING) {
-				const startTime = animStartAttr
-					? animStartAttr.array[i] || timestampAttr.array[i]
-					: timestampAttr.array[i];
-				const animationDuration = this.animationDurationSec; // configurable duration
-				const elapsed = currentTime - startTime;
-				const progress = Math.min(elapsed / animationDuration, 1.0);
-
-				progressAttr.array[i] = progress;
-				needsUpdate = true;
-
-				// Check if animation is complete
-				if (progress >= 1.0) {
-					stateAttr.array[i] = RectangleState.AT_TARGET;
-					this.onInstanceReachedTarget(i);
-				}
-			}
-		}
-
-		if (needsUpdate) {
-			progressAttr.needsUpdate = true;
-			stateAttr.needsUpdate = true;
-		}
-
-		// Process queue after updating animations
-		this.processQueue();
+		this.animationSystem.updateAnimations();
 	}
 
 	addToAnimationQueue(instanceId: number) {
-		const currentState = this.interactionAttributes.state.array[instanceId];
-
-		// Only allow selection if in IDLE or HOVERED state
-		if (
-			currentState === RectangleState.IDLE ||
-			currentState === RectangleState.HOVERED
-		) {
-			if (!this.animationQueue.includes(instanceId)) {
-				this.animationQueue.push(instanceId);
-				this.setInstanceState(instanceId, RectangleState.SELECTED);
-
-				// Update queue position
-				const queueAttr = this.interactionAttributes.queuePosition;
-				queueAttr.array[instanceId] = this.animationQueue.length - 1;
-				queueAttr.needsUpdate = true;
-			}
-		}
+		// Use the improved addToQueue method instead
+		this.animationSystem.addToQueue(instanceId);
 	}
 
 	setInstanceState(instanceId: number, newState: RectangleState) {
@@ -968,730 +545,93 @@ export default class Sketch {
 		timestampAttr.needsUpdate = true;
 	}
 
-	onMouseLeave() {
-		if (this.hoveredInstanceId !== -1) {
-			this.onHoverChange(this.hoveredInstanceId, -1);
-			this.hoveredInstanceId = -1;
-		}
-	}
-
 	createColumn() {
 		const columnWidth = 23;
 		const columnHeight = 150;
-		this.geometry = new THREE.BoxGeometry(
+
+		const geometry = new THREE.BoxGeometry(
 			columnWidth,
 			columnHeight,
 			columnWidth
 		);
-		this.material = new THREE.MeshStandardNodeMaterial({
-			color: '#222222',
-			side: THREE.DoubleSide
-		});
-		this.mesh = new THREE.Mesh(this.geometry, this.material);
-		this.scene.add(this.mesh);
-	}
-
-	createInstancedMesh() {
-		const numCols = 15;
-		const numRows = 40;
-		const count = numCols * numRows;
-		const geometry = new THREE.BoxGeometry(1, 1, 5);
-
-		// All instance attributes
-		const instanceColRow = new Float32Array(count * 2);
-		const instanceHoverState = new Float32Array(count);
-		const instanceTimestamp = new Float32Array(count);
-		const instanceState = new Float32Array(count);
-		const instanceAnimationProgress = new Float32Array(count);
-		const instanceAnimStartTime = new Float32Array(count);
-		const instanceTargetPosition = new Float32Array(count * 3);
-		const instanceQueuePosition = new Float32Array(count);
-
 		const material = new THREE.MeshStandardNodeMaterial({
 			color: '#222222',
 			side: THREE.DoubleSide
 		});
+		const mesh = new THREE.Mesh(geometry, material);
 
-		const spacing = 1.5;
-		const gridWidth = (numCols - 1) * spacing;
-		const gridHeight = (numRows - 1) * spacing;
-		const centeringOffsetX = -gridWidth / 2;
-		const centeringOffsetY = -gridHeight / 2;
-
-		// Uniforms
-		const frequencyUniform = uniform(0.5);
-		const amplitudeUniform = uniform(3.0);
-		const zOffsetUniform = uniform(-0.2);
-		const scaleUniform = uniform(0.075);
-		const transitionSpeedUniform = uniform(8.0);
-		const currentTimeUniform = uniform(0.0);
-		// Mouse wobble uniforms
-		// Camera wobble now applied on camera, not in shader
-		// Final orientation for cubes at AT_TARGET
-		const atTargetRotXUniform = uniform(0.0);
-		const atTargetRotYUniform = uniform(Math.PI / 5);
-		const atTargetRotZUniform = uniform(0.0);
-
-		// Color uniforms for different states
-		const idleColorUniform = uniform(new THREE.Color(0.02, 0.02, 0.02)); // Dark gray
-		const mainColorUniform = uniform(portfolioColors.primaryVec3); // Blue wave peaks
-		const hoverColorUniform = uniform(new THREE.Color(1.0, 0.5, 0.1)); // Orange hover
-		const selectedColorUniform = uniform(new THREE.Color(0.4, 0.7, 0.2)); // Green selected
-		const targetColorUniform = uniform(new THREE.Color(1.0, 0.2, 0.2)); // Red at target
-
-		this.uniforms.frequency = frequencyUniform;
-		this.uniforms.amplitude = amplitudeUniform;
-		this.uniforms.zOffset = zOffsetUniform;
-		this.uniforms.scale = scaleUniform;
-		this.uniforms.currentTime = currentTimeUniform;
-		this.uniforms.atTargetRotX = atTargetRotXUniform;
-		this.uniforms.atTargetRotY = atTargetRotYUniform;
-		this.uniforms.atTargetRotZ = atTargetRotZUniform;
-		// no mesh wobble uniforms needed
-
-		this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-
-		// Varying variables for shader communication
-		const vWaveHeight = varying(float());
-		const vStateInfo = varying(vec4()); // x: state, y: hover transition, z: animation progress, w: unused
-		const vFinalColor = varying(vec3()); // Final per-instance color computed in vertex
-
-		// Attribute references
-		const colRowAttr = attribute('instanceColRow', 'vec2');
-		const hoverStateAttr = attribute('instanceHoverState', 'float');
-		const timestampAttr = attribute('instanceTimestamp', 'float');
-		const stateAttr = attribute('instanceState', 'float'); // NEW
-		const animationProgressAttr = attribute(
-			'instanceAnimationProgress',
-			'float'
-		); // NEW
-		const targetPositionAttr = attribute('instanceTargetPosition', 'vec3'); // NEW
-
-		// Uniform constants
-		const centeringOffsetXUniform = uniform(centeringOffsetX);
-		const centeringOffsetYUniform = uniform(centeringOffsetY);
-
-		const animateZ = Fn(() => {
-			const position = positionLocal;
-			const col = colRowAttr.x;
-			const row = colRowAttr.y;
-			const hoverState = hoverStateAttr;
-			const timestamp = timestampAttr;
-			const currentState = stateAttr;
-			const animProgress = animationProgressAttr;
-			const targetPos = targetPositionAttr;
-			const staticBaseZ = float(0.0); // No wave movement for selected states
-
-			// Calculate base grid position (this should match your for loop positioning)
-			const baseGridX = col.mul(spacing).add(centeringOffsetXUniform);
-			const baseGridY = float(numRows - 1)
-				.sub(row)
-				.mul(spacing)
-				.add(centeringOffsetYUniform);
-
-			// Calculate wave effect for Z position
-			const normX = baseGridX.div(gridWidth * 0.95);
-			const normY = baseGridY.div(gridHeight * 0.5);
-			const distanceFromCenter = normX.mul(normX).add(normY.mul(normY)).sqrt();
-			const maxDistance = float(1.0);
-			const radialMultiplier = maxDistance
-				.sub(distanceFromCenter)
-				.div(maxDistance)
-				.max(0.0);
-
-			const noiseInput = vec2(
-				baseGridX.mul(scaleUniform),
-				baseGridY.mul(scaleUniform).add(time.mul(frequencyUniform))
-			);
-			const noiseValue = snoise(noiseInput);
-			const normalizedNoise = noiseValue.add(1.0).mul(0.5);
-			const baseWaveZ = normalizedNoise
-				.mul(amplitudeUniform)
-				.mul(radialMultiplier)
-				.add(zOffsetUniform);
-
-			// Smooth hover transition
-			const timeSinceChange = currentTimeUniform.sub(timestamp);
-			const transitionProgress = float(1.0)
-				.sub(float(-1.0).mul(timeSinceChange.mul(transitionSpeedUniform)).exp())
-				.clamp(0.0, 1.0);
-
-			const hoverTransition = hoverState
-				.equal(1.0)
-				.select(transitionProgress, float(1.0).sub(transitionProgress));
-
-			// Enhanced easing function for smoother animation
-			// const easedProgress = animProgress
-			// 	.mul(animProgress)
-			// 	.mul(float(3.0).sub(animProgress.mul(2.0))); // Smooth step
-			// Alternative easing options:
-			// const easedProgress = float(1.0).sub(float(1.0).sub(animProgress).pow(3.0)); // Ease out cubic
-			const easedProgress = animProgress.mul(animProgress).mul(animProgress); // Ease in cubic
-
-			// Calculate movement direction and distance for rotation
-			// Use a hover-independent origin to avoid target path mismatch and shifts
-			const originalCenter = vec3(baseGridX, baseGridY, staticBaseZ.add(2.0));
-			const movementVector = targetPos.sub(originalCenter);
-			const movementDirection = movementVector.normalize();
-
-			// Create a rotation curve that starts at 0, peaks in middle, returns to 0
-			// Using sin wave: 0 -> 1 -> 0 over the animation progress
-			const rotationCurve = float(3.14159).mul(easedProgress).sin(); // Sine wave from 0 to PI
-
-			// Calculate rotation angles based on movement direction
-			const maxRotation = float(1.5); // Maximum rotation in radians (about 85 degrees)
-
-			// Rotate around X axis based on Y movement (up/down)
-			// If moving down (negative Y), rotate forward (negative X rotation)
-			// If moving up (positive Y), rotate backward (positive X rotation)
-			const rotationX = movementDirection.y
-				.mul(maxRotation)
-				.mul(rotationCurve)
-				.negate();
-
-			// Reduce roll around Z to keep motion feeling horizontal
-			const rotationZ = movementDirection.x
-				.mul(maxRotation)
-				.mul(0.15)
-				.mul(rotationCurve);
-
-			// Stronger horizontal yaw towards the travel direction (left/right)
-			const rotationY = movementDirection.x
-				.mul(maxRotation)
-				.mul(0.8)
-				.mul(rotationCurve);
-
-			// Create rotation matrices
-			const cosX = rotationX.cos();
-			const sinX = rotationX.sin();
-			const cosY = rotationY.cos();
-			const sinY = rotationY.sin();
-			const cosZ = rotationZ.cos();
-			const sinZ = rotationZ.sin();
-
-			// Apply rotations to the local position (step by step)
-			// Only apply rotation during animation
-			const shouldRotate = currentState.equal(float(RectangleState.ANIMATING));
-
-			// Step 1: Rotation around X axis
-			const rotatedPosX = vec3(
-				position.x,
-				position.y.mul(cosX).sub(position.z.mul(sinX)),
-				position.y.mul(sinX).add(position.z.mul(cosX))
-			);
-
-			// Step 2: Rotation around Y axis
-			const rotatedPosY = vec3(
-				rotatedPosX.x.mul(cosY).add(rotatedPosX.z.mul(sinY)),
-				rotatedPosX.y,
-				rotatedPosX.x.mul(sinY.negate()).add(rotatedPosX.z.mul(cosY))
-			);
-
-			// Step 3: Rotation around Z axis
-			const rotatedPosZ = vec3(
-				rotatedPosY.x.mul(cosZ).sub(rotatedPosY.y.mul(sinZ)),
-				rotatedPosY.x.mul(sinZ).add(rotatedPosY.y.mul(cosZ)),
-				rotatedPosY.z
-			);
-
-			// Build a rotation from uniforms for AT_TARGET state
-			const atCosX = atTargetRotXUniform.cos();
-			const atSinX = atTargetRotXUniform.sin();
-			const atCosY = atTargetRotYUniform.cos();
-			const atSinY = atTargetRotYUniform.sin();
-			const atCosZ = atTargetRotZUniform.cos();
-			const atSinZ = atTargetRotZUniform.sin();
-
-			// Apply AT_TARGET rotation to local position
-			const atRotX = vec3(
-				position.x,
-				position.y.mul(atCosX).sub(position.z.mul(atSinX)),
-				position.y.mul(atSinX).add(position.z.mul(atCosX))
-			);
-			const atRotY = vec3(
-				atRotX.x.mul(atCosY).add(atRotX.z.mul(atSinY)),
-				atRotX.y,
-				atRotX.x.mul(atSinY.negate()).add(atRotX.z.mul(atCosY))
-			);
-			const atRotZ = vec3(
-				atRotY.x.mul(atCosZ).sub(atRotY.y.mul(atSinZ)),
-				atRotY.x.mul(atSinZ).add(atRotY.y.mul(atCosZ)),
-				atRotY.z
-			);
-			const isAtTargetState = currentState.equal(
-				float(RectangleState.AT_TARGET)
-			);
-
-			// Use rotated position during animation; otherwise original
-			const baseRotPos = shouldRotate.select(rotatedPosZ, position);
-
-			// Use rotated position during animation; at target use uniform-based final rotation; otherwise original
-
-			const blendStart = float(0.8); // start blending at 80% progress
-			const blendWidth = float(0.2); // reach full blend by 100%
-			const rawBlend = animationProgressAttr
-				.sub(blendStart)
-				.div(blendWidth)
-				.clamp(0.0, 1.0);
-			// Smoothstep-like easing: b*b*(3 - 2*b)
-			const blendEased = rawBlend
-				.mul(rawBlend)
-				.mul(float(3.0).sub(rawBlend.mul(2.0)));
-
-			// While animating: blend from current animated rotation to the final at-target rotation
-			const blendedDuringAnim = mix(baseRotPos, atRotZ, blendEased);
-			// When state is AT_TARGET, use full at-target rotation
-			const finalRotatedPos = isAtTargetState.select(atRotZ, blendedDuringAnim);
-			// Smaller selected Z offset
-			const selectedZBase = float(1.5); // Reduced from 2.0
-
-			// For animating: calculate offset from original position to target with easing
-			const offsetToTarget = targetPos.sub(originalCenter);
-			const queuedRestingPos = vec3(
-				float(0.0),
-				float(0.0),
-				staticBaseZ.add(selectedZBase)
-			);
-			// Hover effects - only for interactive states
-			const canHover = currentState
-				.equal(float(RectangleState.IDLE))
-				.or(currentState.equal(float(RectangleState.HOVERED)))
-				.or(currentState.equal(float(RectangleState.QUEUED)));
-
-			const staticHoverLift = hoverTransition.mul(1.5);
-			const effectiveHoverOffset = canHover.select(staticHoverLift, float(0.0));
-
-			const finalOffset = currentState
-				.equal(float(RectangleState.IDLE))
-				.or(currentState.equal(float(RectangleState.HOVERED)))
-				.select(
-					// IDLE/HOVERED → use waves
-					vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
-					currentState.equal(float(RectangleState.QUEUED)).select(
-						// QUEUED → smoothly move from wave/hover to queued resting pos
-						mix(
-							vec3(float(0.0), float(0.0), baseWaveZ.add(effectiveHoverOffset)),
-							queuedRestingPos,
-							transitionProgress
-						),
-						currentState.equal(float(RectangleState.ANIMATING)).select(
-							// ANIMATING → also blend the start, then add movement towards target
-							mix(
-								vec3(
-									float(0.0),
-									float(0.0),
-									baseWaveZ.add(effectiveHoverOffset)
-								),
-								queuedRestingPos,
-								transitionProgress
-							).add(offsetToTarget.mul(easedProgress)),
-							// Fallback (same as above)
-							mix(
-								vec3(
-									float(0.0),
-									float(0.0),
-									baseWaveZ.add(effectiveHoverOffset)
-								),
-								queuedRestingPos,
-								transitionProgress
-							).add(offsetToTarget.mul(easedProgress))
-						)
-					)
-				);
-
-			// baseWaveZ
-			// Apply offset to the rotated vertex position
-			const finalPosition = finalRotatedPos.add(finalOffset);
-
-			// Pass data to fragment shader
-			vWaveHeight.assign(baseWaveZ);
-			vStateInfo.assign(
-				vec4(currentState, hoverTransition, easedProgress, transitionProgress)
-			);
-
-			// Compute final color in vertex to avoid per-fragment divergence
-			const stateRounded = currentState.add(0.5).floor();
-			const isQueued = stateRounded.equal(float(RectangleState.QUEUED));
-			const isAnimating = stateRounded.equal(float(RectangleState.ANIMATING));
-			const isAtTarget = stateRounded.equal(float(RectangleState.AT_TARGET));
-			const isClicked = stateRounded.greaterThan(float(RectangleState.HOVERED));
-
-			const maxZOffset = 3.0;
-			const colorMixFactor = baseWaveZ.div(maxZOffset).clamp(0.0, 1.0);
-			const baseWaveColor = mix(
-				idleColorUniform,
-				mainColorUniform,
-				colorMixFactor
-			);
-			const hoveredColor = mix(
-				baseWaveColor,
-				hoverColorUniform,
-				hoverTransition.mul(0.6)
-			);
-
-			const startColor = hoveredColor; // source before selection
-			// Stage 1: move to selected color while queued (from startColor)
-			const selectedStageMix = isQueued.select(transitionProgress, float(1.0));
-			const preAnimColor = mix(
-				startColor,
-				selectedColorUniform,
-				selectedStageMix
-			);
-			// Stage 2: during animation move from selected to target
-			const duringAnimColor = mix(
-				preAnimColor,
-				targetColorUniform,
-				animProgress
-			);
-
-			const finalVertexColor = isClicked
-				.select(
-					// clicked path
-					isAtTarget.select(
-						targetColorUniform,
-						isAnimating.select(duringAnimColor, preAnimColor)
-					),
-					// not clicked: idle/hovered path
-					hoveredColor
-				)
-				.toVar();
-
-			vFinalColor.assign(finalVertexColor);
-
-			return finalPosition;
-		});
-
-		// THIRD: Fix the color shader - replace animateColor function:
-		const animateColor = Fn(() => {
-			return vec4(vFinalColor, 1.0);
-		});
-
-		// Apply the enhanced shaders
-		material.positionNode = animateZ();
-		material.colorNode = animateColor();
-
-		// Initialize instances (same as before but with new attributes)
-		const dummy = new THREE.Object3D();
-		let instanceIndex = 0;
-		const centeringOffsetZ = 9.05;
-
-		for (let row = 0; row < numRows; row++) {
-			for (let col = 0; col < numCols; col++) {
-				dummy.position.x = col * spacing + centeringOffsetX;
-				dummy.position.y = (numRows - 1 - row) * spacing + centeringOffsetY;
-				dummy.position.z = 0 + centeringOffsetZ;
-				dummy.updateMatrix();
-				this.instancedMesh.setMatrixAt(instanceIndex, dummy.matrix);
-
-				// Set all instance attributes
-				instanceColRow[instanceIndex * 2] = col;
-				instanceColRow[instanceIndex * 2 + 1] = row;
-				instanceHoverState[instanceIndex] = 0;
-				instanceTimestamp[instanceIndex] = 0;
-				instanceState[instanceIndex] = RectangleState.IDLE;
-				instanceAnimationProgress[instanceIndex] = 0.0;
-				instanceTargetPosition[instanceIndex * 3] = this.targetPosition.x;
-				instanceTargetPosition[instanceIndex * 3 + 1] = this.targetPosition.y;
-				instanceTargetPosition[instanceIndex * 3 + 2] = this.targetPosition.z;
-				instanceQueuePosition[instanceIndex] = -1;
-				instanceAnimStartTime[instanceIndex] = 0.0;
-
-				instanceIndex++;
-			}
-		}
-
-		// Set all geometry attributes
-		this.instancedMesh.geometry.setAttribute(
-			'instanceColRow',
-			new THREE.InstancedBufferAttribute(instanceColRow, 2)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceHoverState',
-			new THREE.InstancedBufferAttribute(instanceHoverState, 1)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceTimestamp',
-			new THREE.InstancedBufferAttribute(instanceTimestamp, 1)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceState',
-			new THREE.InstancedBufferAttribute(instanceState, 1)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceAnimationProgress',
-			new THREE.InstancedBufferAttribute(instanceAnimationProgress, 1)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceTargetPosition',
-			new THREE.InstancedBufferAttribute(instanceTargetPosition, 3)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceQueuePosition',
-			new THREE.InstancedBufferAttribute(instanceQueuePosition, 1)
-		);
-		this.instancedMesh.geometry.setAttribute(
-			'instanceAnimStartTime',
-			new THREE.InstancedBufferAttribute(instanceAnimStartTime, 1)
-		);
-
-		// Store enhanced references
-		this.interactionAttributes = {
-			hover: this.instancedMesh.geometry.attributes
-				.instanceHoverState as THREE.InstancedBufferAttribute,
-			timestamp: this.instancedMesh.geometry.attributes
-				.instanceTimestamp as THREE.InstancedBufferAttribute,
-			state: this.instancedMesh.geometry.attributes
-				.instanceState as THREE.InstancedBufferAttribute,
-			animationProgress: this.instancedMesh.geometry.attributes
-				.instanceAnimationProgress as THREE.InstancedBufferAttribute,
-			targetPosition: this.instancedMesh.geometry.attributes
-				.instanceTargetPosition as THREE.InstancedBufferAttribute,
-			queuePosition: this.instancedMesh.geometry.attributes
-				.instanceQueuePosition as THREE.InstancedBufferAttribute,
-			animStartTime: this.instancedMesh.geometry.attributes
-				.instanceAnimStartTime as THREE.InstancedBufferAttribute
+		this.mainColumn = {
+			mainColumnGeometry: geometry,
+			mainColumnMaterial: material,
+			mainColumnMesh: mesh
 		};
 
-		this.instancedMesh.instanceMatrix.needsUpdate = true;
-		this.scene.add(this.instancedMesh);
+		this.scene.add(this.mainColumn.mainColumnMesh);
 	}
 
-	setupSettings() {
+	setupInstancedMeshManager() {
+		this.instancedMeshManager = new InstancedMeshManager({
+			scene: this.scene,
+			targetPosition: this.targetPosition,
+			numCols: this.numCols,
+			numRows: this.numRows,
+			onUniformsCreated: (uniforms) => {
+				// Store uniforms for external access
+				this.uniforms = uniforms;
+			},
+			onInteractionAttributesCreated: (attributes) => {
+				// Store interaction attributes for external access
+				this.interactionAttributes = attributes;
+			}
+		});
+
+		// Create the instanced mesh
+		this.instancedMesh = this.instancedMeshManager.createInstancedMesh();
+	}
+
+	private setupTweakPane(): void {
 		this.pane = new Pane();
 		const tpElem = document.querySelector('.tp-dfwv') as HTMLElement | null;
 		if (tpElem) tpElem.style.zIndex = '1000';
+	}
 
-		const xyz = new THREE.AxesHelper(50);
-		this.scene.add(xyz);
-		xyz.visible = false;
-
-		// Add frequency, amplitude, zOffset, and scale controls
-		// this.pane.addBinding(this.uniforms.frequency, 'value', {
-		//  min: 0,
-		//  max: 2,
-		//  step: 0.1,
-		//  label: 'Frequency'
-		// });
-		// this.pane.addBinding(this.uniforms.amplitude, 'value', {
-		//  min: 0,
-		//  max: 5,
-		//  step: 0.1,
-		//  label: 'Amplitude'
-		// });
-		// this.pane.addBinding(this.uniforms.zOffset, 'value', {
-		// 	min: -10,
-		// 	max: 10,
-		// 	step: 0.1,
-		// 	label: 'Z Offset'
-		// });
-		// this.pane.addBinding(this.uniforms.scale, 'value', {
-		//  min: 0.01,
-		//  max: 0.5,
-		//  step: 0.01,
-		//  label: 'Noise Scale'
-		// });
-
-		setupCameraPane({
+	setupTweakPaneManager() {
+		this.tweakPaneManager = new TweakPaneManager({
+			pane: this.pane,
+			scene: this.scene,
 			camera: this.camera,
-			pane: this.pane,
 			controls: this.controls,
-			scene: this.scene,
-			defaultOpen: false,
-			helperSize: 1.5,
-			isActive: false
-		});
-
-		setupLightPane({
-			pane: this.pane,
-			light: this.pointLight,
-			name: 'Point Light',
-			scene: this.scene,
-			positionRange: { min: -15, max: 15 },
-			targetRange: { min: -15, max: 15 },
-			showHelper: true,
-			isActive: false
-		});
-
-		setupLightPane({
-			pane: this.pane,
-			light: this.pointLight2,
-			name: 'Point Light 2',
-			scene: this.scene,
-			positionRange: { min: -50, max: 50 },
-			targetRange: { min: -50, max: 50 },
-			showHelper: true,
-			isActive: false
-		});
-
-		setupLightPane({
-			pane: this.pane,
-			light: this.pointLight3,
-			name: 'Point Light 3',
-			scene: this.scene,
-			positionRange: { min: -50, max: 50 },
-			targetRange: { min: -50, max: 50 },
-			showHelper: true,
-			isActive: false
-		});
-
-		setupLightPane({
-			pane: this.pane,
-			light: this.pointLight4,
-			name: 'Point Light 4',
-			scene: this.scene,
-			positionRange: { min: -50, max: 50 },
-			targetRange: { min: -50, max: 50 },
-			showHelper: true,
-			isActive: false
-		});
-
-		// Animation timing controls
-		const animFolder = this.pane.addFolder({
-			title: 'Animation Timing',
-			expanded: false
-		});
-		const timing = {
-			animationDurationSec: this.animationDurationSec,
-			overlapDurationSec: this.overlapDurationSec
-		};
-		let bOverlap: any;
-		const bDuration = animFolder
-			.addBinding(timing, 'animationDurationSec', {
-				label: 'Per-item Duration (s)',
-				min: 0.1,
-				max: 10,
-				step: 0.1
-			})
-			.on('change', (ev) => {
-				const dur = ev.value as number;
-				this.animationDurationSec = dur;
-				// Ensure overlap does not exceed duration
-				if (timing.overlapDurationSec > dur) {
-					timing.overlapDurationSec = dur;
-					this.overlapDurationSec = dur;
-					if (bOverlap && typeof bOverlap.refresh === 'function')
-						bOverlap.refresh();
-				}
+			lights: {
+				pointLight: this.pointLight,
+				pointLight2: this.pointLight2,
+				pointLight3: this.pointLight3,
+				pointLight4: this.pointLight4,
+				rectLight: this.rectLight
+			},
+			rectLightHelper: this.rectLightHelper,
+			uniforms: this.uniforms,
+			disintegrate: this.disintegrate,
+			onAnimationTimingChange: (duration: number, overlap: number) => {
+				this.animationSystem.updateTiming(duration, overlap);
 				// Restart auto-selection timer to apply new cadence
-				this.stopAutoSelection();
-				this.startAutoSelection();
-			});
-		bOverlap = animFolder
-			.addBinding(timing, 'overlapDurationSec', {
-				label: 'Overlap (s)',
-				min: 0,
-				max: 10,
-				step: 0.1
-			})
-			.on('change', (ev) => {
-				// Clamp to [0, duration]
-				let v = ev.value as number;
-				v = Math.max(0, Math.min(v, this.animationDurationSec));
-				timing.overlapDurationSec = v;
-				this.overlapDurationSec = v;
-				if (bOverlap && typeof bOverlap.refresh === 'function')
-					bOverlap.refresh();
-				// Restart auto-selection timer to apply new cadence
-				this.stopAutoSelection();
-				this.startAutoSelection();
-			});
+				this.autoSelectionManager.updateTimingSettings();
+			},
+			onTargetPositionChange: (x: number, y: number, z: number) => {
+				this.targetPosition.set(x, y, z);
+				this.updateAllTargetPositions();
+			},
+			onFXAAToggle: (enabled: boolean) => {
+				this.toggleFXAA(enabled);
+			},
+			animationDurationSec: this.animationSystem.animationDuration,
+			overlapDurationSec: this.animationSystem.overlapDuration,
+			targetPosition: this.targetPosition,
+			disintegrateProgress: this.disintegrateProgress,
+			fxaaEnabled: this.fxaaEnabled
+		});
 
-		// Target Position controls
-		// const targetFolder = this.pane.addFolder({
-		// 	title: 'Target Position',
-		// 	expanded: false
-		// });
-		// const target = {
-		// 	x: this.targetPosition.x,
-		// 	y: this.targetPosition.y,
-		// 	z: this.targetPosition.z
-		// };
-		// targetFolder
-		// 	.addBinding(target, 'x', { min: -200, max: 200, step: 0.1, label: 'X' })
-		// 	.on('change', (ev) => {
-		// 		this.targetPosition.x = ev.value as number;
-		// 		this.updateAllTargetPositions();
-		// 	});
-
-		// // Camera wobble controls
-		// const wobbleFolder = this.pane.addFolder({
-		// 	title: 'Camera Wobble',
-		// 	expanded: false
-		// });
-		// wobbleFolder.addBinding(this, 'wobblePosStrength', {
-		// 	label: 'Strength',
-		// 	min: 0,
-		// 	max: 5,
-		// 	step: 0.01
-		// });
-		// wobbleFolder.addBinding(this, 'wobbleLerp', {
-		// 	label: 'Easing',
-		// 	min: 0.01,
-		// 	max: 0.5,
-		// 	step: 0.01
-		// });
-		// targetFolder
-		// 	.addBinding(target, 'y', { min: -200, max: 200, step: 0.1, label: 'Y' })
-		// 	.on('change', (ev) => {
-		// 		this.targetPosition.y = ev.value as number;
-		// 		this.updateAllTargetPositions();
-		// 	});
-		// targetFolder
-		// 	.addBinding(target, 'z', { min: -200, max: 200, step: 0.1, label: 'Z' })
-		// 	.on('change', (ev) => {
-		// 		this.targetPosition.z = ev.value as number;
-		// 		this.updateAllTargetPositions();
-		// 	});
-
-		// // At-Target Rotation controls (degrees)
-		// const atTargetRotFolder = this.pane.addFolder({
-		// 	title: 'At Target Rotation',
-		// 	expanded: false
-		// });
-		// const atTargetRot = {
-		// 	x: 0,
-		// 	y: 0,
-		// 	z: 0
-		// };
-		// const deg2rad = (d: number) => (d * Math.PI) / 180;
-		// atTargetRotFolder
-		// 	.addBinding(atTargetRot, 'x', {
-		// 		min: -180,
-		// 		max: 180,
-		// 		step: 1,
-		// 		label: 'Rot X (deg)'
-		// 	})
-		// 	.on('change', (ev) => {
-		// 		if (this.uniforms.atTargetRotX)
-		// 			this.uniforms.atTargetRotX.value = deg2rad(ev.value as number);
-		// 	});
-		// atTargetRotFolder
-		// 	.addBinding(atTargetRot, 'y', {
-		// 		min: -180,
-		// 		max: 180,
-		// 		step: 1,
-		// 		label: 'Rot Y (deg)'
-		// 	})
-		// 	.on('change', (ev) => {
-		// 		if (this.uniforms.atTargetRotY)
-		// 			this.uniforms.atTargetRotY.value = deg2rad(ev.value as number);
-		// 	});
-		// atTargetRotFolder
-		// 	.addBinding(atTargetRot, 'z', {
-		// 		min: -180,
-		// 		max: 180,
-		// 		step: 1,
-		// 		label: 'Rot Z (deg)'
-		// 	})
-		// 	.on('change', (ev) => {
-		// 		if (this.uniforms.atTargetRotZ)
-		// 			this.uniforms.atTargetRotZ.value = deg2rad(ev.value as number);
-		// 	});
-
-		// Controls toggle
-		this.pane
-			.addBinding(this, 'controlsEnabled', { label: 'Enable Controls' })
-			.on('change', (ev) => this.setControlsEnabled(ev.value as boolean));
+		// Store reference to the pane for other systems that need it
+		this.pane = this.tweakPaneManager.getPane();
 	}
 
 	async render() {
@@ -1703,24 +643,62 @@ export default class Sketch {
 		}
 
 		// Centralized handling for camera wobble vs OrbitControls
-		this.updateCameraAndControls();
+		this.cameraWobble.render();
 
 		// NEW: Update animations every frame
 		this.updateAnimations();
 
 		// Watchdog: ensure auto selection keeps running even if something cleared it
-		if (this.autoSelectTimer === null) {
-			this.startAutoSelection();
+		if (!this.autoSelectionManager.isRunning) {
+			this.autoSelectionManager.startAutoSelection();
 		}
 
-		// controls disabled
-		await this.renderer.renderAsync(this.scene, this.camera);
+		// Use the disintegrate mesh postprocessing which includes bloom and FXAA
+		if (this.disintegrate) {
+			this.disintegrate.render();
+		} else {
+			await this.renderer.renderAsync(this.scene, this.camera);
+		}
 		requestAnimationFrame(() => this.render());
 	}
 	stop() {
+		if (!this.isPlaying) return; // Already stopped or disposed
+
 		this.isPlaying = false;
+
+		// Stop auto selection
+		if (this.autoSelectionManager) {
+			this.autoSelectionManager.dispose();
+			this.autoSelectionManager = undefined as any;
+		}
+
+		// Stop disintegrate animation
+		if (this.disintegrateAnimation) {
+			this.disintegrateAnimation.stop();
+		}
+
+		// Remove event listeners
 		window.removeEventListener('resize', this.resize.bind(this));
-		this.renderer.dispose();
-		if (this.pane) this.pane.dispose();
+
+		// Dispose managers in reverse order of creation
+		if (this.instancedMeshManager) {
+			this.instancedMeshManager.dispose();
+			this.instancedMeshManager = undefined as any;
+		}
+
+		if (this.textHandler) {
+			this.textHandler.dispose();
+			this.textHandler = undefined as any;
+		}
+
+		if (this.tweakPaneManager) {
+			this.tweakPaneManager.dispose();
+			this.tweakPaneManager = undefined as any;
+		}
+
+		// Dispose renderer last
+		if (this.renderer) {
+			this.renderer.dispose();
+		}
 	}
 }

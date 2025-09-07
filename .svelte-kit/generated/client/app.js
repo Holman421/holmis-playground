@@ -87,7 +87,8 @@ export const nodes = [
 	() => import('./nodes/83'),
 	() => import('./nodes/84'),
 	() => import('./nodes/85'),
-	() => import('./nodes/86')
+	() => import('./nodes/86'),
+	() => import('./nodes/87')
 ];
 
 export const server_loads = [];
@@ -173,11 +174,12 @@ export const dictionary = {
 		"/75-tsl-webGPU-portfolio-particle-system": [79],
 		"/76-tsl-webGPU-portfolio-msdf-library": [80],
 		"/77-tsl-portfolio-column-grid": [81],
-		"/8-svg-filters": [82],
-		"/9-three-js-portfolio": [83],
-		"/three-js-template": [84],
-		"/three-js-template/Yuri-template-shader": [86],
-		"/three-js-template/webGPU-tsl": [85]
+		"/78-test": [82],
+		"/8-svg-filters": [83],
+		"/9-three-js-portfolio": [84],
+		"/three-js-template": [85],
+		"/three-js-template/Yuri-template-shader": [87],
+		"/three-js-template/webGPU-tsl": [86]
 	};
 
 export const hooks = {

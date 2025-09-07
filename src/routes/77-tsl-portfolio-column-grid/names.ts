@@ -8,10 +8,10 @@ export const titles = [
 	{ name: 'JavaScript Expert', isImportant: true },
 	{ name: 'React Master', isImportant: true },
 	{ name: 'WebGL Explorer', isImportant: true },
-	{ name: 'Git Guru', isImportant: true },
 	{ name: 'WebGPU Wizard', isImportant: true },
-
+	
 	// --- Creative / Technical (40) ---
+	{ name: 'Git Guru', isImportant: false },
 	{ name: 'UI Magician', isImportant: false },
 	{ name: 'Canvas Bender', isImportant: false },
 	{ name: 'Real-Time Renderer', isImportant: false },
@@ -44,7 +44,6 @@ export const titles = [
 	{ name: 'Motion Architect', isImportant: false },
 	{ name: 'Voxel Explorer', isImportant: false },
 	{ name: 'Texture Wrangler', isImportant: false },
-	{ name: 'Performance Tweaker', isImportant: false },
 	{ name: 'API Integrator', isImportant: false }, // changed from 'REST API Integrator'
 	{ name: 'Layout Strategist', isImportant: false },
 	{ name: 'UX Builder', isImportant: false }, // changed from 'UX Flow Builder'
