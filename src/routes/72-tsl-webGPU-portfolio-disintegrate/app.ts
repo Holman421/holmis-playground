@@ -211,7 +211,7 @@ export default class Sketch {
 		this.resize();
 		this.particleSystem();
 		this.setUpSettings();
-		// this.startCycleAnimation();
+		this.startCycleAnimation();
 
 		this.init();
 	}
