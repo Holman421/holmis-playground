@@ -395,7 +395,10 @@ export default class Sketch {
 				this.scene.add(mesh);
 				this.textMesh = mesh;
 
-				const meshStatic = new THREE.Mesh(geometryStatic as any, material as any);
+				const meshStatic = new THREE.Mesh(
+					geometryStatic as any,
+					material as any
+				);
 				meshStatic.position.set(-25.6, 2.0, 67.4);
 				meshStatic.scale.set(0.01, 0.01, 0.01);
 				meshStatic.rotation.set(0, Math.PI * (125 / 180), Math.PI * 1.0);
@@ -1223,11 +1226,22 @@ export default class Sketch {
 			const baseRotPos = shouldRotate.select(rotatedPosZ, position);
 
 			// Use rotated position during animation; at target use uniform-based final rotation; otherwise original
-			const finalRotatedPos = mix(
-				baseRotPos,
-				atRotZ,
-				isAtTargetState.select(float(1.0), float(0.0))
-			);
+
+			const blendStart = float(0.8); // start blending at 80% progress
+			const blendWidth = float(0.2); // reach full blend by 100%
+			const rawBlend = animationProgressAttr
+				.sub(blendStart)
+				.div(blendWidth)
+				.clamp(0.0, 1.0);
+			// Smoothstep-like easing: b*b*(3 - 2*b)
+			const blendEased = rawBlend
+				.mul(rawBlend)
+				.mul(float(3.0).sub(rawBlend.mul(2.0)));
+
+			// While animating: blend from current animated rotation to the final at-target rotation
+			const blendedDuringAnim = mix(baseRotPos, atRotZ, blendEased);
+			// When state is AT_TARGET, use full at-target rotation
+			const finalRotatedPos = isAtTargetState.select(atRotZ, blendedDuringAnim);
 			// Smaller selected Z offset
 			const selectedZBase = float(1.5); // Reduced from 2.0
 
@@ -1555,7 +1569,8 @@ export default class Sketch {
 				if (timing.overlapDurationSec > dur) {
 					timing.overlapDurationSec = dur;
 					this.overlapDurationSec = dur;
-					if (bOverlap && typeof bOverlap.refresh === 'function') bOverlap.refresh();
+					if (bOverlap && typeof bOverlap.refresh === 'function')
+						bOverlap.refresh();
 				}
 				// Restart auto-selection timer to apply new cadence
 				this.stopAutoSelection();
@@ -1574,7 +1589,8 @@ export default class Sketch {
 				v = Math.max(0, Math.min(v, this.animationDurationSec));
 				timing.overlapDurationSec = v;
 				this.overlapDurationSec = v;
-				if (bOverlap && typeof bOverlap.refresh === 'function') bOverlap.refresh();
+				if (bOverlap && typeof bOverlap.refresh === 'function')
+					bOverlap.refresh();
 				// Restart auto-selection timer to apply new cadence
 				this.stopAutoSelection();
 				this.startAutoSelection();
