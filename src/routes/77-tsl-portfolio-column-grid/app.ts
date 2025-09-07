@@ -59,6 +59,7 @@ export default class Sketch {
 	gridToInstanceId!: Map<string, number>;
 	cameraWobble!: CameraWobble;
 	fxaaEnabled: boolean = true;
+	textAnimationPlayed: boolean = false; // Track if the text animation has played
 
 	uniforms: {
 		frequency: any;
@@ -116,11 +117,11 @@ export default class Sketch {
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setClearColor(new THREE.Color(0x000000), 1);
-		
+
 		// Improve lighting quality and reduce harsh edges
 		this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
 		this.renderer.toneMappingExposure = 1.52;
-		
+
 		this.container.appendChild(this.renderer.domElement);
 
 		this.camera = new THREE.PerspectiveCamera(
@@ -152,9 +153,9 @@ export default class Sketch {
 		this.setupAnimationSystem();
 		this.setupInteractionSystem();
 		this.setupAutoSelectionManager();
-		// this.setupTweakPaneManager();
+		this.setupTweakPaneManager();
 
-		// this.scene.fog = new THREE.FogExp2(0x000000, 0.01);
+		// this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
 		this.resize();
 		this.init();
@@ -163,14 +164,14 @@ export default class Sketch {
 	async init() {
 		// Initialize RectAreaLight textures for WebGPU renderer (must be done before renderer.init())
 		THREE.RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
-		
+
 		await this.renderer.init();
 		this.render();
 	}
 
 	toggleFXAA(enabled: boolean) {
 		this.fxaaEnabled = enabled;
-		
+
 		// Update DisintegrateMesh FXAA setting
 		if (this.disintegrate) {
 			this.disintegrate.setFXAAEnabled(enabled);
@@ -310,7 +311,7 @@ export default class Sketch {
 			scene: this.scene,
 			controls: this.controls,
 			isEnabled: true,
-			addTweakpane: false,
+			addTweakpane: true,
 			pane: this.pane
 		});
 
@@ -323,12 +324,12 @@ export default class Sketch {
 		const totalInstances = numCols * numRows;
 
 		// Separate important and non-important titles
-		const importantTitles = titles.filter(title => title.isImportant);
-		const nonImportantTitles = titles.filter(title => !title.isImportant);
+		const importantTitles = titles.filter((title) => title.isImportant);
+		const nonImportantTitles = titles.filter((title) => !title.isImportant);
 
 		// Initialize array with non-important titles (they can repeat)
 		this.instanceTextData = new Array(totalInstances);
-		
+
 		// Fill all positions with non-important titles first
 		for (let i = 0; i < totalInstances; i++) {
 			const dataIndex = i % nonImportantTitles.length;
@@ -337,7 +338,9 @@ export default class Sketch {
 
 		// Generate random positions for important titles (ensure each appears only once)
 		const randomPositions = new Set<number>();
-		while (randomPositions.size < Math.min(importantTitles.length, totalInstances)) {
+		while (
+			randomPositions.size < Math.min(importantTitles.length, totalInstances)
+		) {
 			const randomPos = Math.floor(Math.random() * totalInstances);
 			randomPositions.add(randomPos);
 		}
@@ -392,7 +395,7 @@ export default class Sketch {
 			},
 			staticTextConfig: {
 				text: 'Hi, I am',
-				position: new THREE.Vector3(-25.6, 4.5, 67.4),
+				position: new THREE.Vector3(-25.6, 2.0, 67.4),
 				scale: new THREE.Vector3(0.01, 0.01, 0.01),
 				rotation: new THREE.Euler(0, Math.PI * (125 / 180), Math.PI * 1.0)
 			}
@@ -443,7 +446,6 @@ export default class Sketch {
 			}, 50); // Small delay to ensure geometry is updated
 		}
 	}
-
 	createInstanceIdMapping() {
 		this.instanceIdToGrid = new Map();
 		this.gridToInstanceId = new Map();
@@ -464,6 +466,10 @@ export default class Sketch {
 			this.updateFontText(instanceData.name);
 			if (this.disintegrateAnimation) {
 				this.disintegrateAnimation.playAnimation();
+			}
+			if (!this.textAnimationPlayed) {
+				this.textHandler.animateTextToHiAmA(1500);
+				this.textAnimationPlayed = true;
 			}
 		}
 	}

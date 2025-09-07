@@ -255,7 +255,7 @@ export default class TextHandler {
 			
 			// Position the static text ("Hi, I am") above the main text
 			// Calculate offset for "Hi, I am" text to be above the main text
-			const staticOffsetLocal = new THREE.Vector3(0, -1.0, 0); // Offset above main text in local space
+			const staticOffsetLocal = new THREE.Vector3(0, -0.85, 0); // Offset above main text in local space
 			
 			// Transform the offset to world space using the rotation
 			const rotationMatrix = new THREE.Matrix4().makeRotationFromEuler(correctRotation);
@@ -273,6 +273,111 @@ export default class TextHandler {
 
 	public getStaticTextMesh(): THREE.Mesh | undefined {
 		return this.staticTextMesh;
+	}
+
+	/**
+	 * Animates the static text from "Hi I am" to "Hi I am a" with fade-in effect for the "a"
+	 * @param duration Duration of the animation in milliseconds (default: 2000ms)
+	 */
+	public animateTextToHiAmA(duration: number = 2000): void {
+		if (!this.staticTextMesh || !this.material || !this.font) {
+			console.warn('Cannot animate text: staticTextMesh, material, or font not initialized');
+			return;
+		}
+
+		// Store original material opacity value
+		const originalOpacity = (this.material.opacity as any).value || 1.0;
+		
+		// Create the final text "Hi I am a" geometry
+		const finalTextGeometry = new MSDFTextGeometry({
+			text: 'Hi I am a',
+			font: this.font
+		});
+
+		// Create a new material for the final text, starting invisible
+		const finalTextMaterial = new MSDFTextNodeMaterial({
+			map: this.atlas,
+			color: this.materialConfig.color,
+			opacity: 0 // Start invisible
+		});
+		
+		// Create the final text mesh positioned exactly on top of the original
+		const finalTextMesh = new THREE.Mesh(finalTextGeometry, finalTextMaterial as any);
+		finalTextMesh.position.copy(this.staticTextMesh.position);
+		finalTextMesh.rotation.copy(this.staticTextMesh.rotation);
+		finalTextMesh.scale.copy(this.staticTextMesh.scale);
+		
+		// Add the final text mesh to the scene
+		this.scene.add(finalTextMesh);
+
+		// Animate opacity transition - only fade IN the final text, keep original visible
+		const startTime = Date.now();
+		const fadeInAnimation = () => {
+			const elapsed = Date.now() - startTime;
+			const progress = Math.min(elapsed / duration, 1);
+			
+			// Smooth transition using easing function
+			const easedProgress = 1 - Math.pow(1 - progress, 3); // Ease-out cubic
+			
+			// Only fade in the final text, keep original text at full opacity
+			(finalTextMaterial.opacity as any).value = easedProgress * originalOpacity;
+			
+			if (progress < 1) {
+				requestAnimationFrame(fadeInAnimation);
+			} else {
+				// Animation complete - replace the original mesh
+				this.replaceWithFinalText(finalTextMesh, finalTextMaterial);
+			}
+		};
+
+		// Start the fade-in animation
+		requestAnimationFrame(fadeInAnimation);
+	}
+
+	/**
+	 * Helper method to replace the original text with the final text after animation
+	 */
+	private replaceWithFinalText(finalTextMesh: THREE.Mesh, finalTextMaterial: any): void {
+		if (!this.staticTextMesh) return;
+
+		// Remove the original static text mesh
+		this.scene.remove(this.staticTextMesh);
+		if (this.staticTextMesh.geometry) {
+			this.staticTextMesh.geometry.dispose();
+		}
+		if (this.material) {
+			(this.material as any).dispose();
+		}
+
+		// Replace with the final text mesh and material
+		this.staticTextMesh = finalTextMesh;
+		this.material = finalTextMaterial;
+		
+		// Ensure final opacity is correct
+		if (this.material) {
+			(this.material.opacity as any).value = this.materialConfig.opacity;
+		}
+	}
+
+	/**
+	 * Resets the static text back to "Hi, I am"
+	 */
+	public resetStaticText(): void {
+		if (!this.staticTextMesh || !this.font) {
+			console.warn('Cannot reset text: staticTextMesh or font not initialized');
+			return;
+		}
+
+		const resetGeometry = new MSDFTextGeometry({
+			text: this.staticTextConfig.text, // Original "Hi, I am"
+			font: this.font
+		});
+
+		const oldGeometry = this.staticTextMesh.geometry;
+		this.staticTextMesh.geometry = resetGeometry;
+		if (oldGeometry) {
+			oldGeometry.dispose();
+		}
 	}
 
 	private setupTweakpane(): void {
