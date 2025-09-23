@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	const { src, mediaType, alt, index } = $props<{
+	const { src, mediaType, alt, index, className } = $props<{
 		src: string;
 		mediaType: 'image' | 'video';
 		alt: string;
 		index: number;
+		className?: string;
 	}>();
 
 	let elementRef: HTMLDivElement;
 	let isVisible = $state(false);
-let isLoaded = $state(false);
-let fallbackToImage = $state(false);
+	let isLoaded = $state(false);
+	let fallbackToImage = $state(false);
 
 	onMount(() => {
 		const observer = new IntersectionObserver(
@@ -24,7 +25,7 @@ let fallbackToImage = $state(false);
 				});
 			},
 			{
-				rootMargin: '100px' 
+				rootMargin: '100px'
 			}
 		);
 
@@ -41,12 +42,12 @@ let fallbackToImage = $state(false);
 		isLoaded = true;
 	}
 
-function handleError() {
-	console.warn(`Failed to load ${mediaType}: ${src}`);
-	if (mediaType === 'video') {
-		fallbackToImage = true;
+	function handleError() {
+		console.warn(`Failed to load ${mediaType}: ${src}`);
+		if (mediaType === 'video') {
+			fallbackToImage = true;
+		}
 	}
-}
 </script>
 
 <div bind:this={elementRef} class="w-full h-full relative">
@@ -59,16 +60,18 @@ function handleError() {
 			muted
 			loop
 			preload="metadata"
-			class="w-full h-full object-fill {isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300"
+			class="w-full h-full object-fill transition-opacity duration-300 {isLoaded ? 'opacity-100' : 'opacity-0'} {className || ''}"
 			onloadeddata={handleLoad}
 			onerror={handleError}
 		></video>
 		{#if !isLoaded}
-			<div class="absolute inset-0 bg-black rounded flex items-center justify-center">
+			<div
+				class="absolute inset-0 bg-black rounded flex items-center justify-center"
+			>
 				<div class="flex items-center">
 					<div class="flex space-x-1">
 						{#each Array(3) as _, i}
-							<div 
+							<div
 								class="w-1.5 h-1.5 bg-white rounded-full animate-bounce"
 								style="animation-delay: {i * 0.15}s"
 							></div>
@@ -81,16 +84,18 @@ function handleError() {
 		<img
 			{src}
 			{alt}
-			class="w-full h-full object-fill {isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300"
+			class="w-full h-full object-fill transition-opacity duration-300 {isLoaded ? 'opacity-100' : 'opacity-0'} {className || ''}"
 			onload={handleLoad}
 			onerror={handleError}
 		/>
 		{#if !isLoaded}
-			<div class="absolute inset-0 bg-black rounded flex items-center justify-center">
+			<div
+				class="absolute inset-0 bg-black rounded flex items-center justify-center"
+			>
 				<div class="flex items-center">
 					<div class="flex space-x-1">
 						{#each Array(3) as _, i}
-							<div 
+							<div
 								class="w-1.5 h-1.5 bg-white rounded-full animate-bounce"
 								style="animation-delay: {i * 0.15}s"
 							></div>

@@ -5,6 +5,7 @@
 	import { projects } from '$lib/data/projects';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import AboutMeCard from '$lib/components/AboutMeCard.svelte';
 
 	function getMediaType(src: string): 'image' | 'video' {
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi'];
@@ -40,13 +41,31 @@
 		return src;
 	}
 
-	let showAllProjects = $state($page.url.searchParams.get('view') === 'all');
+	type Section = 'all' | 'representable' | 'about';
+
+	let activeSection = $state<Section>(
+		(() => {
+			const view = $page.url.searchParams.get('view');
+			if (view === 'all' || view === 'about') return view;
+			return 'representable';
+		})()
+	);
+
+	const sections: { id: Section; label: string }[] = [
+		{ id: 'all', label: 'All projects' },
+		{ id: 'representable', label: 'Representable projects' },
+		{ id: 'about', label: 'About me' }
+	];
 
 	const filteredProjects = projects.filter((p) => p.shared);
 	const allProjects = projects;
 
 	const currentProjects = $derived(
-		showAllProjects ? allProjects : filteredProjects
+		activeSection === 'all'
+			? allProjects
+			: activeSection === 'representable'
+				? filteredProjects
+				: []
 	);
 
 	function updateURL(view: string | null) {
@@ -54,52 +73,55 @@
 		view ? url.searchParams.set('view', view) : url.searchParams.delete('view');
 		goto(url.toString(), { replaceState: true });
 	}
+
+	function setSection(section: Section) {
+		activeSection = section;
+		if (section === 'representable') updateURL(null);
+		else updateURL(section);
+	}
+
+	function variantFor(section: Section) {
+		return activeSection === section ? 'active' : 'default';
+	}
 </script>
 
 <div
 	class="w-full flex justify-center mt-10 gap-5 flex-col sm:flex-row items-center relative"
 >
-	<Button
-		variant={showAllProjects ? 'active' : 'default'}
-		onClick={() => {
-			showAllProjects = true;
-			updateURL('all');
-		}}
-	>
-		All projects
-	</Button>
-	<Button
-		variant={!showAllProjects ? 'active' : 'default'}
-		onClick={() => {
-			showAllProjects = false;
-			updateURL(null);
-		}}
-	>
-		Representable projects
-	</Button>
-	<div class="absolute top-auto -bottom-10 translate-x-1/2 right-1/2">
-		Project Counter: {currentProjects.length}
-	</div>
+	{#each sections as { id, label }}
+		<Button variant={variantFor(id)} onClick={() => setSection(id)}>
+			{label}
+		</Button>
+	{/each}
+	{#if activeSection !== 'about'}
+		<div class="absolute top-auto -bottom-10 translate-x-1/2 right-1/2">
+			Project Counter: {currentProjects.length}
+		</div>
+	{/if}
 </div>
 
 <div
 	class="text-black mx-auto mt-16 flex gap-8 flex-wrap w-full justify-center p-4"
 >
-	{#each currentProjects as { href, date, title, description, technologies, imgSrc, usedInRealProject }, index}
-		<ProjectCard
-			{href}
-			{title}
-			{description}
-			{technologies}
-			{date}
-			usedInRealProject={usedInRealProject ?? false}
-		>
-			<LazyMedia
-				src={getOptimizedSrc(imgSrc)}
-				mediaType={getMediaType(getOptimizedSrc(imgSrc))}
-				alt="Project thumbnail"
-				{index}
-			/>
-		</ProjectCard>
+	{#if activeSection !== 'about'}
+		{#each currentProjects as { href, date, title, description, technologies, imgSrc, usedInRealProject }, index}
+			<ProjectCard
+				{href}
+				{title}
+				{description}
+				{technologies}
+				{date}
+				usedInRealProject={usedInRealProject ?? false}
+			>
+				<LazyMedia
+					src={getOptimizedSrc(imgSrc)}
+					mediaType={getMediaType(getOptimizedSrc(imgSrc))}
+					alt="Project thumbnail"
+					{index}
+				/>
+			</ProjectCard>
 		{/each}
-	</div>
+	{:else}
+		<div><AboutMeCard /></div>
+	{/if}
+</div>
