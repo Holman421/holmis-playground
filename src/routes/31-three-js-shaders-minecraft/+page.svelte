@@ -254,9 +254,9 @@
 			const textGeometry = new TextGeometry(textSettings.content, {
 				font,
 				size: textSettings.size,
-				height: textSettings.height,
 				curveSegments: 12,
 				bevelEnabled: true,
+				depth: textSettings.height,
 				bevelThickness: 0.03,
 				bevelSize: 0.02,
 				bevelOffset: 0,
@@ -530,10 +530,10 @@
 			const textGeometry = new TextGeometry(text, {
 				font,
 				size: 0.15,
-				height: 0.05,
 				curveSegments: 12,
 				bevelEnabled: true,
 				bevelThickness: 0.01,
+				depth: 0.05,
 				bevelSize: 0.005,
 				bevelOffset: 0,
 				bevelSegments: 5

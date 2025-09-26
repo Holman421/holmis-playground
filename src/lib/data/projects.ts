@@ -678,7 +678,7 @@ const projects: Project[] = [
 		title: 'Twisting column',
 		description: 'Portfolio training - 1, twisting column with TSL and WebGPU',
 		technologies: ['webGPU'],
-		shared: true,
+		shared: false,
 		imgSrc: '/projectThumbnails/column.mp4',
 		date: new Date('2025-07-25')
 	},

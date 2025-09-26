@@ -27,6 +27,7 @@
  */
 declare module '$env/static/private' {
 	export const ALLUSERSPROFILE: string;
+	export const AMDRMSDKPATH: string;
 	export const APPDATA: string;
 	export const APPLICATION_INSIGHTS_NO_STATSBEAT: string;
 	export const CHROME_CRASHPAD_PIPE_NAME: string;
@@ -35,15 +36,20 @@ declare module '$env/static/private' {
 	export const COMPUTERNAME: string;
 	export const ComSpec: string;
 	export const DriverData: string;
-	export const EFC_20744_1592913036: string;
+	export const EFC_50140_1262719628: string;
+	export const EFC_50140_1592913036: string;
+	export const EFC_50140_2283032206: string;
+	export const EFC_50140_2775293581: string;
+	export const EFC_50140_3789132940: string;
 	export const ELECTRON_NO_ASAR: string;
 	export const ELECTRON_NO_ATTACH_CONSOLE: string;
 	export const ELECTRON_RUN_AS_NODE: string;
+	export const FPS_BROWSER_APP_PROFILE_STRING: string;
+	export const FPS_BROWSER_USER_PROFILE_STRING: string;
 	export const HOMEDRIVE: string;
 	export const HOMEPATH: string;
 	export const LOCALAPPDATA: string;
 	export const LOGONSERVER: string;
-	export const MAGICK_CODER_MODULE_PATH: string;
 	export const NODE_ENV: string;
 	export const NUMBER_OF_PROCESSORS: string;
 	export const OneDrive: string;
@@ -78,10 +84,12 @@ declare module '$env/static/private' {
 	export const VSCODE_ESM_ENTRYPOINT: string;
 	export const VSCODE_HANDLES_UNCAUGHT_ERRORS: string;
 	export const VSCODE_IPC_HOOK: string;
-	export const VSCODE_L10N_BUNDLE_LOCATION: string;
 	export const VSCODE_NLS_CONFIG: string;
 	export const VSCODE_PID: string;
 	export const windir: string;
+	export const WSLENV: string;
+	export const WT_PROFILE_ID: string;
+	export const WT_SESSION: string;
 }
 
 /**
@@ -114,6 +122,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		ALLUSERSPROFILE: string;
+		AMDRMSDKPATH: string;
 		APPDATA: string;
 		APPLICATION_INSIGHTS_NO_STATSBEAT: string;
 		CHROME_CRASHPAD_PIPE_NAME: string;
@@ -122,15 +131,20 @@ declare module '$env/dynamic/private' {
 		COMPUTERNAME: string;
 		ComSpec: string;
 		DriverData: string;
-		EFC_20744_1592913036: string;
+		EFC_50140_1262719628: string;
+		EFC_50140_1592913036: string;
+		EFC_50140_2283032206: string;
+		EFC_50140_2775293581: string;
+		EFC_50140_3789132940: string;
 		ELECTRON_NO_ASAR: string;
 		ELECTRON_NO_ATTACH_CONSOLE: string;
 		ELECTRON_RUN_AS_NODE: string;
+		FPS_BROWSER_APP_PROFILE_STRING: string;
+		FPS_BROWSER_USER_PROFILE_STRING: string;
 		HOMEDRIVE: string;
 		HOMEPATH: string;
 		LOCALAPPDATA: string;
 		LOGONSERVER: string;
-		MAGICK_CODER_MODULE_PATH: string;
 		NODE_ENV: string;
 		NUMBER_OF_PROCESSORS: string;
 		OneDrive: string;
@@ -165,10 +179,12 @@ declare module '$env/dynamic/private' {
 		VSCODE_ESM_ENTRYPOINT: string;
 		VSCODE_HANDLES_UNCAUGHT_ERRORS: string;
 		VSCODE_IPC_HOOK: string;
-		VSCODE_L10N_BUNDLE_LOCATION: string;
 		VSCODE_NLS_CONFIG: string;
 		VSCODE_PID: string;
 		windir: string;
+		WSLENV: string;
+		WT_PROFILE_ID: string;
+		WT_SESSION: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}
