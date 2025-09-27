@@ -2,25 +2,29 @@
 	import * as THREE from 'three/webgpu';
 	import GUI from 'lil-gui';
 	import {
-		abs,
-		dot,
-		Fn,
-		max,
-		texture,
-		uniform,
-		uv,
-		vec2,
-		vec4,
-		smoothstep,
-		step,
-		sin,
-		floor,
-		mix,
 		float,
-		length,
+		Fn,
+		mix,
+		vec3,
+		uniform,
+		positionLocal,
+		If,
+		Discard,
+		smoothstep,
+		texture,
+		instancedArray,
+		vec4,
+		vec2,
+		sin,
+		dot,
+		max,
+		step,
+		floor,
+		uv,
 		pow,
+		abs,
 		remap
-	} from 'three/src/nodes/TSL.js';
+	} from 'three/tsl';
 	import { gsap } from 'gsap';
 
 	$effect(() => {
@@ -57,18 +61,27 @@
 			const textureLoader = new THREE.TextureLoader();
 			Promise.all([
 				new Promise<THREE.Texture>((resolve) =>
-					textureLoader.load('/pictures/universe/universe-11.jpg', (texture) => {
-						texture.colorSpace = THREE.SRGBColorSpace;
-						texture.minFilter = THREE.LinearFilter;
-						texture.magFilter = THREE.LinearFilter;
-						resolve(texture);
-					})
+					textureLoader.load(
+						'/pictures/universe/universe-11.jpg',
+						(texture) => {
+							texture.colorSpace = THREE.SRGBColorSpace;
+							texture.minFilter = THREE.LinearFilter;
+							texture.magFilter = THREE.LinearFilter;
+							texture.wrapS = THREE.ClampToEdgeWrapping;
+							texture.wrapT = THREE.ClampToEdgeWrapping;
+							texture.generateMipmaps = false;
+							resolve(texture);
+						}
+					)
 				),
 				new Promise<THREE.Texture>((resolve) =>
 					textureLoader.load('/pictures/universe/universe-8.jpg', (texture) => {
 						texture.colorSpace = THREE.SRGBColorSpace;
 						texture.minFilter = THREE.LinearFilter;
 						texture.magFilter = THREE.LinearFilter;
+						texture.wrapS = THREE.ClampToEdgeWrapping;
+						texture.wrapT = THREE.ClampToEdgeWrapping;
+						texture.generateMipmaps = false;
 						resolve(texture);
 					})
 				)
@@ -76,50 +89,41 @@
 				const material = new THREE.NodeMaterial();
 
 				const PHI = 1.61803398874989484820459; // Golden Ratio
-				const goldNoise = Fn(([xy]: any) => {
-					return sin(dot(xy, vec2(PHI, PHI + 1.0))).fract();
-				});
+				const goldNoise = (xy: any) => sin(dot(xy, vec2(PHI, PHI + 1.0))).fract();
 
-				const hexDistance = Fn(([uv]: any) => {
+				const sround = (value: any) => floor(value.add(float(0.5)));
+
+				const hexCoordinates = (uvInput: any) => {
 					const s = vec2(1.0, 1.7320508075688772);
-					const p = uv.toVar().abs();
-					return max(dot(p, s.mul(0.5)), p.x);
-				});
+					const shifted = uvInput.sub(vec2(0.5, 1.0));
+					const sVec4 = vec4(s.x, s.y, s.x, s.y);
+					const uvCombined = vec4(uvInput.x, uvInput.y, shifted.x, shifted.y);
+					const hexCenter = sround(uvCombined.div(sVec4));
+					const offsetA = uvInput.sub(hexCenter.xy.mul(s));
+					const offsetB = uvInput.sub(hexCenter.zw.add(vec2(0.5)).mul(s));
 
-				const hexCoordinates = Fn(([uv]: any) => {
-					const s = vec2(1.0, 1.7320508075688772);
-					const hexCenter = sround(vec4(uv, uv.toVar().sub(vec2(0.5, 1.0))).div(s.xyxy));
-					const offset = vec4(
-						uv.sub(hexCenter.xy.mul(s)),
-						uv.sub(hexCenter.zw.add(vec2(0.5)).mul(s))
-					);
-
-					const dot1 = dot(offset.xy, offset.xy);
-					const dot2 = dot(offset.zw, offset.zw);
-					const final1 = vec4(offset.xy, hexCenter.xy);
-					const final2 = vec4(offset.zw, hexCenter.zw);
+					const dot1 = dot(offsetA, offsetA);
+					const dot2 = dot(offsetB, offsetB);
+					const final1 = vec4(offsetA.x, offsetA.y, hexCenter.x, hexCenter.y);
+					const final2 = vec4(offsetB.x, offsetB.y, hexCenter.z, hexCenter.w);
 					const diff = dot1.sub(dot2);
-					const final = mix(final1, final2, step(0.0, diff));
-					return final;
-				});
+					return mix(final1, final2, step(0.0, diff));
+				};
 
-				const sround = Fn(([s]: any) => {
-					return floor(s.add(0.5));
-				});
-
-				const scaleUV = Fn(([uv, scale]: any) => {
-					return uv.toVar().sub(vec2(0.5)).mul(scale).add(vec2(0.5));
-				});
-
-				// Add new cover function before material.colorNode
-				const coverUV = Fn(([uv]: any) => {
-					return uv.toVar().sub(vec2(0.5)).mul(resolution.zw).add(vec2(0.5));
-				});
+				const hexDistance = (uvInput: any) => {
+					const s = vec2(1.0, 1.7320508075688772);
+					const p = abs(uvInput);
+					return max(dot(p, s.mul(0.5)), p.x);
+				};
 
 				material.colorNode = Fn(() => {
 					// Get texture aspect ratios
-					const tex1Ratio = float(texture1.image.width).div(texture1.image.height);
-					const tex2Ratio = float(texture2.image.width).div(texture2.image.height);
+					const tex1Ratio = float(
+						texture1.image.width / texture1.image.height
+					);
+					const tex2Ratio = float(
+						texture2.image.width / texture2.image.height
+					);
 
 					// Add aspect ratio correction for hexagons
 					const aspectRatio = resolution.x.div(resolution.y);
@@ -127,16 +131,22 @@
 					const hexUV = correctedUV.mul(20); // Now using correctedUV instead of raw uv
 
 					// Rest of the shader code remains the same
-					const hexCoords = hexCoordinates([hexUV]);
+					const hexCoords = hexCoordinates(hexUV);
 
-					const hexDist = hexDistance([hexCoords.xy]).add(0.03);
+					const hexDist = hexDistance(hexCoords.xy).add(0.03);
 
 					const border = smoothstep(0.51, 0.51 + 0.03, hexDist);
-					const y = pow(max(0.0, float(0.5).sub(hexDist).oneMinus()), 10.0).mul(1.5);
-					const z = goldNoise([hexCoords.zw]);
+					const y = pow(max(0.0, float(0.5).sub(hexDist).oneMinus()), 10.0).mul(
+						1.5
+					);
+					const z = goldNoise(hexCoords.zw);
 
 					const offset = float(0.2);
-					const bounceTransition = smoothstep(0.0, 0.5, abs(uTransition.sub(0.5))).oneMinus();
+					const bounceTransition = smoothstep(
+						0.0,
+						0.5,
+						abs(uTransition.sub(0.5))
+					).oneMinus();
 
 					const blendCut = smoothstep(
 						uv().y.sub(offset),
@@ -152,7 +162,10 @@
 
 					const merge = smoothstep(0.0, 0.5, abs(blendCut.sub(0.5))).oneMinus();
 
-					const cut = step(uv().y, uTransition.add(y.add(z).mul(0.15).mul(bounceTransition)));
+					const cut = step(
+						uv().y,
+						uTransition.add(y.add(z).mul(0.15).mul(bounceTransition))
+					);
 
 					const textureUV = uv().add(
 						y
@@ -161,14 +174,27 @@
 							.mul(0.025)
 					);
 
-					// Apply aspect ratio correction to UVs - simplified
-					const fromUV = coverUV(textureUV);
-					const toUV = coverUV(textureUV);
+					const viewportRatio = resolution.x.div(resolution.y);
+					const one = float(1.0);
+					const half = float(0.5);
+					const center = vec2(half, half);
+
+					const tex1Scale = vec2(
+						max(one, viewportRatio.div(tex1Ratio)),
+						max(one, tex1Ratio.div(viewportRatio))
+					);
+					const tex2Scale = vec2(
+						max(one, viewportRatio.div(tex2Ratio)),
+						max(one, tex2Ratio.div(viewportRatio))
+					);
+
+					const tex1UV = textureUV.sub(center).mul(tex1Scale).add(center);
+					const tex2UV = textureUV.sub(center).mul(tex2Scale).add(center);
 
 					const colorBlend = merge.mul(border).mul(bounceTransition);
 
-					const sample1 = texture(texture1, toUV);
-					const sample2 = texture(texture2, fromUV);
+					const sample1 = texture(texture1, tex1UV);
+					const sample2 = texture(texture2, tex2UV);
 
 					const final = mix(sample1, sample2, cut);
 
@@ -258,7 +284,10 @@
 		const handleScroll = (event: WheelEvent) => {
 			event.preventDefault();
 
-			targetScroll = Math.max(0, Math.min(maxScroll, targetScroll + event.deltaY));
+			targetScroll = Math.max(
+				0,
+				Math.min(maxScroll, targetScroll + event.deltaY)
+			);
 
 			// Create a proper object to tween
 			const tweenObj = { current: currentScroll };
