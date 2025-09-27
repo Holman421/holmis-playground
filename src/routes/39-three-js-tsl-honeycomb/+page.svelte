@@ -89,7 +89,8 @@
 				const material = new THREE.NodeMaterial();
 
 				const PHI = 1.61803398874989484820459; // Golden Ratio
-				const goldNoise = (xy: any) => sin(dot(xy, vec2(PHI, PHI + 1.0))).fract();
+				const goldNoise = (xy: any) =>
+					sin(dot(xy, vec2(PHI, PHI + 1.0))).fract();
 
 				const sround = (value: any) => floor(value.add(float(0.5)));
 
@@ -118,12 +119,8 @@
 
 				material.colorNode = Fn(() => {
 					// Get texture aspect ratios
-					const tex1Ratio = float(
-						texture1.image.width / texture1.image.height
-					);
-					const tex2Ratio = float(
-						texture2.image.width / texture2.image.height
-					);
+					const tex1Ratio = float(texture1.image.width / texture1.image.height);
+					const tex2Ratio = float(texture2.image.width / texture2.image.height);
 
 					// Add aspect ratio correction for hexagons
 					const aspectRatio = resolution.x.div(resolution.y);
@@ -162,9 +159,14 @@
 
 					const merge = smoothstep(0.0, 0.5, abs(blendCut.sub(0.5))).oneMinus();
 
-					const cut = step(
-						uv().y,
-						uTransition.add(y.add(z).mul(0.15).mul(bounceTransition))
+					const transitionEdge = uTransition.add(
+						y.add(z).mul(0.15).mul(bounceTransition)
+					);
+					const transitionWidth = float(0.0);
+					const smoothCut = smoothstep(
+						transitionEdge.sub(transitionWidth),
+						transitionEdge.add(transitionWidth),
+						uv().y
 					);
 
 					const textureUV = uv().add(
@@ -196,7 +198,7 @@
 					const sample1 = texture(texture1, tex1UV);
 					const sample2 = texture(texture2, tex2UV);
 
-					const final = mix(sample1, sample2, cut);
+					const final = mix(sample1, sample2, smoothCut);
 
 					// return vec4(colorBlend);
 
