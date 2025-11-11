@@ -32,13 +32,14 @@ import CameraWobble from '$lib/utils/cameraWobble';
 
 // Import ScrollTrigger dynamically to avoid SSR issues
 let ScrollTrigger: any;
-const scrollTriggerPromise = typeof window !== 'undefined' 
-	? import('gsap/ScrollTrigger').then((module) => {
-		ScrollTrigger = module.ScrollTrigger;
-		gsap.registerPlugin(ScrollTrigger);
-		return ScrollTrigger;
-	})
-	: Promise.resolve(null);
+const scrollTriggerPromise =
+	typeof window !== 'undefined'
+		? import('gsap/ScrollTrigger').then((module) => {
+				ScrollTrigger = module.ScrollTrigger;
+				gsap.registerPlugin(ScrollTrigger);
+				return ScrollTrigger;
+			})
+		: Promise.resolve(null);
 
 interface SketchOptions {
 	dom: HTMLElement;
@@ -67,6 +68,16 @@ export default class Sketch {
 	scrollProgress: { value: number };
 	scrollProgressUniform: any;
 	scrollTriggerInstance: ScrollTrigger | null = null;
+
+	// Scroll velocity tracking
+	scrollVelocity: number = 0;
+	lastScrollY: number = 0;
+	lastScrollTime: number = 0;
+	smoothedTimeScale: number = 1.0;
+	targetTimeScale: number = 1.0;
+	velocityMultiplier: number = 2.0;
+	timeScaleLerp: number = 0.08;
+	velocityDecay: number = 0.92;
 
 	// Gradient colors
 	colors: THREE.Color[] = [];
@@ -117,9 +128,10 @@ export default class Sketch {
 	// GUI debug object for color controls
 	debugColors: { [key: string]: string } = {};
 	isMobile: boolean = false;
+	velocityParams: any = null;
 	debugParams = {
 		amplitude: 0.35,
-		timeScale: 0.25,
+		timeScale: 0.2,
 		colorTimeScale: 0.9,
 		deformationScale: 6.0,
 		colorScale: 12.0,
@@ -135,18 +147,24 @@ export default class Sketch {
 		this.container = options.dom;
 		this.width = this.container.offsetWidth;
 		this.height = this.container.offsetHeight;
-		
+
 		// Detect mobile device
-		this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-		
+		this.isMobile =
+			/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+				navigator.userAgent
+			) || window.innerWidth <= 768;
+
 		// Adjust parameters for mobile
 		if (this.isMobile) {
+			this.debugParams.amplitude = 0.15;
 			this.debugParams.deformationScale = 10.0;
 			this.debugParams.colorScale = 20.0;
 		}
-		
+
 		this.renderer = new THREE.WebGPURenderer();
-		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.isMobile ? 1.5 : 2));
+		this.renderer.setPixelRatio(
+			Math.min(window.devicePixelRatio, this.isMobile ? 1.5 : 2)
+		);
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setClearColor(new THREE.Color(0x000000), 1);
 		this.container.appendChild(this.renderer.domElement);
@@ -189,22 +207,46 @@ export default class Sketch {
 	async init() {
 		await this.renderer.init();
 		this.setupPostProcessing();
-		
+
 		// Setup ScrollTrigger after everything else is ready
 		await this.setupScrollTrigger();
-		
+
 		// Animate sdfSphereTransition on page load
 		this.animateSdfSphereTransition();
-		
+
 		this.render();
 	}
 
 	async setupScrollTrigger() {
 		if (typeof window === 'undefined') return;
-		
+
 		// Wait for ScrollTrigger to be loaded
 		await scrollTriggerPromise;
 		if (!ScrollTrigger) return;
+
+		// Setup scroll velocity tracking with native scroll events
+		this.lastScrollY = window.scrollY;
+		this.lastScrollTime = performance.now();
+
+		window.addEventListener('scroll', () => {
+			const currentScrollY = window.scrollY;
+			const currentTime = performance.now();
+			const deltaTime = (currentTime - this.lastScrollTime) / 1000; // Convert to seconds
+
+			if (deltaTime > 0) {
+				const deltaScroll = Math.abs(currentScrollY - this.lastScrollY);
+				// Calculate velocity in pixels per second, then normalize
+				const rawVelocity = deltaScroll / deltaTime;
+				// Normalize velocity (adjust divider for sensitivity)
+				this.scrollVelocity = Math.min(rawVelocity / 1000, 2.0);
+			}
+
+			this.lastScrollY = currentScrollY;
+			this.lastScrollTime = currentTime;
+
+			// Calculate target time scale: 1.0 base + velocity boost
+			this.targetTimeScale = 1.0 + this.scrollVelocity * this.velocityMultiplier;
+		});
 
 		this.scrollTriggerInstance = ScrollTrigger.create({
 			trigger: 'body',
@@ -214,23 +256,33 @@ export default class Sketch {
 			onUpdate: (self: any) => {
 				// Raw scroll progress (0 to 1)
 				const rawProgress = self.progress;
-				
+
 				// Remap: No transition from 0 to 0.33, then transition from 0.33 to 1
 				// When rawProgress < 0.33: colorProgress = 0
 				// When rawProgress >= 0.33: colorProgress = (rawProgress - 0.33) / (1 - 0.33)
 				const transitionStart = 0.75;
 				const transitionEnd = 0.9;
-				const colorProgress = rawProgress < transitionStart 
-					? 0 
-					: (rawProgress - transitionStart) / (transitionEnd - transitionStart);
-				
+				const colorProgress =
+					rawProgress < transitionStart
+						? 0
+						: (rawProgress - transitionStart) /
+							(transitionEnd - transitionStart);
+
 				this.scrollProgress.value = rawProgress;
 				this.scrollProgressUniform.value = colorProgress;
-				
+
 				// Update sdfSphereTransition: base animated value + (scroll progress * 2)
-				this.sdfSphereTransitionUniform.value = this.debugParams.sdfSphereTransition + (rawProgress * 2);
-				
-				console.log('Raw:', rawProgress.toFixed(3), 'Color:', colorProgress.toFixed(3), 'Uniform:', this.scrollProgressUniform);
+				this.sdfSphereTransitionUniform.value =
+					this.debugParams.sdfSphereTransition + rawProgress * 2;
+
+				// console.log(
+				// 	'Raw:',
+				// 	rawProgress.toFixed(3),
+				// 	'Color:',
+				// 	colorProgress.toFixed(3),
+				// 	'Uniform:',
+				// 	this.scrollProgressUniform
+				// );
 			}
 		});
 	}
@@ -241,7 +293,8 @@ export default class Sketch {
 			duration: 1.0,
 			ease: 'power2.inOut',
 			onUpdate: () => {
-				this.sdfSphereTransitionUniform.value = this.debugParams.sdfSphereTransition;
+				this.sdfSphereTransitionUniform.value =
+					this.debugParams.sdfSphereTransition;
 			}
 		});
 	}
@@ -260,7 +313,7 @@ export default class Sketch {
 			pane: this.pane,
 			wobbleXCompensation: 1.4 // Boost left side to compensate for camera angle
 		});
-		
+
 		// Update the base camera frame to capture the current position
 		this.cameraWobble.updateBaseCameraFrame();
 	}
@@ -314,9 +367,15 @@ export default class Sketch {
 
 		// Initialize SDF sphere uniforms
 		this.sdfSphereRadiusUniform = uniform(this.debugParams.sdfSphereRadius);
-		this.sdfSphereTransitionUniform = uniform(this.debugParams.sdfSphereTransition);
-		this.sdfWiggleAmplitudeUniform = uniform(this.debugParams.sdfWiggleAmplitude);
-		this.sdfWiggleFrequencyUniform = uniform(this.debugParams.sdfWiggleFrequency);
+		this.sdfSphereTransitionUniform = uniform(
+			this.debugParams.sdfSphereTransition
+		);
+		this.sdfWiggleAmplitudeUniform = uniform(
+			this.debugParams.sdfWiggleAmplitude
+		);
+		this.sdfWiggleFrequencyUniform = uniform(
+			this.debugParams.sdfWiggleFrequency
+		);
 		this.sdfWiggleSpeedUniform = uniform(this.debugParams.sdfWiggleSpeed);
 
 		// Get the scene pass
@@ -326,7 +385,7 @@ export default class Sketch {
 		// Create dot screen effect using TSL (applied first)
 		const dotScreenEffect = Fn(() => {
 			const uvCoord = uv();
-			
+
 			// Random noise function
 			const random = Fn(([p]: [any]) => {
 				const k1 = vec2(23.14069263277926, 2.665144142690225);
@@ -335,58 +394,66 @@ export default class Sketch {
 
 			// Sample the scene color
 			const color = vec3(sceneColor);
-			
+
 			// Add noise
 			const uvRandom = uvCoord.toVar();
 			uvRandom.y.assign(uvRandom.y.mul(random(vec2(uvRandom.y, 0.4))));
-			
+
 			const noise = random(uvRandom).mul(0.025);
 			const finalColor = color.add(noise);
-			
+
 			return vec3(finalColor);
 		})();
 
 		// Create SDF sphere mask effect using TSL (applied second)
 		const sdfSphereMask = Fn(() => {
 			const uvCoord = uv();
-			
+
 			// Apply noise-based distortion to UV coordinates
 			const noiseInput1 = vec2(
-				uvCoord.x.mul(this.sdfWiggleFrequencyUniform).add(this.timeUniform.mul(this.sdfWiggleSpeedUniform)),
+				uvCoord.x
+					.mul(this.sdfWiggleFrequencyUniform)
+					.add(this.timeUniform.mul(this.sdfWiggleSpeedUniform)),
 				uvCoord.y.mul(this.sdfWiggleFrequencyUniform)
 			).toVar();
-			
+
 			const noiseInput2 = vec2(
 				uvCoord.x.mul(this.sdfWiggleFrequencyUniform),
-				uvCoord.y.mul(this.sdfWiggleFrequencyUniform).add(this.timeUniform.mul(this.sdfWiggleSpeedUniform))
+				uvCoord.y
+					.mul(this.sdfWiggleFrequencyUniform)
+					.add(this.timeUniform.mul(this.sdfWiggleSpeedUniform))
 			).toVar();
-			
+
 			// Sample noise for X and Y distortion
-			const noiseX = (snoise as any)(noiseInput1).mul(this.sdfWiggleAmplitudeUniform).toVar();
-			const noiseY = (snoise as any)(noiseInput2).mul(this.sdfWiggleAmplitudeUniform).toVar();
-			
+			const noiseX = (snoise as any)(noiseInput1)
+				.mul(this.sdfWiggleAmplitudeUniform)
+				.toVar();
+			const noiseY = (snoise as any)(noiseInput2)
+				.mul(this.sdfWiggleAmplitudeUniform)
+				.toVar();
+
 			// Apply distortion to UV coordinates
 			const distortedUV = uvCoord.add(vec2(noiseX, noiseY)).toVar();
-			
+
 			// Center the distorted UV coordinates
 			const centeredUV = distortedUV.sub(vec2(0.5, 0.5)).toVar();
-			
+
 			// Calculate distance from center (SDF sphere in 2D)
 			const dist = length(centeredUV).toVar();
-			
+
 			// Create smooth linear transition from inside (show content) to outside (black)
 			const mask = smoothstep(
 				this.sdfSphereRadiusUniform,
 				this.sdfSphereRadiusUniform.add(this.sdfSphereTransitionUniform),
 				dist
 			).toVar();
-			
+
 			// Sample the color from previous pass (dots effect)
 			const color = vec3(dotScreenEffect);
-			
+
 			// Mix between scene color (inside sphere) and black (outside)
 			const finalColor = mix(color, vec3(0.0), mask);
-			
+
 			return vec3(finalColor);
 		})();
 
@@ -408,8 +475,14 @@ export default class Sketch {
 	createMesh() {
 		// Create plane geometry with high segmentation for smooth displacement
 		// Reduce vertex count on mobile for better performance
-		const segmentCount = this.isMobile ? 150 : 300;
-		this.geometry = new THREE.PlaneGeometry(6, 6, segmentCount, segmentCount);
+		const segmentCount = this.isMobile ? 200 : 300;
+		const dimension = this.isMobile ? 3 : 6;
+		this.geometry = new THREE.PlaneGeometry(
+			dimension,
+			dimension,
+			segmentCount,
+			segmentCount
+		);
 
 		this.timeUniform = uniform(0);
 		this.amplitudeUniform = uniform(this.debugParams.amplitude);
@@ -476,24 +549,43 @@ export default class Sketch {
 			const pinkColor3 = vec3(this.pinkColorUniforms[2]).toVar();
 
 			// Mix colors based on scroll progress
-			const color1 = mix(sunsetColor1, pinkColor1, this.scrollProgressUniform).toVar();
-			const color2 = mix(sunsetColor2, pinkColor2, this.scrollProgressUniform).toVar();
-			const color3 = mix(sunsetColor3, pinkColor3, this.scrollProgressUniform).toVar();
+			const color1 = mix(
+				sunsetColor1,
+				pinkColor1,
+				this.scrollProgressUniform
+			).toVar();
+			const color2 = mix(
+				sunsetColor2,
+				pinkColor2,
+				this.scrollProgressUniform
+			).toVar();
+			const color3 = mix(
+				sunsetColor3,
+				pinkColor3,
+				this.scrollProgressUniform
+			).toVar();
 
 			// Start with first color and build up the gradient
 			const vColor = vec3(color1).toVar();
 
-		// Layer 1
-		const noiseFlow1 = float(0.1 + 1 * 0.02).toVar();
-		const noiseSpeed1 = float(0.1 + 1 * 0.02).toVar();
-		const noiseSeed1 = float(1.0 + 1 * 11.4).toVar();
-		const noiseFreq1 = vec2(0.3, 0.4).toVar();
-		const noiseFloor1 = float(-0.1).toVar();
-		const noiseCeil1 = float(0.6).toVar();
+			// Layer 1
+			const noiseFlow1 = float(0.1 + 1 * 0.02).toVar();
+			const noiseSpeed1 = float(0.1 + 1 * 0.02).toVar();
+			const noiseSeed1 = float(1.0 + 1 * 11.4).toVar();
+			const noiseFreq1 = vec2(0.3, 0.4).toVar();
+			const noiseFloor1 = float(-0.1).toVar();
+			const noiseCeil1 = float(0.6).toVar();
 			const colorNoiseInput1 = vec3(
-				noiseCoord.x.mul(noiseFreq1.x).add(this.timeUniform.mul(this.colorTimeScaleUniform).mul(noiseFlow1)),
+				noiseCoord.x
+					.mul(noiseFreq1.x)
+					.add(
+						this.timeUniform.mul(this.colorTimeScaleUniform).mul(noiseFlow1)
+					),
 				noiseCoord.y.mul(noiseFreq1.y),
-				this.timeUniform.mul(this.colorTimeScaleUniform).mul(noiseSpeed1).add(noiseSeed1)
+				this.timeUniform
+					.mul(this.colorTimeScaleUniform)
+					.mul(noiseSpeed1)
+					.add(noiseSeed1)
 			).toVar();
 			const colorNoise1 = smoothstep(
 				noiseFloor1,
@@ -502,17 +594,24 @@ export default class Sketch {
 			).toVar();
 			vColor.assign(mix(vColor, color2, colorNoise1));
 
-	// Layer 2
-	const noiseFlow2 = float(0.1 + 2 * 0.02).toVar();
-	const noiseSpeed2 = float(0.1 + 2 * 0.02).toVar();
-	const noiseSeed2 = float(1.0 + 2 * 11.4).toVar();
-	const noiseFreq2 = vec2(0.3, 0.4).toVar();
-	const noiseFloor2 = float(-0.3).toVar();
-	const noiseCeil2 = float(0.6).toVar();
+			// Layer 2
+			const noiseFlow2 = float(0.1 + 2 * 0.02).toVar();
+			const noiseSpeed2 = float(0.1 + 2 * 0.02).toVar();
+			const noiseSeed2 = float(1.0 + 2 * 11.4).toVar();
+			const noiseFreq2 = vec2(0.3, 0.4).toVar();
+			const noiseFloor2 = float(-0.3).toVar();
+			const noiseCeil2 = float(0.6).toVar();
 			const colorNoiseInput2 = vec3(
-				noiseCoord.x.mul(noiseFreq2.x).add(this.timeUniform.mul(this.colorTimeScaleUniform).mul(noiseFlow2)),
+				noiseCoord.x
+					.mul(noiseFreq2.x)
+					.add(
+						this.timeUniform.mul(this.colorTimeScaleUniform).mul(noiseFlow2)
+					),
 				noiseCoord.y.mul(noiseFreq2.y),
-				this.timeUniform.mul(this.colorTimeScaleUniform).mul(noiseSpeed2).add(noiseSeed2)
+				this.timeUniform
+					.mul(this.colorTimeScaleUniform)
+					.mul(noiseSpeed2)
+					.add(noiseSeed2)
 			).toVar();
 			const colorNoise2 = smoothstep(
 				noiseFloor2,
@@ -531,6 +630,11 @@ export default class Sketch {
 		(document.querySelector('.tp-dfwv') as HTMLElement)!.style.position =
 			'fixed';
 
+		if (this.isMobile) {
+			(document.querySelector('.tp-dfwv') as HTMLElement)!.style.display =
+				'none';
+		}
+
 		// Add scroll progress monitor
 		const scrollFolder = this.pane.addFolder({
 			title: 'Scroll Progress',
@@ -543,6 +647,62 @@ export default class Sketch {
 			min: 0,
 			max: 1
 		});
+
+		// Add scroll velocity parameters
+		this.velocityParams = {
+			velocity: 0,
+			velocityMultiplier: this.velocityMultiplier,
+			timeScaleLerp: this.timeScaleLerp,
+			velocityDecay: this.velocityDecay,
+			smoothedTimeScale: this.smoothedTimeScale
+		};
+
+		scrollFolder.addBinding(this.velocityParams, 'velocity', {
+			label: 'Scroll Velocity',
+			readonly: true,
+			min: 0,
+			max: 2.0
+		});
+
+		scrollFolder.addBinding(this.velocityParams, 'smoothedTimeScale', {
+			label: 'Time Scale',
+			readonly: true,
+			min: 0,
+			max: 5.0
+		});
+
+		scrollFolder
+			.addBinding(this.velocityParams, 'velocityMultiplier', {
+				label: 'Velocity Multiplier',
+				min: 0,
+				max: 10,
+				step: 0.1
+			})
+			.on('change', ({ value }) => {
+				this.velocityMultiplier = value;
+			});
+
+		scrollFolder
+			.addBinding(this.velocityParams, 'velocityDecay', {
+				label: 'Velocity Decay',
+				min: 0.5,
+				max: 0.99,
+				step: 0.01
+			})
+			.on('change', ({ value }) => {
+				this.velocityDecay = value;
+			});
+
+		scrollFolder
+			.addBinding(this.velocityParams, 'timeScaleLerp', {
+				label: 'Time Scale Lerp',
+				min: 0.01,
+				max: 0.5,
+				step: 0.01
+			})
+			.on('change', ({ value }) => {
+				this.timeScaleLerp = value;
+			});
 
 		// Add color scheme selector
 		const colorFolder = this.pane.addFolder({
@@ -717,15 +877,17 @@ export default class Sketch {
 				this.sdfSphereTransitionUniform.value = value;
 			});
 
-		sdfFolder.addButton({
-			title: 'Animate Transition'
-		}).on('click', () => {
-			// Reset to 0 first
-			this.debugParams.sdfSphereTransition = 0;
-			this.sdfSphereTransitionUniform.value = 0;
-			// Then animate
-			this.animateSdfSphereTransition();
-		});
+		sdfFolder
+			.addButton({
+				title: 'Animate Transition'
+			})
+			.on('click', () => {
+				// Reset to 0 first
+				this.debugParams.sdfSphereTransition = 0;
+				this.sdfSphereTransitionUniform.value = 0;
+				// Then animate
+				this.animateSdfSphereTransition();
+			});
 
 		sdfFolder
 			.addBinding(this.debugParams, 'sdfWiggleAmplitude', {
@@ -781,8 +943,26 @@ export default class Sketch {
 	async render() {
 		if (!this.isPlaying) return;
 
-		// Update time uniform for animation
-		this.timeUniform.value = this.clock.getElapsedTime();
+		// Apply velocity decay (gradually reduce velocity when not scrolling)
+		this.scrollVelocity *= this.velocityDecay;
+
+		// Recalculate target time scale with decayed velocity
+		this.targetTimeScale = 1.0 + this.scrollVelocity * this.velocityMultiplier;
+
+		// Smoothly lerp smoothed time scale towards target
+		this.smoothedTimeScale +=
+			(this.targetTimeScale - this.smoothedTimeScale) * this.timeScaleLerp;
+
+		// Update time uniform - multiply elapsed time by smoothed time scale
+		const deltaTime = this.clock.getDelta();
+		this.timeUniform.value += deltaTime * this.smoothedTimeScale;
+
+		// Update velocity params for tweakpane display
+		if (this.velocityParams) {
+			this.velocityParams.velocity = this.scrollVelocity;
+			this.velocityParams.smoothedTimeScale = this.smoothedTimeScale;
+			this.pane.refresh();
+		}
 
 		// Update camera wobble based on mouse position
 		if (this.cameraWobble) {
