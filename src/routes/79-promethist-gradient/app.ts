@@ -319,10 +319,9 @@ export default class Sketch {
 	}
 
 	setupMouseListener() {
-		this.container.addEventListener('mousemove', (event: MouseEvent) => {
-			const rect = this.container.getBoundingClientRect();
-			const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-			const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+		window.addEventListener('mousemove', (event: MouseEvent) => {
+			const x = (event.clientX / window.innerWidth) * 2 - 1;
+			const y = -((event.clientY / window.innerHeight) * 2 - 1);
 			this.mouseWobbleTarget.set(x, y);
 		});
 	}
