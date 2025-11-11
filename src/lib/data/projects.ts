@@ -726,6 +726,15 @@ const projects: Project[] = [
 		shared: true,
 		imgSrc: '/projectThumbnails/column-grid.mp4',
 		date: new Date('2025-08-1')
+	},
+		{
+		href: '/79-promethist-gradient',
+		title: 'Promethist Gradient',
+		description: 'Scroll based gradient animation with TSL and WebGPU',
+		technologies: ['webGPU'],
+		shared: true,
+		imgSrc: '',
+		date: new Date('2025-08-1')
 	}
 ];
 

@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/three-js-template/+page.svelte";
+export { default as component } from "../../../../src/routes/9-three-js-portfolio/+page.svelte";

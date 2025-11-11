@@ -12,6 +12,7 @@ type Props = {
 	isEnabled: boolean;
 	addTweakpane?: boolean;
 	pane?: any;
+	wobbleXCompensation?: number;
 };
 
 export default class CameraWobble {
@@ -30,6 +31,7 @@ export default class CameraWobble {
 	baseUp: THREE.Vector3 = new THREE.Vector3();
 	addTweakpane?: boolean;
 	pane?: any;
+	wobbleXCompensation: number = 1.0; // Asymmetric X-axis compensation
 
 	get controlsEnabled(): boolean {
 		return this.isEnabled;
@@ -50,6 +52,7 @@ export default class CameraWobble {
 		this.controls = props.controls;
 		this.addTweakpane = props.addTweakpane;
 		this.pane = props.pane;
+		this.wobbleXCompensation = props.wobbleXCompensation ?? 1.0;
 
 		if (this.addTweakpane && this.pane) {
 			this.setupTweakpane();
@@ -94,8 +97,14 @@ export default class CameraWobble {
 		const forward = this.baseForward;
 		const right = this.baseRight;
 		const up = this.baseUp;
+		
+		// Apply asymmetric compensation: boost left side (negative X) to match right side
+		const compensatedX = clampedX < 0 
+			? clampedX * this.wobbleXCompensation 
+			: clampedX;
+		
 		const offset = new THREE.Vector3()
-			.addScaledVector(right, clampedX * wobblePosStrength)
+			.addScaledVector(right, compensatedX * wobblePosStrength)
 			.addScaledVector(up, clampedY * wobblePosStrength);
 		this.camera.position.copy(this.baseCameraPos).add(offset);
 		// Keep looking at same target
@@ -106,6 +115,13 @@ export default class CameraWobble {
         this.pane!
             .addBinding(this as { controlsEnabled: boolean }, 'controlsEnabled', { label: 'Wobble Controls' })
             .on('change', (ev: { value: boolean }) => this.setControlsEnabled(ev.value as boolean));
+		
+		this.pane!.addBinding(this, 'wobbleXCompensation', {
+			label: 'X Compensation',
+			min: 0.5,
+			max: 2.0,
+			step: 0.05
+		});
 	}
 
 	render() {
