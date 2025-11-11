@@ -116,6 +116,7 @@ export default class Sketch {
 
 	// GUI debug object for color controls
 	debugColors: { [key: string]: string } = {};
+	isMobile: boolean = false;
 	debugParams = {
 		amplitude: 0.35,
 		timeScale: 0.25,
@@ -134,8 +135,18 @@ export default class Sketch {
 		this.container = options.dom;
 		this.width = this.container.offsetWidth;
 		this.height = this.container.offsetHeight;
+		
+		// Detect mobile device
+		this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+		
+		// Adjust parameters for mobile
+		if (this.isMobile) {
+			this.debugParams.deformationScale = 10.0;
+			this.debugParams.colorScale = 20.0;
+		}
+		
 		this.renderer = new THREE.WebGPURenderer();
-		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.isMobile ? 1.5 : 2));
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setClearColor(new THREE.Color(0x000000), 1);
 		this.container.appendChild(this.renderer.domElement);
@@ -227,7 +238,7 @@ export default class Sketch {
 	animateSdfSphereTransition() {
 		gsap.to(this.debugParams, {
 			sdfSphereTransition: 0.5,
-			duration: 2.0,
+			duration: 1.0,
 			ease: 'power2.inOut',
 			onUpdate: () => {
 				this.sdfSphereTransitionUniform.value = this.debugParams.sdfSphereTransition;
@@ -396,7 +407,9 @@ export default class Sketch {
 
 	createMesh() {
 		// Create plane geometry with high segmentation for smooth displacement
-		this.geometry = new THREE.PlaneGeometry(6, 6, 300, 300);
+		// Reduce vertex count on mobile for better performance
+		const segmentCount = this.isMobile ? 150 : 300;
+		this.geometry = new THREE.PlaneGeometry(6, 6, segmentCount, segmentCount);
 
 		this.timeUniform = uniform(0);
 		this.amplitudeUniform = uniform(this.debugParams.amplitude);
@@ -521,7 +534,7 @@ export default class Sketch {
 		// Add scroll progress monitor
 		const scrollFolder = this.pane.addFolder({
 			title: 'Scroll Progress',
-			expanded: true
+			expanded: !this.isMobile
 		});
 
 		scrollFolder.addBinding(this.scrollProgress, 'value', {
@@ -534,13 +547,13 @@ export default class Sketch {
 		// Add color scheme selector
 		const colorFolder = this.pane.addFolder({
 			title: 'Gradient Colors',
-			expanded: true
+			expanded: !this.isMobile
 		});
 
 		// Sunset color scheme
 		const sunsetFolder = colorFolder.addFolder({
 			title: 'Sunset Colors',
-			expanded: true
+			expanded: !this.isMobile
 		});
 
 		const sunsetDebugColors = {
@@ -579,7 +592,7 @@ export default class Sketch {
 		// Pink color scheme
 		const pinkFolder = colorFolder.addFolder({
 			title: 'Pink Colors',
-			expanded: true
+			expanded: !this.isMobile
 		});
 
 		const pinkDebugColors = {
@@ -618,7 +631,7 @@ export default class Sketch {
 		// Add shader parameters
 		const paramsFolder = this.pane.addFolder({
 			title: 'Shader Parameters',
-			expanded: true
+			expanded: !this.isMobile
 		});
 
 		paramsFolder
@@ -679,7 +692,7 @@ export default class Sketch {
 		// Add SDF sphere postprocessing controls
 		const sdfFolder = this.pane.addFolder({
 			title: 'SDF Sphere Mask',
-			expanded: true
+			expanded: !this.isMobile
 		});
 
 		sdfFolder

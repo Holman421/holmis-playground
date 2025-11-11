@@ -24,17 +24,17 @@
 	<div id="container" class="fixed w-screen h-screen top-0"></div>
 
 	<div
-		class="w-full text-xl pointer-events-none relative z-[2] border h-screen border-black text-black flex justify-center items-center"
+		class="w-full text-xl relative z-[2] border h-screen border-black text-black flex justify-center items-center"
 	>
 		First section
 	</div>
 	<div
-		class="w-full text-xl pointer-events-none relative z-[2] border h-screen border-black text-black flex justify-center items-center"
+		class="w-full text-xl relative z-[2] border h-screen border-black text-black flex justify-center items-center"
 	>
 		Second section
 	</div>
 	<div
-		class="w-full text-xl pointer-events-none relative z-[2] border h-screen border-black text-black flex justify-center items-center"
+		class="w-full text-xl relative z-[2] border h-screen border-black text-black flex justify-center items-center"
 	>
 		Third section
 	</div>
