@@ -1,7 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
-import { setupCameraPane } from '$lib/utils/tweakpaneUtils/utils';
 import {
 	Fn,
 	uniform,
@@ -12,16 +11,10 @@ import {
 	positionLocal,
 	uv,
 	smoothstep,
-	sin,
 	cos,
 	dot,
 	fract,
 	length,
-	abs,
-	step,
-	clamp,
-	log,
-	atan2
 } from 'three/tsl';
 import { simplexNoise3d } from '$lib/utils/webGPU/simplexNoise3d';
 import { snoise } from '$lib/utils/webGPU/simplexNoise2d';
@@ -29,6 +22,7 @@ import gsap from 'gsap';
 import { PostProcessing } from 'three/webgpu';
 import { pass } from 'three/tsl';
 import CameraWobble from '$lib/utils/cameraWobble';
+import { setupStats, updateStats, type StatsInstance } from '$lib/utils/setupStats';
 
 // Import ScrollTrigger dynamically to avoid SSR issues
 let ScrollTrigger: any;
@@ -97,6 +91,12 @@ export default class Sketch {
 	sdfWiggleAmplitudeUniform: any;
 	sdfWiggleFrequencyUniform: any;
 	sdfWiggleSpeedUniform: any;
+	
+	// Track the base animated transition value separately
+	baseTransitionValue: number = 0;
+
+	// Stats.js
+	statsInstance!: StatsInstance;
 
 	// Color schemes
 	colorSchemes = {
@@ -116,8 +116,8 @@ export default class Sketch {
 	mouseWobbleTarget!: THREE.Vector2;
 	mouseWobbleSmoothed!: THREE.Vector2;
 	cameraWobble!: CameraWobble;
-	wobblePosStrength: number = 0.25;
-	wobbleLerp: number = 0.02;
+	wobblePosStrength: number = 0.3;
+	wobbleLerp: number = 0.04;
 
 	// Store both schemes for interpolation
 	sunsetColors: THREE.Color[] = [];
@@ -131,8 +131,8 @@ export default class Sketch {
 	velocityParams: any = null;
 	debugParams = {
 		amplitude: 0.35,
-		timeScale: 0.2,
-		colorTimeScale: 0.9,
+		timeScale: 0.1,
+		colorTimeScale: 0.6,
 		deformationScale: 6.0,
 		colorScale: 12.0,
 		sdfSphereRadius: 0.0,
@@ -201,6 +201,7 @@ export default class Sketch {
 		this.setUpSettings();
 		this.setupCameraWobble();
 		this.setupMouseListener();
+		this.setupStats();
 		this.init();
 	}
 
@@ -216,6 +217,7 @@ export default class Sketch {
 
 		this.render();
 	}
+
 
 	async setupScrollTrigger() {
 		if (typeof window === 'undefined') return;
@@ -273,7 +275,7 @@ export default class Sketch {
 
 				// Update sdfSphereTransition: base animated value + (scroll progress * 2)
 				this.sdfSphereTransitionUniform.value =
-					this.debugParams.sdfSphereTransition + rawProgress * 2;
+					this.baseTransitionValue + rawProgress * 2;
 
 				// console.log(
 				// 	'Raw:',
@@ -287,14 +289,22 @@ export default class Sketch {
 		});
 	}
 
+	setupStats() {
+		this.statsInstance = setupStats();
+	}
+
 	animateSdfSphereTransition() {
-		gsap.to(this.debugParams, {
-			sdfSphereTransition: 0.5,
+		// Animate the base transition value separately
+		gsap.to(this, {
+			baseTransitionValue: 0.5,
 			duration: 1.0,
 			ease: 'power2.inOut',
 			onUpdate: () => {
+				// Update debugParams for tweakpane display
+				this.debugParams.sdfSphereTransition = this.baseTransitionValue;
+				// Update uniform with current base + scroll offset
 				this.sdfSphereTransitionUniform.value =
-					this.debugParams.sdfSphereTransition;
+					this.baseTransitionValue + this.scrollProgress.value * 2;
 			}
 		});
 	}
@@ -385,7 +395,7 @@ export default class Sketch {
 		const dotScreenEffect = Fn(() => {
 			const uvCoord = uv();
 
-			// Random noise function
+			// Random noise function - optimized
 			const random = Fn(([p]: [any]) => {
 				const k1 = vec2(23.14069263277926, 2.665144142690225);
 				return fract(cos(dot(p, k1)).mul(12345.6789));
@@ -394,11 +404,11 @@ export default class Sketch {
 			// Sample the scene color
 			const color = vec3(sceneColor);
 
-			// Add noise
+			// Add noise - reduced intensity for less computation
 			const uvRandom = uvCoord.toVar();
 			uvRandom.y.assign(uvRandom.y.mul(random(vec2(uvRandom.y, 0.4))));
 
-			const noise = random(uvRandom).mul(0.025);
+			const noise = random(uvRandom).mul(0.015); // Reduced from 0.025
 			const finalColor = color.add(noise);
 
 			return vec3(finalColor);
@@ -474,7 +484,7 @@ export default class Sketch {
 	createMesh() {
 		// Create plane geometry with high segmentation for smooth displacement
 		// Reduce vertex count on mobile for better performance
-		const segmentCount = this.isMobile ? 200 : 300;
+		const segmentCount = this.isMobile ? 150 : 200;
 		const dimension = this.isMobile ? 3 : 6;
 		this.geometry = new THREE.PlaneGeometry(
 			dimension,
@@ -567,13 +577,12 @@ export default class Sketch {
 			// Start with first color and build up the gradient
 			const vColor = vec3(color1).toVar();
 
-			// Layer 1
-			const noiseFlow1 = float(0.1 + 1 * 0.02).toVar();
-			const noiseSpeed1 = float(0.1 + 1 * 0.02).toVar();
-			const noiseSeed1 = float(1.0 + 1 * 11.4).toVar();
+			// Layer 1 - Optimized with shared calculations
+			const noiseFlow1 = float(0.12).toVar();
+			const noiseSpeed1 = float(0.12).toVar();
+			const noiseSeed1 = float(12.4).toVar();
 			const noiseFreq1 = vec2(0.3, 0.4).toVar();
-			const noiseFloor1 = float(-0.1).toVar();
-			const noiseCeil1 = float(0.6).toVar();
+			
 			const colorNoiseInput1 = vec3(
 				noiseCoord.x
 					.mul(noiseFreq1.x)
@@ -587,19 +596,18 @@ export default class Sketch {
 					.add(noiseSeed1)
 			).toVar();
 			const colorNoise1 = smoothstep(
-				noiseFloor1,
-				noiseCeil1,
+				-0.1,
+				0.6,
 				(simplexNoise3d as any)(colorNoiseInput1)
 			).toVar();
 			vColor.assign(mix(vColor, color2, colorNoise1));
 
-			// Layer 2
-			const noiseFlow2 = float(0.1 + 2 * 0.02).toVar();
-			const noiseSpeed2 = float(0.1 + 2 * 0.02).toVar();
-			const noiseSeed2 = float(1.0 + 2 * 11.4).toVar();
+			// Layer 2 - Optimized with shared calculations
+			const noiseFlow2 = float(0.14).toVar();
+			const noiseSpeed2 = float(0.14).toVar();
+			const noiseSeed2 = float(23.8).toVar();
 			const noiseFreq2 = vec2(0.3, 0.4).toVar();
-			const noiseFloor2 = float(-0.3).toVar();
-			const noiseCeil2 = float(0.6).toVar();
+			
 			const colorNoiseInput2 = vec3(
 				noiseCoord.x
 					.mul(noiseFreq2.x)
@@ -613,8 +621,8 @@ export default class Sketch {
 					.add(noiseSeed2)
 			).toVar();
 			const colorNoise2 = smoothstep(
-				noiseFloor2,
-				noiseCeil2,
+				-0.3,
+				0.6,
 				(simplexNoise3d as any)(colorNoiseInput2)
 			).toVar();
 			vColor.assign(mix(vColor, color3, colorNoise2));
@@ -873,7 +881,8 @@ export default class Sketch {
 				step: 0.01
 			})
 			.on('change', ({ value }) => {
-				this.sdfSphereTransitionUniform.value = value;
+				this.baseTransitionValue = value;
+				this.sdfSphereTransitionUniform.value = value + this.scrollProgress.value * 2;
 			});
 
 		sdfFolder
@@ -882,8 +891,9 @@ export default class Sketch {
 			})
 			.on('click', () => {
 				// Reset to 0 first
+				this.baseTransitionValue = 0;
 				this.debugParams.sdfSphereTransition = 0;
-				this.sdfSphereTransitionUniform.value = 0;
+				this.sdfSphereTransitionUniform.value = this.scrollProgress.value * 2;
 				// Then animate
 				this.animateSdfSphereTransition();
 			});
@@ -942,6 +952,8 @@ export default class Sketch {
 	async render() {
 		if (!this.isPlaying) return;
 
+		updateStats(this.statsInstance);
+
 		// Apply velocity decay (gradually reduce velocity when not scrolling)
 		this.scrollVelocity *= this.velocityDecay;
 
@@ -956,8 +968,8 @@ export default class Sketch {
 		const deltaTime = this.clock.getDelta();
 		this.timeUniform.value += deltaTime * this.smoothedTimeScale;
 
-		// Update velocity params for tweakpane display
-		if (this.velocityParams) {
+		// Only update velocity params for tweakpane every 3 frames to reduce overhead
+		if (this.velocityParams && Math.random() < 0.33) {
 			this.velocityParams.velocity = this.scrollVelocity;
 			this.velocityParams.smoothedTimeScale = this.smoothedTimeScale;
 			this.pane.refresh();
