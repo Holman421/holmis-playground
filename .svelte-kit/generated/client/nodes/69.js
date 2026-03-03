@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/68-gsap-split-text/+page.svelte";

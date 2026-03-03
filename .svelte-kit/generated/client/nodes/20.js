@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/23-three-js-shaders-morphing-shapes/+page.svelte";

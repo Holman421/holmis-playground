@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/62-three-js-checkerboard-text/+page.svelte";

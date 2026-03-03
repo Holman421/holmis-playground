@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/31-three-js-shaders-minecraft/+page.svelte";

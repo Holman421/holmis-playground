@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/33-three-js-tags/+page.svelte";

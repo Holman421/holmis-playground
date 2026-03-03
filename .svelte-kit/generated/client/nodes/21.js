@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/24-three-js-shaders-earth/+page.svelte";

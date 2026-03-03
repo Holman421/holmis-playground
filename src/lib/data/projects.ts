@@ -67,7 +67,8 @@ const projects: Project[] = [
 	{
 		href: '/7-three-js-galaxy',
 		title: 'Galaxy generator',
-		description: 'Scene with thousands of particles forming galaxy, higtly customizable',
+		description:
+			'Scene with thousands of particles forming galaxy, higtly customizable',
 		technologies: ['Three.js', 'Particles', 'GUI', 'Trigonometry'],
 		shared: true,
 		imgSrc: '/projectThumbnails/galaxy.mp4',
@@ -158,7 +159,8 @@ const projects: Project[] = [
 	{
 		href: '/16-three-js-shaders-galaxy',
 		title: 'Animated Galaxy',
-		description: 'Scene with thousands of particles forming galaxy, animated with shaders',
+		description:
+			'Scene with thousands of particles forming galaxy, animated with shaders',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
 		imgSrc: '/projectThumbnails/animated-galaxy.mp4',
@@ -241,7 +243,8 @@ const projects: Project[] = [
 	{
 		href: '/24-three-js-shaders-earth',
 		title: 'Earth globe',
-		description: 'Scene with 3D earth model and atmosphere effect made with shaders',
+		description:
+			'Scene with 3D earth model and atmosphere effect made with shaders',
 		technologies: ['THREE.js', 'Shaders', 'Texture'],
 		shared: false,
 		imgSrc: '/projectThumbnails/earth-globe.png',
@@ -250,7 +253,8 @@ const projects: Project[] = [
 	{
 		href: '/25-three-js-shaders-gpgpu',
 		title: 'GPGPU Technique',
-		description: 'Scene with ship model transitioning to particles system with GPGPU technique',
+		description:
+			'Scene with ship model transitioning to particles system with GPGPU technique',
 		technologies: ['THREE.js', 'Shaders', 'GPGPU'],
 		shared: true,
 		imgSrc: '/projectThumbnails/gpgpu-ship.mp4',
@@ -259,7 +263,8 @@ const projects: Project[] = [
 	{
 		href: '/26-three-js-shaders-wobbly-sphere',
 		title: 'Virus project',
-		description: 'Virus cards with 3D models of the molecules with various surface disturption',
+		description:
+			'Virus cards with 3D models of the molecules with various surface disturption',
 		technologies: ['THREE.js', 'Shaders', 'CustomShaderMaterial'],
 		shared: true,
 		imgSrc: '/projectThumbnails/virus.mp4',
@@ -304,7 +309,8 @@ const projects: Project[] = [
 	{
 		href: '/31-three-js-shaders-minecraft',
 		title: 'Minecraft terrain',
-		description: 'Bigger project with minecraft like procedurally generated terrain, animated',
+		description:
+			'Bigger project with minecraft like procedurally generated terrain, animated',
 		technologies: ['THREE.js', 'Shaders'],
 		shared: true,
 		imgSrc: '/projectThumbnails/minecraft.mp4',
@@ -313,7 +319,8 @@ const projects: Project[] = [
 	{
 		href: '/32-three-js-postprocesing',
 		title: 'Postprocessing effect',
-		description: 'Various post procesing effects on 3D models together with html tags',
+		description:
+			'Various post procesing effects on 3D models together with html tags',
 		technologies: ['THREE.js', 'Shaders', 'Postprocessing'],
 		shared: true,
 		imgSrc: '/projectThumbnails/postprocessing-helmet.png',
@@ -341,7 +348,8 @@ const projects: Project[] = [
 	{
 		href: '/35-three-js-interactive-grid',
 		title: 'Interactive Grid',
-		description: 'Background scene with interactive grid of colorfull cubes, has 2 modes',
+		description:
+			'Background scene with interactive grid of colorfull cubes, has 2 modes',
 		technologies: ['THREE.js'],
 		shared: true,
 		imgSrc: '/projectThumbnails/interactive-grid.mp4',
@@ -369,7 +377,8 @@ const projects: Project[] = [
 	{
 		href: '/38-three-js-shaders-gradients',
 		title: 'Lava lamp gradient',
-		description: 'Cards with fragment and vertex Lava lamp like gradient shaders',
+		description:
+			'Cards with fragment and vertex Lava lamp like gradient shaders',
 		technologies: ['THREE.js'],
 		shared: true,
 		imgSrc: '/projectThumbnails/lava-lamp.mp4',
@@ -387,7 +396,8 @@ const projects: Project[] = [
 	{
 		href: '/40-three-js-shaders-gradient-glass',
 		title: 'Gradient glass effect',
-		description: 'Scene with smooth gradient background and glass effect round shape',
+		description:
+			'Scene with smooth gradient background and glass effect round shape',
 		technologies: ['THREE.js'],
 		shared: true,
 		imgSrc: '/projectThumbnails/gradient-glass.mp4',
@@ -515,7 +525,8 @@ const projects: Project[] = [
 	{
 		href: '/54-three-js-shaders-studio-chain',
 		title: 'Chain Studio',
-		description: 'Pixelated, animated effect used for background and mouse cursor',
+		description:
+			'Pixelated, animated effect used for background and mouse cursor',
 		technologies: ['THREE.js'],
 		shared: true,
 		usedInRealProject: true,
@@ -525,7 +536,8 @@ const projects: Project[] = [
 	{
 		href: '/55-three-js-glass-text',
 		title: 'WM Glass text',
-		description: 'Torus with glass material and perlin noise metalness animation with text inside',
+		description:
+			'Torus with glass material and perlin noise metalness animation with text inside',
 		technologies: ['THREE.js'],
 		shared: true,
 		usedInRealProject: false,
@@ -685,7 +697,8 @@ const projects: Project[] = [
 	{
 		href: '/72-tsl-webGPU-portfolio-disintegrate',
 		title: 'Disintegrate',
-		description: 'Portfolio training - 2, disintegrate effect with TSL and WebGPU',
+		description:
+			'Portfolio training - 2, disintegrate effect with TSL and WebGPU',
 		technologies: ['webGPU'],
 		shared: true,
 		imgSrc: '/projectThumbnails/disintegrate.mp4',
@@ -703,7 +716,8 @@ const projects: Project[] = [
 	{
 		href: '/74-tsl-webGPU-portfolio-sides',
 		title: 'Instanced mesh',
-		description: 'Portfolio training - 3, instanced mesh with worldPosition shader',
+		description:
+			'Portfolio training - 3, instanced mesh with worldPosition shader',
 		technologies: ['webGPU'],
 		shared: true,
 		imgSrc: '/projectThumbnails/sides.mp4',
@@ -721,19 +735,29 @@ const projects: Project[] = [
 	{
 		href: '/77-tsl-portfolio-column-grid',
 		title: 'Column Grid',
-		description: 'Portfolio training - 5, column grid layout with TSL and WebGPU',
+		description:
+			'Portfolio training - 5, column grid layout with TSL and WebGPU',
 		technologies: ['webGPU'],
 		shared: true,
 		imgSrc: '/projectThumbnails/column-grid.mp4',
 		date: new Date('2025-08-1')
 	},
-		{
+	{
 		href: '/79-promethist-gradient',
 		title: 'Promethist Gradient',
 		description: 'Scroll based gradient animation with TSL and WebGPU',
 		technologies: ['webGPU'],
 		shared: true,
-		imgSrc: '',
+		imgSrc: '/projectThumbnails/promethist-bg.mp4',
+		date: new Date('2025-08-1')
+	},
+	{
+		href: '/78-three-js-shaders-not-found-page-tsl',
+		title: '404 Not found page',
+		description: 'WebGPU 404 not found page',
+		technologies: ['webGPU'],
+		shared: true,
+		imgSrc: '/projectThumbnails/not-found-page.mp4',
 		date: new Date('2025-08-1')
 	}
 ];

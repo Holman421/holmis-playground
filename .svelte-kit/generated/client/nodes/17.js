@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/20-three-js-shaders-lights/+page.svelte";

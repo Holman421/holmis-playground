@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/60-three-js-shaders-image-reveal/+page.svelte";

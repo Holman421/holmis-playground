@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/11-three-js-imported-models/+page.svelte";

@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/65-three-js-shaders-ribbons/+page.svelte";

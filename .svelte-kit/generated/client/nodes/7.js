@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/12-three-js-realistic-render/+page.svelte";

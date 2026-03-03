@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/37-three-js-shaders-ring/+page.svelte";

@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/5-three-js-hounted-house/+page.svelte";

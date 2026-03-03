@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/42-three-js-shaders-element-distortion/+page.svelte";

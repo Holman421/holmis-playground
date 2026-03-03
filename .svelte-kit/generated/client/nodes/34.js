@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/36-three-js-shaders-pixelated/+page.svelte";

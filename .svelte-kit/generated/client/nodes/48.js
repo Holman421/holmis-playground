@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/49-three-js-portal-gateway/+page.svelte";

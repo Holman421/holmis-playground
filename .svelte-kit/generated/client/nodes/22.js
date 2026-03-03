@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/25-three-js-shaders-gpgpu/+page.svelte";

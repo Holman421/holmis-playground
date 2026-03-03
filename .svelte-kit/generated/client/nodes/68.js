@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/67-gsap-flip/+page.svelte";

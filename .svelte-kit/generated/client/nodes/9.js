@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/14-three-js-shaders-tutorial/+page.svelte";

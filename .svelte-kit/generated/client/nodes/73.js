@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/70-video-scroll/+page.svelte";

@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/13-three-js-environment-map/+page.svelte";

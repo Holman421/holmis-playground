@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/41-three-js-shaders-hover-pixelation/+page.svelte";

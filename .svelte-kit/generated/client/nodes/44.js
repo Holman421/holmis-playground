@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/45-three-js-text-mobius/+page.svelte";

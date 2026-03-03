@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/32-three-js-postprocesing/+page.svelte";

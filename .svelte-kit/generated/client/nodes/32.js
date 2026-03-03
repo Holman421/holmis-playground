@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/34-three-js-random-blocks/+page.svelte";
